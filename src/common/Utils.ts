@@ -577,21 +577,23 @@ export class Utils {
   }
 
   /**
-   * Recursively cleans NaN values from an object, replacing them with null.
-   * Catches both number NaN and string "NaN" values that can appear in EXIF metadata.
-   * This prevents database write failures when NaN values are present.
+   * Recursively replaces non-finite numbers (NaN, Infinity, -Infinity) with null.
+   * Malformed EXIF metadata (e.g. broken GPS rationals) can produce such values;
+   * TypeORM inlines them as bare SQL identifiers, failing the whole write on
+   * both SQLite and MySQL. String values (including the literal text "NaN")
+   * are left untouched, as they are valid captions, titles or keywords.
    */
-  public static cleanNaN(obj: unknown): void {
-    if (obj !== null && typeof obj === 'object') {
-      for (const key of Object.keys(obj as Record<string, unknown>)) {
-        const val = (obj as Record<string, unknown>)[key];
-        if (val !== null && typeof val === 'object') {
-          Utils.cleanNaN(val);
-        } else if (typeof val === 'number' && isNaN(val)) {
-          (obj as Record<string, unknown>)[key] = null;
-        } else if (typeof val === 'string' && val === 'NaN') {
-          (obj as Record<string, unknown>)[key] = null;
-        }
+  public static cleanNaN(obj: unknown, seen = new WeakSet<object>()): void {
+    if (obj === null || typeof obj !== 'object' || seen.has(obj)) {
+      return;
+    }
+    seen.add(obj);
+    for (const key of Object.keys(obj as Record<string, unknown>)) {
+      const val = (obj as Record<string, unknown>)[key];
+      if (typeof val === 'number' && !Number.isFinite(val)) {
+        (obj as Record<string, unknown>)[key] = null;
+      } else if (val !== null && typeof val === 'object') {
+        Utils.cleanNaN(val, seen);
       }
     }
   }

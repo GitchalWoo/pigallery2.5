@@ -20,6 +20,7 @@ import {SortByTypes} from '../../../../../src/common/entities/SortingMethods';
 import {ClientSortingConfig} from '../../../../../src/common/config/public/ClientConfig';
 import {DiskManager} from '../../../../../src/backend/model/fileaccess/DiskManager';
 import {SessionContext} from '../../../../../src/backend/model/SessionContext';
+import {PhotoEntity} from '../../../../../src/backend/model/database/enitites/PhotoEntity';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const deepEqualInAnyOrder = require('deep-equal-in-any-order');
@@ -498,6 +499,38 @@ describe('IndexingManager', (sqlHelper: DBTestHelper) => {
     removeIds(selected);
     expect(Utils.clone(Utils.removeNullOrEmptyObj(selected)))
       .to.deep.equalInAnyOrder(Utils.removeNullOrEmptyObj(indexifyReturn(parent)));
+  });
+
+  it('should re-index photos with non-finite metadata values', async () => {
+    const im = new IndexingManagerTest();
+    const parent = TestHelper.getRandomizedDirectoryEntry();
+    const p1 = TestHelper.getRandomizedPhotoEntry(parent, 'Photo1', 0, 3);
+    p1.metadata.keywords = ['NaN', 'kw'];
+    p1.metadata.caption = 'NaN';
+    DirectoryDTOUtils.removeReferences(parent);
+    await im.saveToDB(Utils.clone(parent) as ParentDirectoryDTO);
+
+    // Re-scan: the photo already exists, so the update path saves the scanned
+    // metadata object directly (no JSON clone that would hide NaN values).
+    p1.metadata.positionData.GPSData.latitude = NaN;
+    p1.metadata.positionData.GPSData.longitude = Infinity;
+    p1.metadata.cameraData.fStop = NaN;
+    p1.metadata.cameraData.exposure = -Infinity;
+    p1.metadata.cameraData.ISO = NaN;
+    const rescanned = structuredClone(parent) as ParentDirectoryDTO;
+    await im.saveToDB(rescanned);
+
+    const conn = await SQLConnection.getConnection();
+    const saved = await conn.getRepository(PhotoEntity).findOneBy({name: p1.name});
+    expect(saved.metadata.positionData.GPSData.latitude).to.equal(null);
+    expect(saved.metadata.positionData.GPSData.longitude).to.equal(null);
+    expect(saved.metadata.cameraData.fStop).to.equal(null);
+    expect(saved.metadata.cameraData.exposure).to.equal(null);
+    expect(saved.metadata.cameraData.ISO).to.equal(null);
+    // Finite values and literal "NaN" text must be preserved.
+    expect(saved.metadata.cameraData.model).to.equal(p1.metadata.cameraData.model);
+    expect(saved.metadata.caption).to.equal('NaN');
+    expect(saved.metadata.keywords).to.deep.equal(['NaN', 'kw']);
   });
 
   it('should skip meta files', async () => {

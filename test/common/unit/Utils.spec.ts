@@ -83,4 +83,48 @@ describe('Utils', () => {
       expect(Utils.sortableFilename("hello_world")).to.be.equal("hello_world")
     })
   })
+
+  describe('cleanNaN', () => {
+    it('should replace nested non-finite numbers with null', () => {
+      const obj = {
+        a: NaN,
+        b: {c: Infinity, d: -Infinity, e: 1.5, f: 0},
+        arr: [1, NaN, 3]
+      };
+      Utils.cleanNaN(obj);
+      expect(obj).to.deep.equal({
+        a: null,
+        b: {c: null, d: null, e: 1.5, f: 0},
+        arr: [1, null, 3]
+      });
+    });
+
+    it('should preserve strings, booleans, null and dates', () => {
+      const date = new Date(0);
+      const obj = {s: 'NaN', k: ['NaN', 'Infinity'], t: true, n: null as null, u: undefined as undefined, date};
+      Utils.cleanNaN(obj);
+      expect(obj.s).to.equal('NaN');
+      expect(obj.k).to.deep.equal(['NaN', 'Infinity']);
+      expect(obj.t).to.equal(true);
+      expect(obj.n).to.equal(null);
+      expect(obj.u).to.equal(undefined);
+      expect(obj.date).to.equal(date);
+      expect(obj.date.getTime()).to.equal(0);
+    });
+
+    it('should handle reference cycles', () => {
+      const parent: Record<string, unknown> = {v: NaN};
+      const child: Record<string, unknown> = {parent, w: Infinity};
+      parent['child'] = child;
+      Utils.cleanNaN(parent);
+      expect(parent['v']).to.equal(null);
+      expect(child['w']).to.equal(null);
+    });
+
+    it('should ignore non-object input', () => {
+      expect(() => Utils.cleanNaN(null)).to.not.throw();
+      expect(() => Utils.cleanNaN(NaN)).to.not.throw();
+      expect(() => Utils.cleanNaN('NaN')).to.not.throw();
+    });
+  });
 });
