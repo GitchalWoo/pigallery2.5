@@ -45,6 +45,28 @@ describe('Utils', () => {
     expect(Utils.findClosestinSorted(10, [3, 5, 20])).to.be.equal(5);
     expect(Utils.findClosestinSorted(10, [3, 20])).to.be.equal(3);
     expect(Utils.findClosestinSorted(10, [20])).to.be.equal(20);
+    expect(Utils.findClosestinSorted(10, [])).to.be.undefined;
+    expect(Utils.findClosestinSorted(10, null)).to.be.undefined;
+  });
+
+  it('should find ceiling number in sorted array', () => {
+    // Exact match
+    expect(Utils.findCeilinginSorted(10, [3, 5, 8, 10, 15, 20])).to.be.equal(10);
+    // Value between elements picks the next larger element (unlike closest which picks 8)
+    expect(Utils.findCeilinginSorted(9, [3, 5, 8, 10, 15, 20])).to.be.equal(10);
+    expect(Utils.findCeilinginSorted(4, [3, 5, 8, 15, 20])).to.be.equal(5);
+    expect(Utils.findCeilinginSorted(11, [3, 5, 8, 15, 20])).to.be.equal(15);
+    // Smaller than all elements returns the first element
+    expect(Utils.findCeilinginSorted(1, [3, 5, 8, 15, 20])).to.be.equal(3);
+    expect(Utils.findCeilinginSorted(0, [3, 5, 8, 15, 20])).to.be.equal(3);
+    // Larger than all elements returns the largest element
+    expect(Utils.findCeilinginSorted(25, [3, 5, 8, 15, 20])).to.be.equal(20);
+    // Single element
+    expect(Utils.findCeilinginSorted(10, [20])).to.be.equal(20);
+    expect(Utils.findCeilinginSorted(25, [20])).to.be.equal(20);
+    // Edge cases: empty / null
+    expect(Utils.findCeilinginSorted(10, [])).to.be.undefined;
+    expect(Utils.findCeilinginSorted(10, null)).to.be.undefined;
   });
   it('should equal', () => {
 
