@@ -96,8 +96,12 @@ export class AuthenticationMWs {
       res: Response,
       next: NextFunction
     ): void {
+      let val: any = req.params[paramName];
+      if (Array.isArray(val)) {
+        val = val.join('/');
+      }
       req.params[paramName] = path
-        .normalize(req.params[paramName] || path.sep)
+        .normalize(val || path.sep)
         // eslint-disable-next-line no-useless-escape
         .replace(/^(\.\.[\/\\])+/, '');
       return next();
@@ -114,7 +118,7 @@ export class AuthenticationMWs {
       next: NextFunction
     ): Promise<void> {
       try {
-        const p: string = req.params[paramName];
+        const p: string = req.params[paramName] as string;
 
         if (!await ObjectManagers.getInstance().GalleryManager.authoriseMetaFile(req.session.context, p)) {
           res.sendStatus(403);
@@ -140,7 +144,7 @@ export class AuthenticationMWs {
       next: NextFunction
     ): Promise<void> {
       try {
-        const mediaRelPath: string = req.params[paramName];
+        const mediaRelPath: string = req.params[paramName] as string;
 
         if (!await ObjectManagers.getInstance().GalleryManager.authoriseMedia(req.session.context, mediaRelPath)) {
           res.sendStatus(403);

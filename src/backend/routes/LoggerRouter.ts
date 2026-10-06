@@ -42,13 +42,13 @@ export class LoggerRouter {
       return next();
     });
 
-    app.get(Config.Server.apiPath + '*', (req: Request, res: Response, next: NextFunction): any => {
+    app.get(new RegExp('^' + Config.Server.apiPath), (req: Request, res: Response, next: NextFunction): any => {
       LoggerRouter.log(Logger.verbose, req, res);
       return next();
     });
 
     app.get(
-        '/node_modules*',
+        new RegExp('^/node_modules'),
         (req: Request, res: Response, next: NextFunction): any => {
           LoggerRouter.log(Logger.silly, req, res);
           return next();

@@ -32,7 +32,10 @@ export class GalleryMWs {
         return next();
       }
 
-      let rawQueryParam = req.params['searchQueryDTO'] as string;
+      let rawQueryParam: any = req.params['searchQueryDTO'];
+      if (Array.isArray(rawQueryParam)) {
+        rawQueryParam = rawQueryParam.join('/');
+      }
 
       let query: SearchQueryDTO;
       try {
@@ -63,7 +66,7 @@ export class GalleryMWs {
     res: Response,
     next: NextFunction
   ): Promise<void> {
-    const directoryName = req.params['directory'] || '/';
+    const directoryName = (req.params['directory'] || '/') as string;
     const absoluteDirectoryName = path.join(
       ProjectPath.ImageFolder,
       directoryName
@@ -319,7 +322,7 @@ export class GalleryMWs {
     }
     const fullMediaPath = path.join(
       ProjectPath.ImageFolder,
-      req.params['mediaPath']
+      req.params['mediaPath'] as string
     );
 
     // check if file exist
@@ -420,6 +423,11 @@ export class GalleryMWs {
         return next();
       }
 
+      let value: any = req.params['value'];
+      if (Array.isArray(value)) {
+        value = value.join('/');
+      }
+
       let type: SearchQueryTypes = SearchQueryTypes.any_text;
       if (req.query[QueryParams.gallery.search.type]) {
         type = parseInt(req.query[QueryParams.gallery.search.type] as string, 10);
@@ -427,7 +435,7 @@ export class GalleryMWs {
       req.resultPipe =
         await ObjectManagers.getInstance().SearchManager.autocomplete(
           req.session.context,
-          req.params['value'],
+          value,
           type
         );
       return next();
@@ -487,7 +495,7 @@ export class GalleryMWs {
       if (!req.params['mediaPath']) {
         return next();
       }
-      const mediaPath = req.params['mediaPath'];
+      const mediaPath = req.params['mediaPath'] as string;
 
       req.resultPipe = await ObjectManagers.getInstance().GalleryManager.getMedia(req.session.context, mediaPath);
       return next();

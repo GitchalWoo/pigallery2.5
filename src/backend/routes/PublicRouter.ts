@@ -283,7 +283,7 @@ export class PublicRouter {
       [
         '/',
         '/login',
-        '/gallery*',
+        new RegExp('^/gallery(?:/.*)?$'),
         '/share/:' + QueryParams.gallery.sharingKey_params,
         '/shareLogin',
         '/admin',
@@ -291,7 +291,7 @@ export class PublicRouter {
         '/faces',
         '/albums',
         '/timeline',
-        '/search*',
+        new RegExp('^/search(?:/.*)?$'),
       ],
       AuthenticationMWs.tryAuthenticate,
       addTPl, // add template after authentication was successful
@@ -303,10 +303,10 @@ export class PublicRouter {
         [
           '/' + l + '/',
           '/' + l + '/login',
-          '/' + l + '/gallery*',
-          '/' + l + '/share*',
+          new RegExp('^/' + l + '/gallery(?:/.*)?$'),
+          new RegExp('^/' + l + '/share(?:/.*)?$'),
           '/' + l + '/admin',
-          '/' + l + '/search*',
+          new RegExp('^/' + l + '/search(?:/.*)?$'),
           '/' + l + '/timeline',
           '/' + l + '/error',
         ],
@@ -320,7 +320,7 @@ export class PublicRouter {
           ProjectPath.FrontendFolder,
           req.localePath,
           subDir,
-          req.params.file
+          req.params.file as string
         );
         if (!fs.existsSync(file)) {
           return res.sendStatus(404);
@@ -333,7 +333,7 @@ export class PublicRouter {
     };
 
     app.get(
-      '/assets/:file(*)',
+      new RegExp('^/assets/(?<file>.+)$'),
       setLocale,
       AuthenticationMWs.normalizePathParam('file'),
       renderFile('assets')

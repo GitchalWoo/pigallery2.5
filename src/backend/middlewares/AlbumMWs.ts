@@ -32,12 +32,12 @@ export class AlbumMWs {
     if (Config.Album.enabled === false) {
       return next();
     }
-    if (!req.params['id'] || !Utils.isUInt32(parseInt(req.params['id'], 10))) {
+    if (!req.params['id'] || !Utils.isUInt32(parseInt(req.params['id'] as string, 10))) {
       return next();
     }
     try {
       await ObjectManagers.getInstance().AlbumManager.deleteAlbum(
-        parseInt(req.params['id'], 10)
+        parseInt(req.params['id'] as string, 10)
       );
       req.resultPipe = 'ok';
       return next();
