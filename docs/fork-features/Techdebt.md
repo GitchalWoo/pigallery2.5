@@ -34,6 +34,7 @@ later, **L** = cleanup.
 | S2 | No visible login throttling | H | Add rate limiting / backoff on login and the OIDC callback |
 | S3 | Upload memory use: multer memory storage, 50 MiB × 10 files per request, no concurrency cap | M | Consider disk storage or a global concurrent-upload limit |
 | S4 | Full `npm audit`: 30 advisories in devDependencies/tooling | M | Step 4 snapshot, 2026-10-06: 30 advisories (1 low, 7 moderate, 20 high, 2 critical); `--omit=dev` is 0. Removing the obsolete release compiler reduced the Step 3 total from 36. Includes webpack build/serve tooling, Karma and Mocha/Cypress/Gulp/coverage advisories |
+| S5 | Path traversal / CodeQL CWE-22 (19 alerts) | H | Pre-existing path expressions in UploadManager, GalleryMWs, GPX/PhotoProcessing exposed by route modernization; full inventory and remediation plan in [Security-Updates.md](Security-Updates.md) |
 
 ## Tooling / repo hygiene
 
