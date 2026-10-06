@@ -1357,7 +1357,7 @@ export class ClientPhotoConfig {
     },
     description: $localize`Photo formats that are supported. Browser needs to support these formats natively. Also sharp (libvips) package should be able to convert these formats.`,
   })
-  supportedFormats: string[] = ['gif', 'jpeg', 'jpg', 'jpe', 'png', 'webp', 'svg', 'avif', 'heic', 'dng', 'arw', 'tiff'];
+  supportedFormats: string[] = ['gif', 'jpeg', 'jpg', 'jpe', 'png', 'webp', 'svg', 'avif', 'heic', 'dng', 'arw', 'tiff', 'cr2'];
 
   /**
    * Generates a map for bitwise operation from icon and normal thumbnails
