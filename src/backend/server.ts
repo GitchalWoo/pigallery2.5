@@ -97,13 +97,6 @@ export class Server {
     this.app.use(express.json());
     this.app.use(cookieParser());
 
-    // enable token generation but do not check it
-    this.app.post(
-      [Config.Server.apiPath + '/user/login', Config.Server.apiPath + '/share/login'],
-    );
-    this.app.get(
-      [Config.Server.apiPath + '/user/me', Config.Server.apiPath + '/share/:' + QueryParams.gallery.sharingKey_params],
-    );
 
     PhotoProcessing.init();
     Localizations.init();

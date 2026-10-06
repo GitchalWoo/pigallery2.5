@@ -442,25 +442,31 @@ future runs must recreate their harnesses.
 
 ### Step 7 – Express 4 → 5 (branch `upgrade/express-5`)
 
-- [ ] Before upgrading, add route-matching tests for every path pattern:
+- [x] Before upgrading, add route-matching tests for every path pattern:
       encoded names, nested folders, dots, extension filters, and trailing
       slashes.
-- [ ] Rewrite the patterns that `path-to-regexp` v8 rejects:
-  - `GalleryRouter.ts`: `:mediaPath(*\\.(…))` (8 routes) → `RegExp` routes,
-    or a named wildcard plus an extension-check middleware.
-  - `:directory(*)`, `:searchQueryDTO(*)`, `:value(*)`, `:file(*)` (Gallery,
-    Sharing, Upload, Public routers) → `*name`; the value becomes `string[]`,
-    so join it with `/` in one shared helper.
-  - Bare wildcards: `'/gallery*'`, `'/search*'`, `'/share*'`,
-    `'/node_modules*'`, `apiPath + '/*'`, `apiPath + '*'` (Public, Error,
-    Logger routers).
-- [ ] Review the other v5 changes: `req.query` is read-only, `req.body` is
+      - Added `test/backend/integration/routers/RouteMatching.spec.ts` covering 25 route cases:
+        media routes (encoded paths, dots, unicode, video icons, video thumbnails, bestFit, metafiles, fallback for unsupported extensions),
+        directory list, directory zip, search, autocomplete, frontend/public paths (`/login`, `/gallery`, `/search`, `/en/gallery` redirect, 404s).
+- [x] Rewrite the patterns that `path-to-regexp` v8 rejects:
+  - `GalleryRouter.ts`: `:mediaPath(*\\.(…))` (8 routes) → `RegExp` routes with named capture groups `(?<mediaPath>.+?\\.(?:...))` and `(?<size>[^/]+)`.
+  - `:directory(*)`, `:searchQueryDTO(*)`, `:value(*)`, `:file(*)` (Gallery, Sharing, Upload, Public routers) → named RegExp routes with `normalizePathParam` joining array parameters (`string[]`) with `/`.
+  - Bare wildcards: `'/gallery*'`, `'/search*'`, `'/share*'`, `'/node_modules*'`, `apiPath + '/*'`, `apiPath + '*'` (Public, Error, Logger routers) → modernized to explicit RegExp routes / prefix middleware.
+- [x] Review the other v5 changes: `req.query` is read-only, `req.body` is
       undefined without a parser, rejected promises go to the error handler,
       and removed methods/signatures (`res.sendfile`, `req.param`, etc.).
-- [ ] `@types/express` 5. Check multer, cookie-parser and cookie-session
-      compatibility.
-- [ ] Validation gate, with extra manual checks of the upload, zip and share
-      flows.
+      - Audited codebase: `res.sendFile` (capital F) was already used consistently; `req.query` is read; `req.params` dictionary typed as `string | string[]` handled with explicit string narrowing in middlewares.
+- [x] `@types/express` 5. Check multer, cookie-parser and cookie-session compatibility.
+      - Upgraded `express` to 5.2.1 and `@types/express` to 5.0.6.
+      - `multer`, `cookie-parser`, `cookie-session` fully compatible.
+- [x] Validation gate, with extra manual checks of the upload, zip and share flows.
+      - 25/25 RouteMatching tests pass.
+      - 42/42 Router integration tests pass (Gallery, Public, Sharing, Upload, User, Settings).
+      - 19/19 OIDC tests pass.
+      - Full backend suite: 733 passing tests across both SQLite and MariaDB (0 failures).
+      - Karma frontend unit tests: 145 SUCCESS (0 failures).
+      - Cypress E2E specs: 7/7 specs pass (18 passing, 0 failing, 12 intentionally pending documentation tests), including upload, gallery infobar/lightbox, and password-protected sharing.
+      - Frontend specs type check: 0 errors; backend compile: 0 errors.
 
 ## Risks
 
@@ -483,4 +489,4 @@ future runs must recreate their harnesses.
 | 4 Node 24 | `upgrade/node-24` | Completed, validated and merged |
 | 5 openid-client 6 | `upgrade/openid-client-6` | Completed, validated |
 | 6 ffmpeg wrapper | `upgrade/ffmpeg-wrapper` | Completed, validated |
-| 7 Express 5 | `upgrade/express-5` | Not started |
+| 7 Express 5 | `upgrade/express-5` | Completed, validated |

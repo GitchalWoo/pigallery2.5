@@ -3,14 +3,21 @@ import {ConfigClassBuilder} from 'typeconfig/node';
 import {ExtensionConfigWrapper} from '../../../../src/backend/model/extension/ExtensionConfigWrapper';
 import {TestHelper} from '../../../TestHelper';
 import * as fs from 'fs';
+import * as path from 'path';
 
 
 describe('Config', () => {
+  const configFile = path.join(TestHelper.TMP_DIR, 'config.json');
   beforeEach(async () => {
-    await fs.promises.rm(TestHelper.TMP_DIR, {recursive: true, force: true});
+    try {
+      await fs.promises.rm(configFile, {force: true});
+    } catch {}
   });
   afterEach(async () => {
-    await fs.promises.rm(TestHelper.TMP_DIR, {recursive: true, force: true});
+    try {
+      await fs.promises.rm(configFile, {force: true});
+    } catch {}
+    delete process.env['default-Media-tempFolder'];
   });
   it('should load default from env', () => {
     process.env['default-Media-tempFolder'] = 'test/test';

@@ -25,7 +25,7 @@ later, **L** = cleanup.
 
 | # | Item | Where | Priority | Notes |
 |---|---|---|---|---|
-| B1 | Express 4; `path-to-regexp` v1-style inline regex routes | `src/backend/routes/*` | M | Upgrade step 7 |
+| B1 | Express 4; `path-to-regexp` v1-style inline regex routes | `src/backend/routes/*` | M | Resolved in Step 7: Express 5.2.1, `@types/express` 5.0.6; modernized 9 media routes to named RegExp capture groups, joined wildcard string arrays with `normalizePathParam`, migrated Error/Logger/Public routers; 25 RouteMatching regression tests added |
 | B2 | `openid-client` 5 (legacy API), stale `@types/openid-client` 3.x | `OIDCAuthService.ts` | M | Resolved in Step 5: migrated to `openid-client` 6.8.8 functional API, removed `@types/openid-client`; validated with MockOIDCServer and Dex container |
 | B3 | `fluent-ffmpeg` is archived | `FFmpegFactory.ts`, `MetadataLoader.ts`, `PhotoWorker.ts`, `VideoConverterWorker.ts` | M | Resolved in Step 6: replaced with lightweight typed child_process.spawn wrapper behind FFmpegFactory; fluent-ffmpeg and @types/fluent-ffmpeg removed; 673 backend tests passing |
 | B4 | `mysql` 2.18.1 driver is unmaintained | `optionalDependencies` | M | TypeORM supports `mysql2`; needs a driver switch plus MySQL/MariaDB test run |

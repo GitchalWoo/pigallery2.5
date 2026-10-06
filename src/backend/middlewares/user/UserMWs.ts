@@ -47,7 +47,7 @@ export class UserMWs {
 
     try {
       const deleted = await ObjectManagers.getInstance().UserManager.deleteUser(
-        parseInt(req.params.id, 10)
+        parseInt(req.params.id as string, 10)
       );
       // If current session user was deleted, clear the session context
       if (req.session?.context?.user?.id === deleted.id) {
@@ -78,7 +78,7 @@ export class UserMWs {
 
     try {
       const updatedUser = await ObjectManagers.getInstance().UserManager.changeRole(
-        parseInt(req.params.id, 10),
+        parseInt(req.params.id as string, 10),
         req.body.newRole
       );
       // If the current session user was changed, recreate the session context
@@ -119,7 +119,7 @@ export class UserMWs {
 
     try {
       const updatedUser = await ObjectManagers.getInstance().UserManager.updateSettings(
-        parseInt(req.params.id, 10),
+        parseInt(req.params.id as string, 10),
         req.body.settings
       );
       // If the current session user was changed, recreate the session context

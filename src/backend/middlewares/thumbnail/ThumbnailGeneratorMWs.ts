@@ -154,7 +154,7 @@ export class ThumbnailGeneratorMWs {
       // load parameters
       const mediaPath = req.resultPipe as string;
       let size: number =
-        parseInt(req.params.size, 10) ||
+        parseInt(req.params.size as string, 10) ||
         Config.Media.Photo.thumbnailSizes[0];
 
       // validate size

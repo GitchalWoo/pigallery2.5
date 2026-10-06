@@ -81,7 +81,7 @@ export class AdminMWs {
     next: NextFunction
   ): Promise<void> {
     try {
-      const id = req.params['id'];
+      const id = req.params['id'] as string;
       const jobStart: JobStartDTO = req.body;
       const JobConfig: Record<string, unknown> = jobStart.config;
       const soloRun: boolean = jobStart.soloRun;
@@ -116,7 +116,7 @@ export class AdminMWs {
 
   public static stopJob(req: Request, res: Response, next: NextFunction): void {
     try {
-      const id = req.params['id'];
+      const id = req.params['id'] as string;
       ObjectManagers.getInstance().JobManager.stop(id);
       req.resultPipe = 'ok';
       return next();

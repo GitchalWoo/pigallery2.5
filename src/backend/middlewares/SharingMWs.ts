@@ -21,7 +21,7 @@ export class SharingMWs {
       if (Config.Sharing.enabled === false) {
         return next();
       }
-      const sharingKey = req.params[QueryParams.gallery.sharingKey_params];
+      const sharingKey = req.params[QueryParams.gallery.sharingKey_params] as string;
 
       req.resultPipe =
         await ObjectManagers.getInstance().SharingManager.findOne(sharingKey);
@@ -46,7 +46,7 @@ export class SharingMWs {
       if (Config.Sharing.enabled === false) {
         return next();
       }
-      const sharingKey = req.params[QueryParams.gallery.sharingKey_params];
+      const sharingKey = req.params[QueryParams.gallery.sharingKey_params] as string;
 
       req.resultPipe =
         {sharingKey: (await ObjectManagers.getInstance().SharingManager.findOne(sharingKey)).sharingKey} as SharingDTOKey;
@@ -101,7 +101,7 @@ export class SharingMWs {
         }
       }
 
-      const directoryName = path.normalize(req.params['directory'] || '/');
+      const directoryName = path.normalize((req.params['directory'] as string) || '/');
 
       // Prefer provided searchQuery; otherwise fallback to strict directory exact-match query for compatibility
       const searchQuery = createSharing.searchQuery || ({
@@ -168,7 +168,7 @@ export class SharingMWs {
         );
       }
       const updateSharing: CreateSharingDTO = req.body.updateSharing;
-      const directoryName = path.normalize(req.params['directory'] || '/');
+      const directoryName = path.normalize((req.params['directory'] as string) || '/');
 
       const searchQuery = updateSharing.searchQuery || ({
         type: SearchQueryTypes.directory,
@@ -237,7 +237,7 @@ export class SharingMWs {
           new ErrorDTO(ErrorCodes.INPUT_ERROR, 'sharingKey is missing')
         );
       }
-      const sharingKey: string = req.params['sharingKey'];
+      const sharingKey: string = req.params['sharingKey'] as string;
 
       // Check if user has the right to delete sharing.
       if (req.session.context?.user.role < UserRoles.Admin) {

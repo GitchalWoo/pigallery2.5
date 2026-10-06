@@ -34,7 +34,7 @@ export class UploadMWs {
       }
 
       try {
-        const directory = req.params['directory'] || '';
+        const directory = (req.params['directory'] as string) || '';
         req.resultPipe = await ObjectManagers.getInstance().UploadManager.saveFiles(directory, files);
         return next();
       } catch (e) {

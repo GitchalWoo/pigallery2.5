@@ -9,7 +9,8 @@
 
 ## Upgrade Handoff
 
-- Steps 0–4 of [UPGRADE_PLAN.md](docs/fork-features/UPGRADE_PLAN.md) are merged into `master` (Step 4 / PR #5 merged at `e1b1b561`). Step 5 (`upgrade/openid-client-6`) is implemented and validated on branch `upgrade/openid-client-6`. Step 6 (`upgrade/ffmpeg-wrapper`) will base on `master` once Step 5 PR is merged.
+- Steps 0–4 of [UPGRADE_PLAN.md](docs/fork-features/UPGRADE_PLAN.md) are merged into `master` (Step 4 / PR #5 merged at `e1b1b561`). Step 5 (`upgrade/openid-client-6`) and Step 6 (`upgrade/ffmpeg-wrapper`) are implemented and validated. Step 7 (`upgrade/express-5`) is implemented and validated on branch `upgrade/express-5`.
+- Step 7 validation: Express upgraded to 5.2.1 and `@types/express` to 5.0.6. Migrated 9 media routes to named RegExp capture groups and wildcard path parameters to `normalizePathParam` array joins. Backend suite: 733 passing tests across SQLite and MariaDB (including 25 `RouteMatching` edge-case tests, 42 router tests, and 19 OIDC tests). Karma: 145 SUCCESS. Cypress: 7/7 specs pass (18 passing, 12 intentionally pending documentation tests).
 - Step 5 validation: `openid-client` upgraded to 6.8.8 (pure ESM loaded via Node 24 `require(esm)`), `@types/openid-client` removed. Backend suite: 654 passing tests across SQLite and MariaDB (including 19 OIDC tests with `MockOIDCServer`). End-to-end authentication validated against real local Dex provider (`http://localhost:5556/dex`) with PKCE S256, real JWKS validation, and session user provisioning.
 - Step 4 validation on Node 24.21.0 / npm 11.19.0 passed: backend 635 tests on SQLite and MariaDB, Karma 145 tests, all 16 locale builds, seven Cypress specs (18 passing, 12 intentionally pending documentation tests), and nine automated Brave smoke checks. All three amd64 Dockerfiles build and pass diagnostics; native SQLite/bcrypt and HEIC/AVIF/JPEG/PNG decoding pass. Detailed results are in the upgrade plan and [Techdebt.md](docs/fork-features/Techdebt.md). Temporary `/tmp/pg-node24-*` harnesses and logs are local artifacts; future runs must not assume they exist. Arm64 image builds remain a CI check.
 - Angular 22.2.1 requires TypeScript 6; this project pins 6.0.3. The backend uses NodeNext settings while emitting CommonJS; frontend configs use bundler resolution. ngx-bootstrap is now 22.0.0 with signal APIs and direct module imports; the app retains zone.js. A separate zoneless sub-plan is in the upgrade plan. Hammer integration was removed upstream and replaced with pointer gestures; Angular animations remain follow-up work.
@@ -56,6 +57,9 @@
 
 ## Agent Learnings & Gotchas (Framework Upgrades & Core Architecture)
 
+- **Express 5 & `path-to-regexp` v8**:
+  - In Express 5 / `path-to-regexp` v8, inline regexes in path strings (such as `:mediaPath(*\\.(jpg|png))`) and bare wildcard suffixes (`'/gallery*'`, `apiPath + '/*'`) are syntax errors or behave differently. Use native `RegExp` routes (e.g. `new RegExp('^' + apiPath + '/gallery/thumbnail/(?<mediaPath>.+?\\.(?:...))/(?<size>[^/]+)$', 'i')`) with named capture groups.
+  - `@types/express` 5 defines `ParamsDictionary` as `[key: string]: string | string[]`. When routing through wildcards or RegExps, route params are typed as `string | string[]`. Middlewares accepting path params (such as `directory` or `mediaPath`) must normalize via `normalizePathParam` (joining array elements with `/`) and cast `as string` where needed for string APIs (`path.normalize`, `parseInt`, or TypeORM queries).
 - **`openid-client` v6 ESM in CommonJS Backend**:
   - `openid-client` 6.x is pure ESM, loaded synchronously into our CommonJS backend via Node 24's native `require(esm)` (`import * as client from 'openid-client'`).
   - Use `client.allowInsecureRequests(config)` or `options.execute: [client.allowInsecureRequests]` during discovery when testing against HTTP endpoints (e.g. `http://localhost:5556/dex` or test mock servers).
