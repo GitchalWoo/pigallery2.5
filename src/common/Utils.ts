@@ -399,6 +399,9 @@ export class Utils {
   }
 
   public static findClosestinSorted(num: number, arr: number[]): number {
+    if (!arr || arr.length === 0) {
+      return undefined;
+    }
     let curr = arr[0];
     let diff = Math.abs(num - curr);
     for (const item of arr) {
@@ -411,6 +414,24 @@ export class Utils {
     }
 
     return curr;
+  }
+
+  /**
+   * Returns the first element in the sorted array that is >= num.
+   * If all elements are smaller than num, returns the largest element.
+   * This is the "ceiling" behavior, useful for selecting thumbnail/preview sizes
+   * where you want the next available size up (e.g., for lightbox full-screen display).
+   */
+  public static findCeilinginSorted(num: number, arr: number[]): number {
+    if (!arr || arr.length === 0) {
+      return undefined;
+    }
+    for (const item of arr) {
+      if (item >= num) {
+        return item;
+      }
+    }
+    return arr[arr.length - 1];
   }
 
   public static asciiToUTF8(text: string): string {

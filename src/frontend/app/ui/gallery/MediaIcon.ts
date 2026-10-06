@@ -7,7 +7,7 @@ export class MediaIcon {
   protected static readonly ThumbnailMap =
     Config.Media.Photo.generateThumbnailMap();
   static readonly sortedThumbnailSizes =
-    Config.Media.Photo.thumbnailSizes.sort((a, b): number => a - b);
+    [...Config.Media.Photo.thumbnailSizes].sort((a, b): number => a - b);
 
 
   protected replacementSizeCache: number | boolean = false;
@@ -86,7 +86,7 @@ export class MediaIcon {
 
   getMediaSize(renderWidth: number, renderHeight: number): number {
     const longerEdge = Math.max(renderWidth, renderHeight);
-    return Utils.findClosestinSorted(longerEdge, MediaIcon.sortedThumbnailSizes);
+    return Utils.findCeilinginSorted(longerEdge, MediaIcon.sortedThumbnailSizes);
   }
 
   /**
