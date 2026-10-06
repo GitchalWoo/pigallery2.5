@@ -470,13 +470,13 @@ future runs must recreate their harnesses.
 
 ## Risks
 
-| Risk | Mitigation |
-|---|---|
-| `custom-webpack` lags behind Angular releases | Matrix in step 0; esbuild fallback in step 3 |
-| Unmaintained Angular libraries | Decide in step 0; small libraries (clipboard, loading bar) can be replaced in a few lines |
-| TS 6 settings break the shared backend/frontend tsconfig | Split the configs in step 3 |
-| Express 5 changes how paths are matched or decoded | Route tests written before the upgrade |
-| Fork drifts further from upstream | Small per-step branches; record adapted cherry-picks |
+| Risk | Mitigation | Status |
+|---|---|---|
+| `custom-webpack` lags behind Angular releases | Matrix in step 0; esbuild fallback in step 3 | Mitigated (custom-webpack 22.0.1 aligned in Step 3; future esbuild application builder tracked in Techdebt A2) |
+| Unmaintained Angular libraries | Decide in step 0; small libraries (clipboard, loading bar) can be replaced in a few lines | Mitigated (ngx-bootstrap 22, ngx-markdown 22, LightboxGesturesDirective replaced Hammer; stagnant libs cataloged in Techdebt R2–R4) |
+| TS 6 settings break the shared backend/frontend tsconfig | Split the configs in step 3 | Mitigated (shared tsconfig.base.json, backend NodeNext/CommonJS, frontend bundler/ES2022, tsconfig.release.json) |
+| Express 5 changes how paths are matched or decoded | Route tests written before the upgrade | Mitigated (25 RouteMatching tests, named RegExp routes, normalizePathParam wildcard array joins in Step 7) |
+| Fork drifts further from upstream | Small per-step branches; record adapted cherry-picks | Mitigated (isolated per-step branches, atomic commits, documented handoffs in AGENTS.md) |
 
 ## Work split and status
 
