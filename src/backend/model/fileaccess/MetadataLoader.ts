@@ -10,17 +10,14 @@ import {Logger} from '../../Logger';
 import * as exifr from 'exifr';
 import exifReader from 'exif-reader';
 const sharp = require('sharp') as typeof import('sharp');
-import {FfprobeData} from 'fluent-ffmpeg';
-import * as util from 'node:util';
 import * as path from 'path';
 import {Utils} from '../../../common/Utils';
-import {FFmpegFactory} from '../FFmpegFactory';
+import {FFmpegFactory, FfprobeData} from '../FFmpegFactory';
 import {ExtensionDecorator} from '../extension/ExtensionDecorator';
 import {DateTags} from './MetadataCreationDate';
 
 const {imageSizeFromFile} = require('image-size/fromFile');
 const LOG_TAG = '[MetadataLoader]';
-const ffmpeg = FFmpegFactory.get();
 
 sharp.cache(false);
 
@@ -57,10 +54,7 @@ export class MetadataLoader {
     try {
 
 
-      const data: FfprobeData = await util.promisify<FfprobeData>(
-        // wrap to arrow function otherwise 'this' is lost for ffprobe
-        (cb) => ffmpeg(fullPath).ffprobe(cb)
-      )();
+      const data: FfprobeData = await FFmpegFactory.probe(fullPath);
 
       try {
         for (const stream of data.streams) {
@@ -79,15 +73,16 @@ export class MetadataLoader {
             }
 
             if (
-              Utils.isInt32(Math.floor(parseFloat(stream.duration) * 1000))
+              stream.duration !== undefined &&
+              Utils.isInt32(Math.floor(parseFloat('' + stream.duration) * 1000))
             ) {
               metadata.duration = Math.floor(
-                parseFloat(stream.duration) * 1000
+                parseFloat('' + stream.duration) * 1000
               );
             }
 
-            if (Utils.isInt32(parseInt(stream.bit_rate, 10))) {
-              metadata.bitRate = parseInt(stream.bit_rate, 10) || null;
+            if (stream.bit_rate !== undefined && Utils.isInt32(parseInt('' + stream.bit_rate, 10))) {
+              metadata.bitRate = parseInt('' + stream.bit_rate, 10) || null;
             }
             if (Utils.isInt32(parseInt(stream.avg_frame_rate, 10))) {
               metadata.fps = parseInt(stream.avg_frame_rate, 10) || null;

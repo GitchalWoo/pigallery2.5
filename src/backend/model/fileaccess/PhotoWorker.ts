@@ -2,8 +2,7 @@
 const sharp = require('sharp') as typeof import('sharp');
 import {Metadata, Sharp, SharpOptions} from 'sharp';
 import {Logger} from '../../Logger';
-import {FfmpegCommand, FfprobeData} from 'fluent-ffmpeg';
-import {FFmpegFactory} from '../FFmpegFactory';
+import {FFmpegCommand, FfprobeData, FFmpegFactory} from '../FFmpegFactory';
 import * as path from 'path';
 import {ExtensionDecorator} from '../extension/ExtensionDecorator';
 
@@ -88,20 +87,20 @@ export class VideoRendererFactory {
             }
           }
           if (!width || !height || isNaN(width) || isNaN(height)) {
-            return reject(`[FFmpeg] Can not read video dimension. Found: ${{width}}x${{height}}`);
+            return reject(`[FFmpeg] Can not read video dimension. Found: ${width}x${height}`);
           }
-          const command: FfmpegCommand = ffmpeg(input.mediaPath);
+          const command: FFmpegCommand = ffmpeg(input.mediaPath);
           const fileName = path.basename(input.outPath);
           const folder = path.dirname(input.outPath);
           let executedCmd = '';
           command
-            .on('start', (cmd): void => {
+            .on('start', (cmd: string): void => {
               executedCmd = cmd;
             })
             .on('end', (): void => {
               resolve();
             })
-            .on('error', (e): void => {
+            .on('error', (e: any): void => {
               reject('[FFmpeg] ' + e.toString() + ' executed: ' + executedCmd);
             })
             .outputOptions(['-qscale:v 50']);
