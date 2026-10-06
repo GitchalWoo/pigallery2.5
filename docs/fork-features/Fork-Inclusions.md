@@ -19,4 +19,16 @@ Candidate improvements found in upstream pull requests and other PiGallery2 fork
 | Origin checks | Validate the origin of state-changing, cookie-authenticated requests as a CSRF defense. | [Plus origin check](https://github.com/Railline/pigallery2plus/blob/main/src/backend/middlewares/SecurityMWs.ts); [security plan](Security-Updates.md) | Candidate. Coordinate with the cookie and CSRF work in `Security-Updates.md`; define behavior for missing headers and trust forwarded host headers only from configured proxies. |
 | MySQL startup | Wait for MySQL before starting PiGallery2. | [This fork's MySQL Compose example](../../docker/docker-compose/with-mysql/docker-compose.yml); [Plus Compose example](https://github.com/Railline/pigallery2plus/blob/main/docker/docker-compose/with-mysql/docker-compose.yml) | **Already present**: the Compose command invokes `bin/wait-for` for `pigallery-db:3306`. A database health check or connection retry could strengthen readiness beyond waiting for the port. |
 
-Open upstream PRs are proposals and may change before merge. Fork links point to implementation references, not reviewed or approved patches.
+In the candidate table above, open upstream PRs are proposals and may change before merge. Fork links there point to implementation references, not reviewed or approved patches.
+
+## Upstream contributions imported directly
+
+The changes below were brought into this fork directly from contributors' upstream PR work. No corresponding PRs were opened against this repository; the upstream PR and fork commit links preserve attribution and make the imported work traceable.
+
+| Original upstream PR | Contributor | Contribution included here | Commit in this fork |
+| --- | --- | --- | --- |
+| [PR #1168](https://github.com/bpatrik/pigallery2/pull/1168) | [cycsmail (Sebastian Cao)](https://github.com/cycsmail) | Support glob wildcards in `excludeFolderList`. | [ad7120c](https://github.com/GitchalWoo/pigallery2.5/commit/ad7120cf227d5f4fb4e909ecb811e9ac39e10147) |
+| [PR #1170](https://github.com/bpatrik/pigallery2/pull/1170) | [Dragos Galalae](https://github.com/galagithub) | Include the configured URL base when generating share links. | [588320a](https://github.com/GitchalWoo/pigallery2.5/commit/588320aa24ccde0cd829f31f3050e2c5abf0ca4f) |
+| [PR #1179](https://github.com/bpatrik/pigallery2/pull/1179) | [David F. Severski](https://github.com/davidski) | Include the URL base when building the OIDC redirect URL. | [f7ad14f](https://github.com/GitchalWoo/pigallery2.5/commit/f7ad14f881e1d72947ae062b2c1efbe3bcc47a5e) |
+| [PR #1162](https://github.com/bpatrik/pigallery2/pull/1162) | [cat101](https://github.com/cat101) | Make photo titles searchable; handle `NULL` titles in negated searches, guard all nullable fields, and pack titles in the content wrapper. | [cacee155](https://github.com/GitchalWoo/pigallery2.5/commit/cacee1556706cf0e0c6000d11b9960c83f6e87bb), [8543f83](https://github.com/GitchalWoo/pigallery2.5/commit/8543f8358745bc8f3e390e6d39cbb0b1a22fe1b2), [dc6d6c2](https://github.com/GitchalWoo/pigallery2.5/commit/dc6d6c24a694d887038622c98be0184796a98655), [927f3a1](https://github.com/GitchalWoo/pigallery2.5/commit/927f3a1f386b39d916f42a72f1c1179232334dbf) |
+| [PR #1189](https://github.com/bpatrik/pigallery2/pull/1189) | [cat101](https://github.com/cat101) | Keep matching keyword and position autocomplete suggestions from being dropped by the result limit. | [c51960c](https://github.com/GitchalWoo/pigallery2.5/commit/c51960cb9dc6727c873e67e839e67d95e4e83dee) |
