@@ -16,6 +16,6 @@ tar -xJf "$libvips_build_dir/vips.tar.xz" -C "$libvips_build_dir"
 meson setup "$libvips_build_dir/build" "$libvips_build_dir/vips-$libvips_version" \
   --prefix=/usr/local --libdir=lib --buildtype=release \
   -Dintrospection=disabled -Dvapi=false -Dexamples=false \
-  -Dheif=enabled -Dmagick=enabled -Dlibraw=enabled
+  -Dheif=enabled -Dmagick=enabled -Draw=enabled
 meson compile -C "$libvips_build_dir/build" -j 4
 meson install -C "$libvips_build_dir/build"
