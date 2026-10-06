@@ -14,7 +14,7 @@ ENV SHARP_FORCE_GLOBAL_LIBVIPS=1 \
 
 # Install build and vips dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends curl python3 git build-essential pkg-config \
-  libvips-dev libheif-dev libmagickwand-dev meson ninja-build && \
+  libvips-dev libheif-dev libmagickwand-dev libraw-dev meson ninja-build && \
   rm -rf /var/lib/apt/lists/*
 
 COPY docker/build-libvips.sh /tmp/build-libvips.sh
@@ -52,7 +52,7 @@ ARG SOURCE_COMMIT=unknown
 LABEL org.opencontainers.image.source="https://github.com/GitchalWoo/pigallery2.5" \
   org.opencontainers.image.revision="${SOURCE_COMMIT}"
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates wget ffmpeg libvips42 \
+    && apt-get install -y --no-install-recommends ca-certificates wget ffmpeg libvips42 libraw23t64 \
     && if [ "$TARGETARCH" = "amd64" ]; then \
         echo "Building for amd64, adding intel-media-va-driver" && \
         apt-get install -y --no-install-recommends intel-media-va-driver; \

@@ -99,8 +99,11 @@
 - **Node 24 / npm and Docker native builds**:
   - Keep the Node 24 minimum at 24.15.0 for Angular 22. `.nvmrc` pins the validated patch; CI and Docker use npm 11.19.0. Node 22 is no longer supported by this fork.
   - Angular DevKit 22 has an optional Chokidar 5 peer. Pin `chokidar` 5.0.0 directly: regenerating the lockfile can otherwise drop its nested copies and resolve the peer to Mocha's Chokidar 4, producing an invalid tree. Check `npm ls --all` after lockfile changes. npm 12 is deferred: its new default blocks dependency install scripts; review explicit approvals before removing the npm <12 cap (Techdebt T7).
-  - Sharp 0.35.5 no longer builds itself during `npm install` / `npm rebuild`. Docker explicitly runs its `build` script. It needs libvips >=8.18.7; `docker/build-libvips.sh` builds the pinned, checksum-verified version with the distribution codec libraries and HEIC support. Preserve `/usr/local/lib`, its loader path and the Docker context exception in `.dockerignore`.
+  - Sharp 0.35.5 no longer builds itself during `npm install` / `npm rebuild`. Docker explicitly runs its `build` script. It needs libvips >=8.18.7; `docker/build-libvips.sh` builds the pinned, checksum-verified version with the distribution codec libraries, HEIC, and LibRaw (`-Dlibraw=enabled`) support. Preserve `/usr/local/lib`, its loader path and the Docker context exception in `.dockerignore`.
   - Official Node 24 images do not support ARMv7. Build amd64 and arm64 images; Raspberry Pi deployments require a 64-bit OS.
+- **Camera RAW & Embedded Preview Extraction (`.cr2`, `.arw`)**:
+  - Canon CR2 and camera RAW files embed pre-rendered JPEG previews. `PhotoWorker` extracts embedded previews via `exifr` (`ifd0.StripOffsets` / `StripByteCounts` or `ThumbnailOffset`) and feeds the buffer into `sharp`. This avoids generic `libtiff` decoding failures (`Old-style JPEG compression support is not configured`) and avoids expensive sensor demosaicing during thumbnail generation.
+  - In Docker builds, `docker/build-libvips.sh` compiles libvips with `-Dlibraw=enabled`, and Debian Dockerfiles include `libraw-dev` / `libraw23t64`.
 - **Git Operations in Sandbox**:
   - `.git` is protected/read-only in standard sandbox mode. Git mutations require the tool's sandbox escalation option (`sandbox_permissions: "require_escalated"` with `exec_command`).
 

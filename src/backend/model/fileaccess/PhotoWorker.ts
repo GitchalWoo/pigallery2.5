@@ -3,9 +3,14 @@ const sharp = require('sharp') as typeof import('sharp');
 import {Metadata, Sharp, SharpOptions} from 'sharp';
 import {Logger} from '../../Logger';
 import {FFmpegCommand, FfprobeData, FFmpegFactory} from '../FFmpegFactory';
+import {promises as fsp} from 'fs';
 import * as path from 'path';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import * as exifr from 'exifr';
 import {ExtensionDecorator} from '../extension/ExtensionDecorator';
 
+const RAW_EXTENSIONS = new Set(['.cr2', '.cr3', '.arw', '.nef', '.nrw', '.orf', '.rw2', '.pef', '.raf']);
 
 sharp.cache(false);
 
@@ -131,21 +136,70 @@ export class VideoRendererFactory {
 
 export class ImageRendererFactory {
 
+  public static async getRawPreviewBuffer(filePath: string): Promise<Buffer | null> {
+    try {
+      const parsed = await exifr.parse(filePath, {tiff: true, mergeOutput: false});
+      let offset = parsed?.ifd0?.StripOffsets;
+      let length = parsed?.ifd0?.StripByteCounts;
+      if (Array.isArray(offset) && offset.length > 0) {
+        offset = offset[0];
+      }
+      if (Array.isArray(length) && length.length > 0) {
+        length = length[0];
+      }
+      if (typeof offset !== 'number' || typeof length !== 'number') {
+        if (typeof parsed?.ifd0?.ThumbnailOffset === 'number' && typeof parsed?.ifd0?.ThumbnailLength === 'number') {
+          offset = parsed.ifd0.ThumbnailOffset;
+          length = parsed.ifd0.ThumbnailLength;
+        }
+      }
+      if (typeof offset === 'number' && typeof length === 'number') {
+        const handle = await fsp.open(filePath, 'r');
+        const buf = Buffer.alloc(length);
+        await handle.read(buf, 0, length, offset);
+        await handle.close();
+        return buf;
+      }
+    } catch {
+      // ignore
+    }
+    const thumb = await exifr.thumbnail(filePath);
+    return thumb ? Buffer.from(thumb) : null;
+  }
+
   @ExtensionDecorator(e => e.gallery.ImageRenderer.render)
   public static async render(input: MediaRendererInput | SvgRendererInput, dryRun = false): Promise<void> {
 
     let image: Sharp;
     if ((input as MediaRendererInput).mediaPath) {
+      const mediaPath = (input as MediaRendererInput).mediaPath;
       Logger.silly(
         '[SharpRenderer] rendering photo:' +
-        (input as MediaRendererInput).mediaPath +
+        mediaPath +
         ', size:' +
         input.size
       );
-      image = sharp((input as MediaRendererInput).mediaPath, {
-        failOn: 'none',
-        animated: (input as MediaRendererInput).animate, ...((input as MediaRendererInput).sharpOptions || {})
-      });
+      const ext = path.extname(mediaPath).toLowerCase();
+      if (RAW_EXTENSIONS.has(ext)) {
+        try {
+          const previewBuf = await ImageRendererFactory.getRawPreviewBuffer(mediaPath);
+          if (previewBuf) {
+            image = sharp(previewBuf, {
+              failOn: 'none',
+              animated: false,
+              ...((input as MediaRendererInput).sharpOptions || {})
+            });
+          }
+        } catch (e) {
+          Logger.debug('[SharpRenderer] Failed to extract raw preview: ' + e);
+        }
+      }
+      if (!image) {
+        image = sharp(mediaPath, {
+          failOn: 'none',
+          animated: (input as MediaRendererInput).animate, ...((input as MediaRendererInput).sharpOptions || {})
+        });
+      }
     } else {
       const svg_buffer = Buffer.from((input as SvgRendererInput).svgString);
       image = sharp(svg_buffer, {density: 450});

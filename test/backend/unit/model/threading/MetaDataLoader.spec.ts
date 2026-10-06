@@ -41,6 +41,19 @@ describe('MetadataLoader', () => {
     expect(Utils.clone(data)).to.be.deep.equal(expected);
   });
 
+  it('should load canon cr2 metadata', async () => {
+    const cr2Path = path.join(__dirname, '/../../../../../demo/images/IMG_3495.CR2');
+    if (!fs.existsSync(cr2Path)) {
+      return;
+    }
+    const data = await MetadataLoader.loadPhotoMetadata(cr2Path);
+    expect(data.size.width).to.equal(1936);
+    expect(data.size.height).to.equal(1288);
+    expect(data.cameraData?.make).to.equal('Canon');
+    expect(data.cameraData?.model).to.equal('Canon EOS 40D');
+    expect(data.cameraData?.ISO).to.equal(200);
+  });
+
   it('should load png', async () => {
     const data = await MetadataLoader.loadPhotoMetadata(path.join(__dirname, '/../../../assets/test_png.png'));
     const expected = require(path.join(__dirname, '/../../../assets/test_png.json'));

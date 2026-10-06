@@ -100,6 +100,8 @@ App CLI options:
   --Gallery-TopBlogStartsOpen                                               Makes top blog (*.md files content) auto-open. (default: false)
   --Gallery-AutoUpdate-enable                                               Enable auto polling for new photos and videos in the gallery. (default: false)
   --Gallery-AutoUpdate-interval                                             Frequency of the auto polling in seconds. (default: 60)
+  --Timeline-enabled                                                        Shows all permitted indexed media in a chronological timeline. (default: true)
+  --Timeline-readAccessMinRole                                               (default: 'Guest')
   --Media-Video-enabled                                                      (default: true)
   --Media-Video-supportedFormatsWithTranscoding                             Video formats that are supported after transcoding (with the built-in ffmpeg support). (default: ["avi","mkv","mov","wmv","flv","mts","m2ts","mpg","3gp","m4v","mpeg","vob","divx","xvid","ts"])
   --Media-Video-supportedFormats                                            Video formats that are supported also without transcoding. Browser supported formats: https://www.w3schools.com/html/html5_video.asp (default: ["mp4","webm","ogv","ogg"])
@@ -117,7 +119,7 @@ App CLI options:
   --Media-Photo-personThumbnailSize                                         Person (face) thumbnail size. (default: 200)
   --Media-Photo-thumbnailSizes                                              Size of the thumbnails and photo previews. The best matching size will be used (smaller for photo and video thumbnail, bigger for photo preview). More sizes give better quality, but use more storage and CPU to render. If size is 240, that shorter side of the thumbnail will be 240 pixels. (default: [320,540,1080,2160])
   --Media-Photo-concurrentThumbnailGenerationsLimit                         By default the app uses the number of cpus -1 concurrent threads to generate thumbnails. Set this number higher than 0 to limit the number of concurrent threads. (default: 0)
-  --Media-Photo-supportedFormats                                            Photo formats that are supported. Browser needs to support these formats natively. Also sharp (libvips) package should be able to convert these formats. (default: ["gif","jpeg","jpg","jpe","png","webp","svg","avif","heic","dng","arw","tiff"])
+  --Media-Photo-supportedFormats                                            Photo formats that are supported. Browser needs to support these formats natively. Also sharp (libvips) package should be able to convert these formats. (default: ["gif","jpeg","jpg","jpe","png","webp","svg","avif","heic","dng","arw","tiff","cr2"])
   --Media-Photo-useLanczos3                                                 if true, 'lanczos3' will used to scale photos, otherwise faster but lower quality 'nearest'. (default: true)
   --Media-Photo-quality                                                     Between 0-100. (default: 80)
   --Media-Photo-smartSubsample                                              Use high quality chroma subsampling in webp. See: https://sharp.pixelplumbing.com/api-output#webp. (default: true)
@@ -148,6 +150,7 @@ App CLI options:
   --Search-AutoComplete-ItemsPerCategory-position                           Maximum number autocomplete items shown per position category. (default: 3)
   --Search-AutoComplete-ItemsPerCategory-person                             Maximum number autocomplete items shown per faces category. (default: 5)
   --Search-AutoComplete-ItemsPerCategory-keyword                            Maximum number autocomplete items shown per keyword category. (default: 5)
+  --Search-AutoComplete-ItemsPerCategory-title                              Maximum number autocomplete items shown per title category. (default: 3)
   --Search-AutoComplete-cacheTimeout                                        Autocomplete cache timeout.  (default: 3600000)
   --Search-maxMediaResult                                                   Maximum number of photos and videos that are listed in one search result. (default: 10000)
   --Search-maxDirectoryResult                                               Maximum number of directories that are listed in one search result. (default: 200)
@@ -189,7 +192,7 @@ App CLI options:
   --Database-mysql-password                                                  (default: '')
   --Indexing-cachedFolderTimeout                                            If there was no indexing in this time, it reindexes. (skipped if indexes are in DB and sensitivity is low). (default: 3600000)
   --Indexing-reIndexingSensitivity                                          Set the reindexing sensitivity. High value check the folders for change more often.  Setting to never only indexes if never indexed or explicit running the Indexing Job. (default: 'low')
-  --Indexing-excludeFolderList                                              Folders to exclude from indexing. If an entry starts with '/' it is treated as an absolute path. If it doesn't start with '/' but contains a '/', the path is relative to the image directory. If it doesn't contain a '/', any folder with this name will be excluded. (default: [".Trash-1000",".dtrash","$RECYCLE.BIN"])
+  --Indexing-excludeFolderList                                              Folders to exclude from indexing. If an entry starts with '/' it is treated as an absolute path. If it doesn't start with '/' but contains a '/', the path is relative to the image directory. If it doesn't contain a '/', any folder whose name matches will be excluded; this supports '*' (any characters) and '?' (single character) wildcards. (default: [".Trash-1000",".dtrash","$RECYCLE.BIN"])
   --Indexing-excludeFileList                                                Files that mark a folder to be excluded from indexing. Any folder that contains a file with this name will be excluded from indexing. (default: [])
   --Indexing-excludeFilenameList                                            Glob patterns to exclude individual media files from indexing. Supports '*' (any characters), '?' (single character) wildcards and ';' to separate multiple patterns. E.g.: '._*' excludes macOS resource fork files starting with '._'; '*.rm' excludes .rm files. (default: [])
   --AlbumCover-SearchQuery                                                  Filters the sub-folders with this search query. If filter results no photo, the app will search again without the filter. (default: {"type":100,"value":""})
@@ -282,6 +285,8 @@ Environmental variables:
   Gallery-TopBlogStartsOpen                                             Makes top blog (*.md files content) auto-open. (default: false)
   Gallery-AutoUpdate-enable                                             Enable auto polling for new photos and videos in the gallery. (default: false)
   Gallery-AutoUpdate-interval                                           Frequency of the auto polling in seconds. (default: 60)
+  Timeline-enabled                                                      Shows all permitted indexed media in a chronological timeline. (default: true)
+  Timeline-readAccessMinRole                                             (default: 'Guest')
   Media-Video-enabled                                                    (default: true)
   Media-Video-supportedFormatsWithTranscoding                           Video formats that are supported after transcoding (with the built-in ffmpeg support). (default: ["avi","mkv","mov","wmv","flv","mts","m2ts","mpg","3gp","m4v","mpeg","vob","divx","xvid","ts"])
   Media-Video-supportedFormats                                          Video formats that are supported also without transcoding. Browser supported formats: https://www.w3schools.com/html/html5_video.asp (default: ["mp4","webm","ogv","ogg"])
@@ -299,7 +304,7 @@ Environmental variables:
   Media-Photo-personThumbnailSize                                       Person (face) thumbnail size. (default: 200)
   Media-Photo-thumbnailSizes                                            Size of the thumbnails and photo previews. The best matching size will be used (smaller for photo and video thumbnail, bigger for photo preview). More sizes give better quality, but use more storage and CPU to render. If size is 240, that shorter side of the thumbnail will be 240 pixels. (default: [320,540,1080,2160])
   Media-Photo-concurrentThumbnailGenerationsLimit                       By default the app uses the number of cpus -1 concurrent threads to generate thumbnails. Set this number higher than 0 to limit the number of concurrent threads. (default: 0)
-  Media-Photo-supportedFormats                                          Photo formats that are supported. Browser needs to support these formats natively. Also sharp (libvips) package should be able to convert these formats. (default: ["gif","jpeg","jpg","jpe","png","webp","svg","avif","heic","dng","arw","tiff"])
+  Media-Photo-supportedFormats                                          Photo formats that are supported. Browser needs to support these formats natively. Also sharp (libvips) package should be able to convert these formats. (default: ["gif","jpeg","jpg","jpe","png","webp","svg","avif","heic","dng","arw","tiff","cr2"])
   Media-Photo-useLanczos3                                               if true, 'lanczos3' will used to scale photos, otherwise faster but lower quality 'nearest'. (default: true)
   Media-Photo-quality                                                   Between 0-100. (default: 80)
   Media-Photo-smartSubsample                                            Use high quality chroma subsampling in webp. See: https://sharp.pixelplumbing.com/api-output#webp. (default: true)
@@ -330,6 +335,7 @@ Environmental variables:
   Search-AutoComplete-ItemsPerCategory-position                         Maximum number autocomplete items shown per position category. (default: 3)
   Search-AutoComplete-ItemsPerCategory-person                           Maximum number autocomplete items shown per faces category. (default: 5)
   Search-AutoComplete-ItemsPerCategory-keyword                          Maximum number autocomplete items shown per keyword category. (default: 5)
+  Search-AutoComplete-ItemsPerCategory-title                            Maximum number autocomplete items shown per title category. (default: 3)
   Search-AutoComplete-cacheTimeout                                      Autocomplete cache timeout.  (default: 3600000)
   Search-maxMediaResult                                                 Maximum number of photos and videos that are listed in one search result. (default: 10000)
   Search-maxDirectoryResult                                             Maximum number of directories that are listed in one search result. (default: 200)
@@ -376,7 +382,7 @@ Environmental variables:
   MYSQL_PASSWORD                                                         same as Database-mysql-password
   Indexing-cachedFolderTimeout                                          If there was no indexing in this time, it reindexes. (skipped if indexes are in DB and sensitivity is low). (default: 3600000)
   Indexing-reIndexingSensitivity                                        Set the reindexing sensitivity. High value check the folders for change more often.  Setting to never only indexes if never indexed or explicit running the Indexing Job. (default: 'low')
-  Indexing-excludeFolderList                                            Folders to exclude from indexing. If an entry starts with '/' it is treated as an absolute path. If it doesn't start with '/' but contains a '/', the path is relative to the image directory. If it doesn't contain a '/', any folder with this name will be excluded. (default: [".Trash-1000",".dtrash","$RECYCLE.BIN"])
+  Indexing-excludeFolderList                                            Folders to exclude from indexing. If an entry starts with '/' it is treated as an absolute path. If it doesn't start with '/' but contains a '/', the path is relative to the image directory. If it doesn't contain a '/', any folder whose name matches will be excluded; this supports '*' (any characters) and '?' (single character) wildcards. (default: [".Trash-1000",".dtrash","$RECYCLE.BIN"])
   Indexing-excludeFileList                                              Files that mark a folder to be excluded from indexing. Any folder that contains a file with this name will be excluded from indexing. (default: [])
   Indexing-excludeFilenameList                                          Glob patterns to exclude individual media files from indexing. Supports '*' (any characters), '?' (single character) wildcards and ';' to separate multiple patterns. E.g.: '._*' excludes macOS resource fork files starting with '._'; '*.rm' excludes .rm files. (default: [])
   AlbumCover-SearchQuery                                                Filters the sub-folders with this search query. If filter results no photo, the app will search again without the filter. (default: {"type":100,"value":""})
@@ -605,6 +611,11 @@ Environmental variables:
             "interval": 60
         }
     },
+    "Timeline": {
+        "//[enabled]": "Shows all permitted indexed media in a chronological timeline.",
+        "enabled": true,
+        "readAccessMinRole": "Guest"
+    },
     "Media": {
         "//[Video]": "Video support uses ffmpeg. ffmpeg and ffprobe binaries need to be available in the PATH or the @ffmpeg-installer/ffmpeg and @ffprobe-installer/ffprobe optional node packages need to be installed.",
         "Video": {
@@ -682,7 +693,8 @@ Environmental variables:
                 "heic",
                 "dng",
                 "arw",
-                "tiff"
+                "tiff",
+                "cr2"
             ],
             "//[useLanczos3]": "if true, 'lanczos3' will used to scale photos, otherwise faster but lower quality 'nearest'.",
             "useLanczos3": true,
@@ -762,7 +774,9 @@ Environmental variables:
                 "//[person]": "Maximum number autocomplete items shown per faces category.",
                 "person": 5,
                 "//[keyword]": "Maximum number autocomplete items shown per keyword category.",
-                "keyword": 5
+                "keyword": 5,
+                "//[title]": "Maximum number autocomplete items shown per title category.",
+                "title": 3
             },
             "//[cacheTimeout]": "Autocomplete cache timeout. ",
             "cacheTimeout": 3600000
@@ -1077,7 +1091,7 @@ Environmental variables:
         "cachedFolderTimeout": 3600000,
         "//[reIndexingSensitivity]": "Set the reindexing sensitivity. High value check the folders for change more often.  Setting to never only indexes if never indexed or explicit running the Indexing Job.",
         "reIndexingSensitivity": "low",
-        "//[excludeFolderList]": "Folders to exclude from indexing. If an entry starts with '/' it is treated as an absolute path. If it doesn't start with '/' but contains a '/', the path is relative to the image directory. If it doesn't contain a '/', any folder with this name will be excluded.",
+        "//[excludeFolderList]": "Folders to exclude from indexing. If an entry starts with '/' it is treated as an absolute path. If it doesn't start with '/' but contains a '/', the path is relative to the image directory. If it doesn't contain a '/', any folder whose name matches will be excluded; this supports '*' (any characters) and '?' (single character) wildcards.",
         "excludeFolderList": [
             ".Trash-1000",
             ".dtrash",
