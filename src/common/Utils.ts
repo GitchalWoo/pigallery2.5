@@ -575,6 +575,29 @@ export class Utils {
       .filter(s => s && s.length > 0)
       .join(',');
   }
+
+  /**
+   * Recursively replaces non-finite numbers (NaN, Infinity, -Infinity) with null.
+   * Malformed EXIF metadata (e.g. broken GPS rationals) can produce such values;
+   * TypeORM inlines them as bare SQL identifiers, failing the whole write on
+   * both SQLite and MySQL. String values (including the literal text "NaN")
+   * are left untouched, as they are valid captions, titles or keywords.
+   */
+  public static cleanNaN(obj: unknown, seen = new WeakSet<object>()): void {
+    if (obj === null || typeof obj !== 'object' || seen.has(obj)) {
+      return;
+    }
+    seen.add(obj);
+    for (const key of Object.keys(obj as Record<string, unknown>)) {
+      const val = (obj as Record<string, unknown>)[key];
+      if (typeof val === 'number' && !Number.isFinite(val)) {
+        (obj as Record<string, unknown>)[key] = null;
+      } else if (val !== null && typeof val === 'object') {
+        Utils.cleanNaN(val, seen);
+      }
+    }
+  }
+
 }
 
 export class LRU<V> {
