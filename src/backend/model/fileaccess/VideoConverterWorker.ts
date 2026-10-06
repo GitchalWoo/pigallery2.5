@@ -1,7 +1,6 @@
 import {Logger} from '../../Logger';
 import {promises as fsp} from 'fs';
-import {FfmpegCommand} from 'fluent-ffmpeg';
-import {FFmpegFactory} from '../FFmpegFactory';
+import {FFmpegCommand, FFmpegFactory} from '../FFmpegFactory';
 import {FFmpegPresets, videoCodecType, videoFormatType, videoResolutionType,} from '../../../common/config/private/PrivateConfig';
 import {ExtensionDecorator} from '../extension/ExtensionDecorator';
 
@@ -30,8 +29,17 @@ export class VideoConverterWorker {
   public static async convert(input: VideoConverterInput): Promise<void> {
     const origPath = input.output.path;
     input.output.path = origPath + '.part';
-    await this._convert(input);
-    await fsp.rename(input.output.path, origPath);
+    try {
+      await this._convert(input);
+      await fsp.rename(input.output.path, origPath);
+    } catch (err) {
+      try {
+        await fsp.unlink(input.output.path);
+      } catch {
+        // ignore
+      }
+      throw err;
+    }
   }
 
   private static _convert(input: VideoConverterInput): Promise<void> {
@@ -42,7 +50,7 @@ export class VideoConverterWorker {
     return new Promise((resolve, reject) => {
       Logger.silly('[FFmpeg] transcoding video: ' + input.videoPath);
 
-      const command: FfmpegCommand = this.ffmpeg(input.videoPath);
+      const command: FFmpegCommand = this.ffmpeg(input.videoPath);
       let executedCmd = '';
       command
           .on('start', (cmd: string) => {
