@@ -13,6 +13,7 @@ import {QueryParams} from '../../common/QueryParams';
 import {PhotoProcessing} from '../model/fileaccess/fileprocessing/PhotoProcessing';
 import {Utils} from '../../common/Utils';
 import {ObjectManagers} from '../model/ObjectManagers';
+import {CSRFProtection} from '../middlewares/CSRFProtection';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -100,7 +101,7 @@ export class PublicRouter {
 
       res.tpl.UIExtensionConfigs = ObjectManagers.getInstance().ExtensionManager.getUIExtensionConfigs();
 
-      return next();
+      return CSRFProtection.issueToken(req, res, next);
     };
 
     app.use(addTPl);

@@ -6,6 +6,22 @@ export class PasswordHelper {
     return bcrypt.hashSync(password, salt);
   }
 
+  public static async cryptPasswordAsync(password: string): Promise<string> {
+    const salt = await bcrypt.genSalt(9);
+    return await bcrypt.hash(password, salt);
+  }
+
+  public static async comparePasswordAsync(
+    password: string,
+    encryptedPassword: string
+  ): Promise<boolean> {
+    try {
+      return await bcrypt.compare(password, encryptedPassword);
+    } catch {
+      return false;
+    }
+  }
+
   public static comparePassword(
       password: string,
       encryptedPassword: string

@@ -17,7 +17,7 @@ export class UserManager {
     delete filter.password;
     const user = await connection.getRepository(UserEntity).findOneBy(filter);
 
-    if (verifyPassword && !PasswordHelper.comparePassword(pass, user.password)) {
+    if (verifyPassword && !await PasswordHelper.comparePasswordAsync(pass, user.password)) {
       throw new Error('No entry found');
     }
     return user;
@@ -37,7 +37,7 @@ export class UserManager {
     if (user.blockQuery) {
       SearchQueryUtils.validateSearchQuery(user.blockQuery, 'User blockQuery');
     }
-    user.password = PasswordHelper.cryptPassword(user.password);
+    user.password = await PasswordHelper.cryptPasswordAsync(user.password);
     return connection.getRepository(UserEntity).save(user);
   }
 
@@ -83,7 +83,7 @@ export class UserManager {
     }
 
     if (settings.newPassword && settings.newPassword.length > 0) {
-      user.password = PasswordHelper.cryptPassword(settings.newPassword);
+      user.password = await PasswordHelper.cryptPasswordAsync(settings.newPassword);
     }
 
     return userRepository.save(user);

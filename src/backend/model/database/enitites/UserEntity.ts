@@ -18,6 +18,12 @@ export class UserEntity implements UserDTO,ContextUser {
   @Column('smallint')
   role: UserRoles;
 
+  @Column({type: 'text', nullable: true})
+  oidcIssuer?: string;
+
+  @Column({type: 'text', nullable: true})
+  oidcSubject?: string;
+
   // only if this set to true, will the per-user allow/blocklist be considered
   @Column({type: 'boolean', default: false})
   overrideAllowBlockList?: boolean;

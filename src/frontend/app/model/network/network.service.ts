@@ -9,6 +9,10 @@ import {CustomHeaders} from '../../../../common/CustomHeaders';
 import {VersionService} from '../version.service';
 import {lastValueFrom, Observable, tap} from 'rxjs';
 
+import {CookieNames} from '../../../../common/CookieNames';
+import {CookieService} from 'ngx-cookie-service';
+import {HttpHeaders} from '@angular/common/http';
+
 @Injectable()
 export class NetworkService {
   readonly apiBaseUrl = Utils.concatUrls(Config.Server.urlBase, Config.Server.apiPath);
@@ -17,8 +21,17 @@ export class NetworkService {
   constructor(
     private http: HttpClient,
     private loadingBarService: LoadingBarService,
-    private versionService: VersionService
+    private versionService: VersionService,
+    private cookieService: CookieService
   ) {
+  }
+
+  private getCsrfHeaders(): HttpHeaders {
+    let headers = new HttpHeaders();
+    if (this.cookieService.check(CookieNames.csrfToken)) {
+      headers = headers.set(CustomHeaders.csrfToken, this.cookieService.get(CookieNames.csrfToken));
+    }
+    return headers;
   }
 
   public static buildUrl(url: string, data?: { [key: string]: unknown }): string {
@@ -83,6 +96,7 @@ export class NetworkService {
   public postFormData<T>(url: string, data: FormData): Observable<HttpEvent<Message<T>>> {
     this.loadingBarService.useRef().start();
     return this.http.post<Message<T>>(this.apiBaseUrl + url, data, {
+      headers: this.getCsrfHeaders(),
       reportProgress: true,
       observe: 'events',
     }).pipe(tap({
@@ -167,19 +181,26 @@ export class NetworkService {
           .catch(err);
       case 'delete':
         return lastValueFrom(this.http
-          .delete<Message<T>>(this.apiBaseUrl + url, {observe: 'response'}))
+          .delete<Message<T>>(this.apiBaseUrl + url, {
+            headers: this.getCsrfHeaders(),
+            observe: 'response'
+          }))
           .then(process)
           .catch(err);
       case 'post':
         return lastValueFrom(this.http
           .post<Message<T>>(this.apiBaseUrl + url, body, {
+            headers: this.getCsrfHeaders(),
             observe: 'response',
           }))
           .then(process)
           .catch(err);
       case 'put':
         return lastValueFrom(this.http
-          .put<Message<T>>(this.apiBaseUrl + url, body, {observe: 'response'}))
+          .put<Message<T>>(this.apiBaseUrl + url, body, {
+            headers: this.getCsrfHeaders(),
+            observe: 'response'
+          }))
           .then(process)
           .catch(err);
       default:

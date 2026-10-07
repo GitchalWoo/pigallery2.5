@@ -91,6 +91,8 @@ export class Server {
       session({
         name: CookieNames.session,
         keys: Config.Server.sessionSecret,
+        httpOnly: true,
+        sameSite: 'lax',
       })
     );
 

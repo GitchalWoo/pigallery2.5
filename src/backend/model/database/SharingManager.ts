@@ -66,7 +66,7 @@ export class SharingManager {
     await SharingManager.removeExpiredLink();
     const connection = await SQLConnection.getConnection();
     if (sharing.password) {
-      sharing.password = PasswordHelper.cryptPassword(sharing.password);
+      sharing.password = await PasswordHelper.cryptPasswordAsync(sharing.password);
     }
     if (sharing.searchQuery) {
       SearchQueryUtils.validateSearchQuery(sharing.searchQuery);
@@ -99,7 +99,7 @@ export class SharingManager {
     if (inSharing.password == null) {
       sharing.password = null;
     } else {
-      sharing.password = PasswordHelper.cryptPassword(inSharing.password);
+      sharing.password = await PasswordHelper.cryptPasswordAsync(inSharing.password);
     }
     // allow updating searchQuery and canonicalize it
     sharing.searchQuery = SearchQueryUtils.sortQuery(inSharing.searchQuery);

@@ -156,6 +156,158 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
       expect(called).to.eql(0);
       expect(req.session.context).to.eql(originalContext);
     });
+
+    it('AUD1: should reject expired session with 401', async () => {
+      Config.Users.authenticationRequired = true;
+      const user = await ObjectManagers.getInstance().UserManager.createUser({
+        id: null as any,
+        name: 'testExpiryUser',
+        password: 'password',
+        role: UserRoles.User
+      });
+
+      const resStatus: number[] = [];
+      const res: any = {
+        status: (code: number) => { resStatus.push(code); return res; }
+      };
+      const req: any = {
+        session: {
+          context: {
+            user: {id: user.id, name: user.name, role: user.role}
+          },
+          expires: Date.now() - 1000
+        },
+        sessionOptions: {},
+        query: {},
+        params: {}
+      };
+
+      let errResult: any = null;
+      await AuthenticationMWs.authenticate(req, res, (err) => { errResult = err; });
+
+      expect(errResult).to.be.instanceOf(ErrorDTO);
+      expect(errResult.code).to.equal(ErrorCodes.NOT_AUTHENTICATED);
+      expect(resStatus).to.include(401);
+      expect(req.session.context).to.be.undefined;
+    });
+
+    it('AUD1: should reject session if user was deleted from database', async () => {
+      Config.Users.authenticationRequired = true;
+      const user = await ObjectManagers.getInstance().UserManager.createUser({
+        id: null as any,
+        name: 'deletedUser',
+        password: 'password',
+        role: UserRoles.User
+      });
+
+      await ObjectManagers.getInstance().UserManager.deleteUser(user.id);
+
+      const resStatus: number[] = [];
+      const res: any = {
+        status: (code: number) => { resStatus.push(code); return res; }
+      };
+      const req: any = {
+        session: {
+          context: {
+            user: {id: user.id, name: user.name, role: user.role}
+          }
+        },
+        sessionOptions: {},
+        query: {},
+        params: {}
+      };
+
+      let errResult: any = null;
+      await AuthenticationMWs.authenticate(req, res, (err) => { errResult = err; });
+
+      expect(errResult).to.be.instanceOf(ErrorDTO);
+      expect(errResult.code).to.equal(ErrorCodes.NOT_AUTHENTICATED);
+      expect(resStatus).to.include(401);
+      expect(req.session.context).to.be.undefined;
+    });
+
+    it('AUD1: should reject session if user role was changed', async () => {
+      Config.Users.authenticationRequired = true;
+      const user = await ObjectManagers.getInstance().UserManager.createUser({
+        id: null as any,
+        name: 'roleChangeUser',
+        password: 'password',
+        role: UserRoles.Admin
+      });
+
+      await ObjectManagers.getInstance().UserManager.changeRole(user.id, UserRoles.User);
+
+      const resStatus: number[] = [];
+      const res: any = {
+        status: (code: number) => { resStatus.push(code); return res; }
+      };
+      const req: any = {
+        session: {
+          context: {
+            user: {id: user.id, name: user.name, role: UserRoles.Admin}
+          }
+        },
+        sessionOptions: {},
+        query: {},
+        params: {}
+      };
+
+      let errResult: any = null;
+      await AuthenticationMWs.authenticate(req, res, (err) => { errResult = err; });
+
+      expect(errResult).to.be.instanceOf(ErrorDTO);
+      expect(errResult.code).to.equal(ErrorCodes.NOT_AUTHENTICATED);
+      expect(resStatus).to.include(401);
+      expect(req.session.context).to.be.undefined;
+    });
+
+    it('AUD1: should reject session if share was deleted or expired', async () => {
+      Config.Users.authenticationRequired = true;
+      const creator = await ObjectManagers.getInstance().UserManager.createUser({
+        id: null as any,
+        name: 'shareOwner',
+        password: 'password',
+        role: UserRoles.User
+      });
+
+      const share = await ObjectManagers.getInstance().SharingManager.createSharing({
+        id: null,
+        timeStamp: Date.now(),
+        sharingKey: 'revokedShareKey',
+        searchQuery: {value: '/', type: 100} as any,
+        creator,
+        expires: Date.now() + 100000
+      });
+
+      await ObjectManagers.getInstance().SharingManager.deleteSharing(share.sharingKey);
+
+      const resStatus: number[] = [];
+      const res: any = {
+        status: (code: number) => { resStatus.push(code); return res; }
+      };
+      const req: any = {
+        session: {
+          context: {
+            user: {
+              name: 'Guest',
+              role: UserRoles.LimitedGuest,
+              usedSharingKey: 'revokedShareKey'
+            }
+          }
+        },
+        sessionOptions: {},
+        query: {},
+        params: {}
+      };
+
+      let errResult: any = null;
+      await AuthenticationMWs.authenticate(req, res, (err) => { errResult = err; });
+
+      expect(errResult).to.be.instanceOf(ErrorDTO);
+      expect(errResult.code).to.equal(ErrorCodes.NOT_AUTHENTICATED);
+      expect(resStatus).to.include(401);
+      expect(req.session.context).to.be.undefined;
+    });
   });
 
   describe('inverseAuthenticate', () => {

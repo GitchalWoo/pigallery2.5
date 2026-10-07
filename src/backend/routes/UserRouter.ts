@@ -6,6 +6,7 @@ import {UserRequestConstrainsMWs} from '../middlewares/user/UserRequestConstrain
 import {RenderingMWs} from '../middlewares/RenderingMWs';
 import {ServerTimingMWs} from '../middlewares/ServerTimingMWs';
 import {Config} from '../../common/config/private/Config';
+import {RateLimiter} from '../middlewares/RateLimiter';
 
 export class UserRouter {
   public static route(app: Express): void {
@@ -23,6 +24,7 @@ export class UserRouter {
   private static addLogin(app: Express): void {
     app.post(
         Config.Server.apiPath + '/user/login',
+        RateLimiter.loginLimiter,
         AuthenticationMWs.inverseAuthenticate,
         AuthenticationMWs.login,
         ServerTimingMWs.addServerTiming,

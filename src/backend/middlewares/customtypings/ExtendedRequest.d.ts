@@ -16,6 +16,7 @@ declare global {
         context?: SessionContext;
         rememberMe?: boolean;
         expires: number;
+        csrfSecret?: string;
         oidc?: {
           state: string;
           verifier: string;

@@ -7,6 +7,7 @@ import * as express from 'express';
 import {QueryParams} from '../../common/QueryParams';
 import {ServerTimingMWs} from '../middlewares/ServerTimingMWs';
 import {Config} from '../../common/config/private/Config';
+import {RateLimiter} from '../middlewares/RateLimiter';
 
 export class SharingRouter {
   public static route(app: express.Express): void {
@@ -23,6 +24,7 @@ export class SharingRouter {
   private static addShareLogin(app: express.Express): void {
     app.post(
       Config.Server.apiPath + '/share/login',
+      RateLimiter.shareLoginLimiter,
       AuthenticationMWs.inverseAuthenticate,
       AuthenticationMWs.shareLogin,
       ServerTimingMWs.addServerTiming,

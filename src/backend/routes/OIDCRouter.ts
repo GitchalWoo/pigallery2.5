@@ -1,6 +1,7 @@
 import {Express, NextFunction, Request, Response} from 'express';
 import {Config} from '../../common/config/private/Config';
 import {OIDCAuthService} from '../middlewares/user/OIDCAuthService';
+import {RateLimiter} from '../middlewares/RateLimiter';
 
 export class OIDCRouter {
   private static get BASE(): string {
@@ -27,7 +28,7 @@ export class OIDCRouter {
   }
 
   private static addCallback(app: Express): void {
-    app.get(OIDCRouter.BASE + '/callback', async (req: Request, res: Response, next: NextFunction) => {
+    app.get(OIDCRouter.BASE + '/callback', RateLimiter.oidcCallbackLimiter, async (req: Request, res: Response, next: NextFunction) => {
       try {
         if (!Config.Users.oidc.enabled) {
           return res.status(404).end();

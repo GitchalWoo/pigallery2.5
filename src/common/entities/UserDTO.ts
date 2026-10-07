@@ -19,4 +19,6 @@ export interface UserDTO {
   overrideAllowBlockList?: boolean;
   allowQuery?: SearchQueryDTO | null;
   blockQuery?: SearchQueryDTO | null;
+  oidcIssuer?: string;
+  oidcSubject?: string;
 }

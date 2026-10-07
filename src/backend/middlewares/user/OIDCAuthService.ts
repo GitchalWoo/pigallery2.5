@@ -1,9 +1,13 @@
 import {Config} from '../../../common/config/private/Config';
 import {Request, Response} from 'express';
 import * as client from 'openid-client';
+import * as crypto from 'crypto';
 import {UserDTO, UserRoles} from '../../../common/entities/UserDTO';
 import {ErrorCodes, ErrorDTO} from '../../../common/entities/Error';
 import {ObjectManagers} from '../../model/ObjectManagers';
+import {SQLConnection} from '../../model/database/SQLConnection';
+import {UserEntity} from '../../model/database/enitites/UserEntity';
+import {PasswordHelper} from '../../model/PasswordHelper';
 
 export class OIDCAuthService {
   private static configPromise: Promise<client.Configuration> | null = null;
@@ -61,18 +65,25 @@ export class OIDCAuthService {
       }
     );
     const claims = (tokens.claims?.() || {}) as Record<string, any>;
+    const issuer = (claims.iss || Config.Users.oidc.issuerUrl || '').toString();
+    const subject = (claims.sub || '').toString();
+    if (!subject) {
+      throw new ErrorDTO(ErrorCodes.CREDENTIAL_NOT_FOUND, 'OIDC: missing subject (sub) claim');
+    }
+
     const usernameClaim = Config.Users.oidc.usernameClaim || 'preferred_username';
     const emailClaim = Config.Users.oidc.emailClaim || 'email';
     const preferredUserName = claims[usernameClaim] || '';
     const email = claims[emailClaim] || '';
 
-    const matchedName = (preferredUserName || (email ? String(email).split('@')[0] : '')).toString();
-    if (!matchedName) {
-      throw new ErrorDTO(ErrorCodes.CREDENTIAL_NOT_FOUND, 'OIDC: missing username/email');
-    }
-
     // domain allow-list if configured
-    if (Config.Users.oidc.allowedDomains && Config.Users.oidc.allowedDomains.length > 0 && email) {
+    if (Config.Users.oidc.allowedDomains && Config.Users.oidc.allowedDomains.length > 0) {
+      if (!email) {
+        throw new ErrorDTO(ErrorCodes.CREDENTIAL_NOT_FOUND, 'OIDC: email claim required when allowedDomains is configured');
+      }
+      if (claims.email_verified !== undefined && claims.email_verified !== true && claims.email_verified !== 'true') {
+        throw new ErrorDTO(ErrorCodes.CREDENTIAL_NOT_FOUND, 'OIDC: email is not verified by identity provider');
+      }
       const domain = String(email).split('@')[1] || '';
       const allowed = Config.Users.oidc.allowedDomains.some(d => d.toLowerCase() === domain.toLowerCase());
       if (!allowed) {
@@ -80,13 +91,50 @@ export class OIDCAuthService {
       }
     }
 
-    // try find user by name
-    let user = await ObjectManagers.getInstance().UserManager.findOne({name: matchedName});
-    if (!user && Config.Users.oidc.autoCreateUser) {
-      const rnd = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-      const newUser: UserDTO = {name: matchedName, password: rnd, role: UserRoles.Guest} as any;
-      user = await ObjectManagers.getInstance().UserManager.createUser(newUser);
+    const conn = await SQLConnection.getConnection();
+    const userRepo = conn.getRepository(UserEntity);
+    // 1. Primary lookup: bind by (issuer, subject)
+    let user = await userRepo.findOneBy({oidcIssuer: issuer, oidcSubject: subject});
+
+    if (!user) {
+      const matchedName = (preferredUserName || (email ? String(email).split('@')[0] : '')).toString();
+      if (!matchedName) {
+        throw new ErrorDTO(ErrorCodes.CREDENTIAL_NOT_FOUND, 'OIDC: missing username/email');
+      }
+
+      const existingUserByName = await userRepo.findOneBy({name: matchedName});
+      if (existingUserByName) {
+        // SECURITY (AUD2): Never automatically bind to privileged accounts (Admin / Developer)
+        if (existingUserByName.role === UserRoles.Admin || existingUserByName.role === UserRoles.Developer) {
+          throw new ErrorDTO(
+            ErrorCodes.NOT_AUTHORISED,
+            `Cannot automatically bind OIDC identity to privileged account "${matchedName}".`
+          );
+        }
+        if (existingUserByName.oidcSubject && existingUserByName.oidcSubject !== subject) {
+          throw new ErrorDTO(
+            ErrorCodes.GENERAL_ERROR,
+            `User "${matchedName}" is already linked to another OIDC identity.`
+          );
+        }
+        // Link the existing unprivileged account
+        existingUserByName.oidcIssuer = issuer;
+        existingUserByName.oidcSubject = subject;
+        user = await userRepo.save(existingUserByName);
+      } else if (Config.Users.oidc.autoCreateUser) {
+        const rnd = crypto.randomBytes(16).toString('hex');
+        const newUser: UserDTO = {
+          id: null as any,
+          name: matchedName,
+          password: await PasswordHelper.cryptPasswordAsync(rnd),
+          role: UserRoles.Guest,
+          oidcIssuer: issuer,
+          oidcSubject: subject
+        };
+        user = await ObjectManagers.getInstance().UserManager.createUser(newUser);
+      }
     }
+
     if (!user) {
       throw new ErrorDTO(ErrorCodes.CREDENTIAL_NOT_FOUND, 'User not found');
     }

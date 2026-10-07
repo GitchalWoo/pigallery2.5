@@ -14,11 +14,15 @@ import {VersionMWs} from '../middlewares/VersionMWs';
 import {OIDCRouter} from './OIDCRouter';
 import {UploadRouter} from './UploadRouter';
 import {TimelineRouter} from './TimelineRouter';
+import {CSRFProtection} from '../middlewares/CSRFProtection';
 
 export class Router {
   public static route(app: Express): void {
     app.use(VersionMWs.injectAppVersion);
     PublicRouter.route(app);
+
+    // Enforce CSRF token on state-changing API requests
+    app.use(CSRFProtection.validateToken);
 
     AdminRouter.route(app);
     ExtensionRouter.route(app);
