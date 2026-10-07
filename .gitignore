@@ -24,6 +24,7 @@ gulpfile.js
 gulpfile.js.map
 demo/tmp/
 config.json
+/build-info.json
 users.db
 sqlite.db
 dist/

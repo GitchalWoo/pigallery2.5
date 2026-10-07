@@ -32,9 +32,9 @@
             placement="bottom"
             [popover]="popTemplate"
             class="version"
-            href="https://github.com/bpatrik/pigallery2/releases">
+            [href]="(settingsService.settings | async).Environment.appVersionUrl">
             <span
-              i18n>App version:</span>&nbsp;<span>{{'v' + ((settingsService.settings | async).Environment.appVersion || '----')}}</span>
+              i18n>App version:</span>&nbsp;<span>{{(settingsService.settings | async).Environment.appVersion || '----'}}</span>
             </a>
           </div>
           <div class="mb-1">
@@ -150,7 +150,7 @@
     </div>
   </app-frame>
   <ng-template #popTemplate>
-    <span i18n>Application version</span>: v{{(settingsService.settings | async).Environment.appVersion}}
+    <span i18n>Application version</span>: {{(settingsService.settings | async).Environment.appVersion}}
     @if ((settingsService.settings | async).Environment.buildTime) {
       <br/>
       <span i18n>Built at</span>: {{(settingsService.settings | async).Environment.buildTime | date:'medium' }}
