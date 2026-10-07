@@ -17,6 +17,7 @@ gulpfile.js
 gulpfile.js.map
 .travis.yml
 config.json
+build-info.json
 karma.conf.js
 protractor.conf.js
 Procfile

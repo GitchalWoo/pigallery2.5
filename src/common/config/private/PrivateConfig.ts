@@ -1185,6 +1185,8 @@ export class ServerEnvironmentConfig {
   @ConfigProperty({volatile: true})
   appVersion: string | undefined;
   @ConfigProperty({volatile: true})
+  appVersionUrl: string | undefined;
+  @ConfigProperty({volatile: true})
   buildTime: string | undefined;
   @ConfigProperty({volatile: true})
   buildCommitHash: string | undefined;

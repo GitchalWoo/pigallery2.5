@@ -1,4 +1,3 @@
-import {execFileSync} from 'node:child_process';
 import {createWriteStream, realpathSync} from 'node:fs';
 import {cp, mkdir, readFile, rm, writeFile} from 'node:fs/promises';
 import path from 'node:path';
@@ -6,8 +5,9 @@ import {pipeline} from 'node:stream/promises';
 import {parseArgs} from 'node:util';
 import archiver from 'archiver';
 import {buildFrontend, root, runTool} from './tooling.mjs';
+import {createBuildInfo} from './build-info.mjs';
 
-export function releasePackage(source, {skipOptional = '', forceOptional = false, buildTime, buildCommitHash} = {}) {
+export function releasePackage(source, {skipOptional = '', forceOptional = false, buildTime, buildCommitHash, appVersion, appVersionUrl} = {}) {
   const pkg = structuredClone(source);
   delete pkg.devDependencies;
   delete pkg.c8;
@@ -22,6 +22,8 @@ export function releasePackage(source, {skipOptional = '', forceOptional = false
   }
   pkg.buildTime = buildTime || new Date().toISOString();
   if (buildCommitHash) pkg.buildCommitHash = buildCommitHash;
+  if (appVersion) pkg.appVersion = appVersion;
+  if (appVersionUrl) pkg.appVersionUrl = appVersionUrl;
   return pkg;
 }
 
@@ -36,14 +38,8 @@ export async function createRelease(options = {}) {
     await mkdir(path.dirname(target), {recursive: true});
     await cp(path.join(root, file), target, {recursive: true});
   }
-  let buildCommitHash;
-  try {
-    buildCommitHash = execFileSync('git', ['rev-parse', 'HEAD'], {cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim();
-  } catch {
-    // Source archives may not include Git metadata.
-  }
   const source = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
-  await writeFile(path.join(releaseDir, 'package.json'), JSON.stringify(releasePackage(source, {...options, buildCommitHash}), null, 2) + '\n');
+  await writeFile(path.join(releaseDir, 'package.json'), JSON.stringify(releasePackage(source, {...options, ...createBuildInfo()}), null, 2) + '\n');
   const archive = archiver('zip', {zlib: {level: 9}});
   const output = pipeline(archive, createWriteStream(path.join(root, 'pigallery2.zip')));
   archive.glob('**/*', {cwd: releaseDir, dot: true, nodir: true});

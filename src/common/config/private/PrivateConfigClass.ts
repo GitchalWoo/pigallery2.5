@@ -2,6 +2,7 @@
 import {ServerConfig} from './PrivateConfig';
 import * as crypto from 'crypto';
 import * as path from 'path';
+import * as fs from 'fs';
 import {ConfigClass} from 'typeconfig/node';
 import {IConfigClass} from 'typeconfig/common';
 import {PasswordHelper} from '../../../backend/model/PasswordHelper';
@@ -79,12 +80,16 @@ export class PrivateConfigClass extends ServerConfig {
       ];
     }
 
-    this.Environment.appVersion =
-      require('../../../../package.json').version;
-    this.Environment.buildTime =
-      require('../../../../package.json').buildTime;
-    this.Environment.buildCommitHash =
-      require('../../../../package.json').buildCommitHash;
+    // Releases embed provenance in package.json; local builds use an ignored sidecar.
+    let buildInfo = require('../../../../package.json');
+    const buildInfoPath = path.join(__dirname, '../../../../build-info.json');
+    if (!buildInfo.appVersion && fs.existsSync(buildInfoPath)) {
+      buildInfo = JSON.parse(fs.readFileSync(buildInfoPath, 'utf8'));
+    }
+    this.Environment.appVersion = buildInfo.appVersion || 'pigallery2.5@source';
+    this.Environment.appVersionUrl = buildInfo.appVersionUrl || 'https://github.com/GitchalWoo/pigallery2.5/';
+    this.Environment.buildTime = buildInfo.buildTime;
+    this.Environment.buildCommitHash = buildInfo.buildCommitHash;
     this.Environment.upTime = upTime;
     this.Environment.isDocker = !!process.env.PI_DOCKER;
   }
