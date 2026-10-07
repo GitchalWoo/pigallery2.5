@@ -90,21 +90,27 @@
       },
       "architect": {
         "build": {
-          "builder": "@angular-builders/custom-webpack:browser",
+          "builder": "@angular/build:application",
           "options": {
             "localize": true,
             "aot": true,
             "crossOrigin": "anonymous",
-            "outputPath": "dist",
+            "outputPath": {
+              "base": "dist",
+              "browser": "",
+              "media": "assets"
+            },
             "index": "src/frontend/index.html",
             "progress": true,
-            "main": "src/frontend/main.ts",
             "tsConfig": "src/frontend/tsconfig.app.json",
-            "polyfills": "src/frontend/polyfills.ts",
+            "polyfills": [
+              "src/frontend/polyfills.ts"
+            ],
             "allowedCommonJsDependencies": [
               "typeconfig",
               "typeconfig/common",
               "typeconfig/src/decorators/builders/WebConfigClassBuilder",
+              "reflect-metadata",
               "leaflet",
               "leaflet.markercluster"
             ],
@@ -127,18 +133,23 @@
             ],
             "scripts": [],
             "i18nMissingTranslation": "warning",
-            "customWebpackConfig": {
-              "path": "./angular.webpack.js",
-              "replaceDuplicatePlugins": true
-            }
+            "browser": "src/frontend/main.ts",
+            "fileReplacements": [
+              {
+                "replace": "src/common/config/private/Config.ts",
+                "with": "src/common/config/public/Config.ts"
+              }
+            ]
           },
           "configurations": {
             "dev": {
-              "outputPath": "dist/en",
+              "outputPath": {
+                "base": "dist/en",
+                "browser": "",
+                "media": "assets"
+              },
               "localize": false,
-              "buildOptimizer": false,
               "optimization": false,
-              "vendorChunk": true,
               "extractLicenses": false,
               "sourceMap": true,
               "namedChunks": true,
@@ -150,9 +161,11 @@
               "sourceMap": false,
               "namedChunks": false,
               "extractLicenses": true,
-              "vendorChunk": false,
-              "buildOptimizer": true,
               "fileReplacements": [
+                {
+                  "replace": "src/common/config/private/Config.ts",
+                  "with": "src/common/config/public/Config.ts"
+                },
                 {
                   "replace": "src/frontend/environments/environment.ts",
                   "with": "src/frontend/environments/environment.prod.ts"
@@ -174,28 +187,29 @@
           }
         },
         "serve": {
-          "builder": "@angular-builders/custom-webpack:dev-server",
+          "builder": "@angular/build:dev-server",
           "options": {
-            "browserTarget": "pigallery2:build"
+            "buildTarget": "pigallery2:build"
           },
           "configurations": {
             "production": {
-              "browserTarget": "pigallery2:build:production"
+              "buildTarget": "pigallery2:build:production"
             }
           }
         },
         "extract-i18n": {
-          "builder": "@angular-builders/custom-webpack:extract-i18n",
+          "builder": "@angular/build:extract-i18n",
           "options": {
             "buildTarget": "pigallery2:build"
           }
         },
         "test": {
-          "builder": "@angular-builders/custom-webpack:karma",
+          "builder": "@angular/build:karma",
           "options": {
             "karmaConfig": "./karma.conf.js",
             "polyfills": [
-              "src/frontend/polyfills.ts",
+              "@angular/localize/init",
+              "zone.js",
               "zone.js/testing"
             ],
             "tsConfig": "src/frontend/tsconfig.spec.json",
@@ -217,10 +231,12 @@
                 "output": "./assets/"
               }
             ],
-            "customWebpackConfig": {
-              "path": "./angular.webpack.js",
-              "replaceDuplicatePlugins": true
-            }
+            "fileReplacements": [
+              {
+                "replace": "src/common/config/private/Config.ts",
+                "with": "src/common/config/public/Config.ts"
+              }
+            ]
           }
         },
         "lint": {

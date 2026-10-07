@@ -20,8 +20,8 @@
     "start": "node ./src/backend/index",
     "run-diagnostics": "node ./src/backend/index --run-diagnostics --Server-Log-level=silly",
     "run-dev": "ng build  --configuration=dev",
-    "build-stats": "ng build  --stats-json",
-    "analyze": "webpack-bundle-analyzer dist/en/stats.json",
+    "build-stats": "node scripts/build.mjs --languages=en --stats-json",
+    "analyze": "node scripts/analyze.mjs",
     "merge-new-translation": "node scripts/translations.mjs merge",
     "generate-man": "npm run build-backend && node scripts/generate-man.mjs",
     "lint": "ng lint",
@@ -68,9 +68,9 @@
     "typeorm": "0.3.31"
   },
   "devDependencies": {
-    "@angular-builders/custom-webpack": "22.0.1",
     "@angular-devkit/schematics": "22.2.1",
     "@angular/animations": "22.2.1",
+    "@angular/build": "22.2.1",
     "@angular/cli": "22.2.1",
     "@angular/common": "22.2.1",
     "@angular/compiler": "22.2.1",
@@ -113,6 +113,7 @@
     "chokidar": "5.0.0",
     "cypress": "15.19.0",
     "deep-equal-in-any-order": "2.0.6",
+    "esbuild": "0.28.2",
     "eslint": "9.32.0",
     "eslint-plugin-chai-friendly": "1.1.0",
     "jasmine-core": "5.9.0",
@@ -132,7 +133,6 @@
     "rxjs": "7.8.2",
     "typescript": "6.0.3",
     "typescript-eslint": "8.71.1",
-    "webpack-bundle-analyzer": "4.10.2",
     "xlf-google-translate": "1.0.1",
     "zone.js": "0.16.3"
   },
