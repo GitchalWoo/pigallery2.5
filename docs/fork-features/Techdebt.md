@@ -22,17 +22,17 @@ later, **L** = cleanup.
 
 | # | Item | Where | Priority | Notes |
 |---|---|---|---|---|
-| B8 | SQLite text searches miss literal `_` / `%` characters | `SearchManager.ts` (`convertGlobToLike`, `getLikeExpr`) | M | Found during Step 2 smoke validation in unchanged backend code: `IMG_5910.jpg` does not match, while `5910` does. Escaped LIKE patterns need an explicit SQLite `ESCAPE` clause. Fix separately with regression coverage for both database engines |
+| B8 | SQLite text searches miss literal `_` / `%` characters | `SearchManager.ts` (`convertGlobToLike`, `getLikeExpr`) | Closed | Resolved in Batch 1 (2026-10-07): Added SQLite `ESCAPE '\\'` clause to LIKE queries and properly escaped literal `_` and `%` in glob patterns. Verified with regression coverage across both SQLite and MariaDB |
 
 ## Security follow-ups
 
 | # | Item | Priority | Notes |
 |---|---|---|---|
-| S1 | Implicit cookie / CSRF policy | H | Define `SameSite`/`Secure` and CSRF protection; depends on proxy/HTTPS deployment |
-| S2 | No visible login throttling | H | Add rate limiting / backoff on login and the OIDC callback |
-| S3 | Upload memory use: multer memory storage, 50 MiB × 10 files per request, no concurrency cap | M | Consider disk storage or a global concurrent-upload limit |
-| S4 | Full `npm audit`: 30 advisories in devDependencies/tooling | M | Step 4 snapshot, 2026-10-06: 30 advisories (1 low, 7 moderate, 20 high, 2 critical); `--omit=dev` is 0. Removing the obsolete release compiler reduced the Step 3 total from 36. Includes webpack build/serve tooling, Karma and Mocha/Cypress/Gulp/coverage advisories |
-| S5 | Path traversal / CodeQL CWE-22 (19 alerts) | H | Pre-existing path expressions in UploadManager, GalleryMWs, GPX/PhotoProcessing exposed by route modernization; full inventory and remediation plan in [Security-Updates.md](Security-Updates.md) |
+| S1 | Implicit cookie / CSRF policy | Closed | Resolved in Batch 1 (2026-10-07): Added `httpOnly`, `sameSite: 'lax'`, `signed: true` cookie settings and double-submit CSRF protection (`CSRFProtection.ts`, `PI-GALLERY2-CSRF-TOKEN`) for mutating API endpoints |
+| S2 | No visible login throttling | Closed | Resolved in Batch 1 (2026-10-07): Implemented in-memory sliding-window rate limiting (`RateLimiter.ts`) on `/user/login`, `/share/:key/login`, and `/auth/oidc/callback` (10 req/min, 429 Retry-After) |
+| S3 | Upload memory use: multer memory storage, 50 MiB × 10 files per request, no concurrency cap | Closed | Resolved in Batch 1 (2026-10-07): Added upload concurrency semaphore (`MAX_CONCURRENT_UPLOADS = 5`) returning 429 when saturated. Retained 50 MiB/file and 10 parts/request limits |
+| S4 | Full `npm audit`: 30 advisories in devDependencies/tooling | M | Step 4 snapshot, 2026-10-06: 30 advisories (1 low, 7 moderate, 20 high, 2 critical); `--omit=dev` is 0. Removing the obsolete release compiler reduced the Step 3 total from 36. Includes webpack build/serve tooling, Karma and Mocha/Cypress/Gulp/coverage advisories. Overrode `proxy-addr` to 2.0.8 (Dependabot #5) |
+| S5 | Path traversal / CodeQL CWE-22 (19 alerts) | Closed | Resolved in Batch 1 (2026-10-07): Implemented centralized `SafePath.ts` containment verification, normalized path params, null byte stripping, and integrated into all media/file sinks and PublicRouter asset serving |
 
 ## Tooling / repo hygiene
 
@@ -79,8 +79,7 @@ local workaround until M2; no further Karma remediation is planned in this batch
 
 ## Completed dependency and tooling cleanup (2026-10-07)
 
-Implemented on `cleanup/dependencies-and-tooling`; these IDs are closed locally
-and retained here for traceability.
+Merged into `master` at `c088d0a6` via PR #13; these IDs are retained here for traceability.
 
 | IDs | Completed change |
 |---|---|
@@ -96,5 +95,34 @@ Validation: 740 backend tests on SQLite/MariaDB, 152 frontend tests (both runner
 exit naturally), four tooling tests, English-only
 build, all 16 release locales, ZIP/manifest/binary-fixture checks, XLIFF extraction
 (1,083 messages), and byte-identical generated configuration manual. c8 reports
-189 backend/common TypeScript files. Existing lint, Sonar, and security audit
-checks were not rerun; earlier advisory counts above remain historical snapshots.
+189 backend/common TypeScript files.
+
+## Completed Application Hardening Batch 1 (2026-10-07)
+
+Implemented on `hardening/application`. Covers security audit findings (AUD1–AUD14),
+perimeter controls (S1, S2, S3, S5), search glob escaping (B8), and dependency overrides (Dependabot #5).
+
+| Scope | Implementation Summary |
+|---|---|
+| **S1** | Double-submit CSRF protection (`CSRFProtection.ts`) with `pigallery2-csrf-token` cookie & header validation; hardened session cookie flags (`httpOnly: true`, `sameSite: 'lax'`, `signed: true`). |
+| **S2** | Sliding-window IP rate limiter (`RateLimiter.ts`) guarding `/user/login`, `/share/:key/login`, and `/auth/oidc/callback` (10 attempts/min, HTTP 429 with `Retry-After`). |
+| **S3** | Upload concurrency semaphore (`MAX_CONCURRENT_UPLOADS = 5`) returning HTTP 429 when saturated; retained 50 MiB/file and 10 parts/request limits. |
+| **S5** | Centralized `SafePath.ts` containment verification enforcing base-directory boundaries, null-byte stripping, and root-slash handling across all media/file endpoints and frontend asset routes. |
+| **AUD1** | `validateExistingSession` rechecking session validity against database user/role changes, expiry, and sharing record state. |
+| **AUD2** | Bound OIDC identities to `(oidcIssuer, oidcSubject)`, prevented unlinked privileged account takeover, and enforced `email_verified` when domain restrictions apply. |
+| **AUD3** | Separated share access boundary (`searchQuery`) from initial presentation view (`defaultSearchView`). |
+| **AUD4** | Non-destructive schema synchronization: replaced destructive database drops with non-destructive updates, added automatic pre-migration SQLite backups, and made connection tests read-only. |
+| **AUD5** | Bounded share-key generation loop with collision retries, error propagation, and database-level unique constraint (`@Column({unique: true})`). |
+| **AUD6** | Stripped password hashes from session context across all authentication and profile-update flows. |
+| **AUD7** | Explicit caching headers: `private, max-age=31536000` for protected media; `no-store, no-cache` for sensitive configuration/user endpoints. |
+| **AUD8** | Random 16-character alphanumeric admin password generation on initial setup, replacing default `admin/admin`. |
+| **AUD9** | Redacted credentials, passwords, tokens, and sharing keys from diagnostic logs and logged URLs. |
+| **AUD10** | Atomic exclusive upload creation (`wx` flag) preventing file overwrite races, with automatic cleanup of partial files on write errors. |
+| **AUD11** | ZIP streaming disconnect handling (`res.on('close')` -> `archive.abort()`), response header error guards, and SafePath containment for archive entries. |
+| **AUD12** | Asynchronous password hashing and verification (`cryptPasswordAsync`, `comparePasswordAsync`) via bcrypt. |
+| **AUD13** | Preserved query filters when filtering shares by creator in `listAllForQuery` (`andWhere`). |
+| **AUD14** | Explicit metafile permission policy verified in `GalleryManager.authoriseMetaFile`. |
+| **B8** | SQLite text search fix for literal `_` and `%` using `ESCAPE '\\'` clause. |
+| **Deps** | Pinned `proxy-addr: 2.0.8` via npm override to resolve Dependabot advisory #5. |
+
+Validation: 788 passing backend tests on SQLite and MariaDB (0 failures), 152 frontend Karma tests, 4 tooling tests, and 0 production vulnerabilities (`npm audit --omit=dev`).

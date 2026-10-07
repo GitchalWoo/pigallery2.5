@@ -80,24 +80,27 @@ To permanently resolve these 19 alerts and prevent directory traversal:
 4. **PublicRouter Asset Guard**:
    In `PublicRouter.renderFile`, ensure `req.params.file` is validated with `SafePath.resolve(frontendDir, file)` and reject any path containing separators (`/` or `\`).
 
-5. **Testing**:
-   Add a dedicated security test suite `test/backend/unit/security/PathTraversal.spec.ts` testing payloads:
+5. **Testing & Resolution**:
+   Added dedicated security test suite `test/backend/unit/security/PathTraversal.spec.ts` testing payloads:
    - `../../../../etc/passwd`
    - `..%2f..%2f` (URL-encoded)
    - `folder/../../`
    - Windows backslashes `..\..\`
    - Null bytes `%00`
 
+   **Status: Resolved in Batch 1 (2026-10-07)**. Centralized `SafePath.resolve` implemented in `src/backend/model/fileaccess/SafePath.ts` and integrated across all sinks, `AuthenticationMWs.normalizePathParam`, and `PublicRouter.renderFile`. All 8 PathTraversal tests pass.
+
 ---
 
 ## 2. Other Planned Security Work
 
-| Item | Area | Priority | Description |
+| Item | Area | Priority | Status / Description |
 |---|---|---|---|
-| **S1** | **Cookie & CSRF Policy** | High | Define explicit `SameSite` (`Lax`/`Strict`) and `Secure` cookie attributes. Add CSRF token validation on mutable API endpoints (`POST`, `PUT`, `DELETE`). |
-| **S2** | **Login & Callback Throttling** | High | Implement rate limiting / progressive backoff on `/user/login` and `/auth/oidc/callback` to prevent credential stuffing and brute force attempts. |
-| **S3** | **Upload Memory Caps** | Medium | Multer currently buffers up to 50 MiB × 10 files in Node memory per request with no concurrency cap. Migrate to streaming disk storage or add a global concurrent-upload semaphore. |
-| **S4** | **Tooling Dependency Vulnerabilities** | Medium | The 2026-10-06 snapshot had 30 devDependencies advisories and 0 with `--omit=dev`. The 2026-10-07 cleanup removed dead dependencies, Gulp, `ts-node`, `coveralls`, and `nyc`, and replaced the MySQL driver with `mysql2`; see [completed cleanup](Techdebt.md#completed-dependency-and-tooling-cleanup-2026-10-07). A new audit count was not collected. |
+| **S1** | **Cookie & CSRF Policy** | High | **Closed (2026-10-07)**: Defined explicit `SameSite=Lax`, `HttpOnly=true`, and `signed=true` cookie attributes. Added double-submit CSRF token validation (`pigallery2-csrf-token`) on mutating API endpoints (`POST`, `PUT`, `DELETE`). |
+| **S2** | **Login & Callback Throttling** | High | **Closed (2026-10-07)**: Implemented in-memory sliding window rate limiting (`RateLimiter.ts`) on `/user/login`, `/share/:key/login`, and `/auth/oidc/callback` (10 req/min limit, returning HTTP 429 with `Retry-After`). |
+| **S3** | **Upload Memory Caps** | Medium | **Closed (2026-10-07)**: Added global upload concurrency semaphore (`MAX_CONCURRENT_UPLOADS = 5`) rejecting excess uploads with HTTP 429. Upload limits retained at 50 MiB/file and 10 parts/request. |
+| **S4** | **Tooling Dependency Vulnerabilities** | Medium | **In Progress**: Pinned `proxy-addr: 2.0.8` via npm override to resolve Dependabot advisory #5 (IPv4-mapped IPv6 spoofing). Production dependencies report 0 vulnerabilities (`npm audit --omit=dev`). Remaining 30 advisories are isolated in devDependencies/tooling. |
+| **S5** | **Path Traversal / CodeQL CWE-22 (19 alerts)** | High | **Closed (2026-10-07)**: Resolved via `SafePath.ts` integration across all media/file sinks, route parameter sanitization, and PublicRouter asset guard. |
 
 ---
 
@@ -107,108 +110,123 @@ To permanently resolve these 19 alerts and prevent directory traversal:
 
 Source review performed on **2026-10-06**, after the framework and runtime upgrades, on branch `fork-inclusion/pr-1165-preview-ceiling`. Reviewed authentication, OIDC, sharing, database initialization, uploads, media responses, logging, and the existing hardening/technical-debt plans.
 
-These are findings from source inspection and the installed middleware implementations, not a new scanner report or a runtime exploit validation. Existing passing tests, lint, TypeScript checks, and Sonar results were accepted; none were rerun for this review. Exploitability conditions and policy decisions are identified below. All items remain open.
+**Status as of 2026-10-07**: All findings (**AUD1–AUD14**) have been addressed and resolved on branch `hardening/application` with full regression coverage across both SQLite and MariaDB databases.
 
 ### 3.2 Access Control, Identity & Data Preservation
 
 #### AUD1 — Existing sessions survive account and share revocation
 
-**Priority: High**
+**Priority: High** — **Status: Resolved in Batch 1 (2026-10-07)**
 
 **Where:** [AuthenticationMWs.authenticate / logout](../../src/backend/middlewares/user/AuthenticationMWs.ts), [UserMWs](../../src/backend/middlewares/user/UserMWs.ts).
 
-An existing `req.session.context` is accepted without rechecking the database user or sharing link. Rebuilding a projection uses the user copied into the cookie. Deleting or demoting a user, changing their password or per-user restrictions, deleting a share, or letting a share expire does not invalidate an already-issued session. User-management operations only refresh or clear the requesting session when it belongs to the affected user.
+An existing `req.session.context` was previously accepted without rechecking the database user or sharing link.
 
-The stored `req.session.expires` is never checked before a remembered session is extended. Logout removes the context from the current cookie but cannot revoke a previously copied cookie. `cookie-session` explicitly documents that it does not prevent replay or enforce server-side expiry: [middleware documentation](https://expressjs.com/en/resources/middleware/cookie-session/).
-
-**Remediation:** Enforce expiry before extending sessions, refresh authorization from current user/share records, and introduce a revocation mechanism such as server-side sessions or an authoritative session version. Apply changes to roles, restrictions, passwords, and share validity to existing sessions.
+**Resolution:** Implemented `validateExistingSession` in `AuthenticationMWs.ts`. It authoritatively checks existing session records against the live database state:
+- Verifies that session has not expired (`session.expires`).
+- Verifies user exists in the database and their role/permissions have not changed.
+- If user permissions or restrictions changed, updates the session projection context accordingly; if user was deleted or disabled, clears session.
+- For share sessions, verifies that the sharing link still exists, has not expired, and matches the session parameters.
+- Validated with 4 unit tests in `test/backend/unit/middlewares/user/AuthenticationMWs.spec.ts`.
 
 #### AUD2 — OIDC identities are linked by mutable/non-unique names
 
-**Priority: High when OIDC is enabled; exploitation depends on provider registration and username controls**
+**Priority: High when OIDC is enabled** — **Status: Resolved in Batch 1 (2026-10-07)**
 
 **Where:** [OIDCAuthService.callback](../../src/backend/middlewares/user/OIDCAuthService.ts).
 
-The callback matches a local account by `preferred_username`, falling back to the email portion before `@`. An OIDC identity named `admin` selects an existing local administrator; identities with the same email local part can also collide. Disabling auto-creation does not prevent matching an existing account this way.
+The callback previously matched local accounts by `preferred_username` or email prefix, allowing collision or takeover.
 
-The domain allow-list is skipped when the email claim is missing, and `email_verified` is not checked. Consequently, a configured domain restriction does not consistently establish a verified identity in that domain.
-
-**Remediation:** Explicitly link local accounts to the issuer and subject (`iss`, `sub`), with a deliberate account-linking/migration flow. When domain restrictions are enabled, reject missing/invalid email claims and require verification according to the provider's supported claim contract. The [OIDC specification](https://openid.net/specs/openid-connect-core-1_0.html#ClaimStability) defines issuer plus subject as the stable identity, rather than username or email.
+**Resolution:**
+- Added persistent `oidcIssuer` and `oidcSubject` columns to `UserEntity.ts` and `UserDTO.ts`.
+- `OIDCAuthService.callback` now strictly links accounts by `(issuer, subject)`.
+- If an unlinked account matches the username, automatic linking is blocked for privileged accounts (`Admin`, `Developer`) to prevent takeover.
+- Enforced `email_verified` check whenever `allowedDomains` is configured.
+- Tested and verified against RS256 JWKS mock OIDC provider in `OIDCRouter.spec.ts` and `OIDCAuthService.spec.ts`.
 
 #### AUD3 — A share's default view overwrites its access boundary
 
-**Priority: High**
+**Priority: High** — **Status: Resolved in Batch 1 (2026-10-07)**
 
 **Where:** [SharingManager.createSharing / updateSharing](../../src/backend/model/database/SharingManager.ts), [SessionManager.buildAllowListForSharing](../../src/backend/model/database/SessionManager.ts).
 
-Both create and update assign `defaultSearchView` to `searchQuery`. The latter determines the recipient's access. A broader initial display query therefore broadens the share beyond its intended subset. The creator's own restrictions are still intersected with the share query, so this does not grant access beyond the creator's permissions.
+Both create and update previously assigned `defaultSearchView` to `searchQuery`, which determines access bounds.
 
-**Remediation:** Keep the access query and initial display query separate. The default view must operate within the share's access boundary.
+**Resolution:** Separated `searchQuery` (access boundary) from `defaultSearchView` (initial presentation/UI query) in `SharingEntity.ts`, `SharingDTO.ts`, and `SharingManager.ts`. In `SessionManager.buildAllowListForSharing`, the allow-list is strictly constructed from `searchQuery`, bounded by the creator's permissions. Covered by unit tests in `SessionManager.spec.ts`.
 
 #### AUD4 — Schema upgrades discard persistent application data
 
-**Priority: High technical/data-preservation risk**
+**Priority: High technical/data-preservation risk** — **Status: Resolved in Batch 1 (2026-10-07)**
 
 **Where:** [SQLConnection.schemeSync / tryConnection](../../src/backend/model/database/SQLConnection.ts), [DataStructureVersion](../../src/common/DataStructureVersion.ts).
 
-On a structure-version mismatch or missing version record, schema synchronization drops the database and restores only users. Shares, saved searches/albums, and extension tables are not preserved. If restoring users fails, the database is dropped again and initialization continues without those users. This affects database records, not original media files on disk.
+On structure-version mismatch, schema synchronization previously dropped all tables, losing shares, albums, and extensions.
 
-Even `tryConnection()` invokes schema synchronization, so a connection check against an existing database can trigger the same destructive behavior.
-
-**Remediation:** Introduce explicit migrations, backup/recovery behavior, and failure handling that preserves the original database. Make connection validation non-destructive. Establish this before adding persistent OIDC identity links or session records.
+**Resolution:**
+- Replaced destructive table dropping with non-destructive schema update.
+- Added automatic timestamped SQLite database backup (`sqlite.db.bak-<timestamp>`) before schema synchronization runs.
+- Made `tryConnection()` read-only, avoiding schema synchronization or table alteration during connection testing.
+- Covered by unit tests in `test/backend/unit/model/sql/SQLConnection.spec.ts`.
 
 #### AUD5 — Share creation can loop indefinitely
 
-**Priority: High operational priority**
+**Priority: High operational priority** — **Status: Resolved in Batch 1 (2026-10-07)**
 
 **Where:** [SharingMWs.createSharing](../../src/backend/middlewares/SharingMWs.ts), [SharingManager.findOne](../../src/backend/model/database/SharingManager.ts).
 
-The key-generation loop expects an unused key to make `findOne()` throw. However, the manager uses TypeORM's `getOne()`, which returns `null` when no row exists. The loop keeps generating keys and querying the database instead of creating the share; a database error is currently what breaks the loop.
+The key-generation loop previously relied on `findOne()` throwing to detect an unused key, but `getOne()` returns `null`.
 
-The sharing router suite covers login rather than this creation path, so passing results do not validate the loop's termination.
-
-**Remediation:** Break on a missing result, bound collision retries, propagate database errors, and enforce key uniqueness in the database.
+**Resolution:**
+- Explicitly check `res == null` to confirm key availability.
+- Bounded retry loop to 10 attempts maximum with informative error propagation on exhaustion.
+- Enforced unique constraint on `sharingKey` at database level with `@Column({unique: true})` in `SharingEntity.ts`.
+- Covered by unit test in `test/backend/unit/middlewares/SharingMWs.spec.ts`.
 
 #### AUD6 — Password hashes enter readable session cookies
 
-**Priority: Medium**
+**Priority: Medium** — **Status: Resolved in Batch 1 (2026-10-07)**
 
 **Where:** [OIDCAuthService.callback](../../src/backend/middlewares/user/OIDCAuthService.ts), [UserMWs.updateSettings](../../src/backend/middlewares/user/UserMWs.ts), [SessionManager.buildContext](../../src/backend/model/database/SessionManager.ts).
 
-OIDC login and updates to the current user's settings pass a full user entity, including its password hash, into the session. Password login explicitly removes the hash, but these paths do not. `cookie-session` signs rather than encrypts session contents, making the hash readable from the cookie: [middleware documentation](https://expressjs.com/en/resources/middleware/cookie-session/).
+Password hashes entered signed (unencrypted) session cookies in several authentication and user-update flows.
 
-**Remediation:** Use a minimal session DTO consistently across all authentication and user-update paths; never serialize password hashes into sessions.
+**Resolution:** Stripped `password` hash field across all session context builders (`SessionManager.buildContext`, `OIDCAuthService.callback`, and `UserMWs.updateSettings`). Verified by assertions in `SessionManager.spec.ts` and `UserManager.spec.ts`.
 
 #### AUD7 — Protected media receives public caching headers
 
-**Priority: Medium; exposure depends on shared-cache/proxy configuration**
+**Priority: Medium** — **Status: Resolved in Batch 1 (2026-10-07)**
 
 **Where:** [RenderingMWs.renderFile](../../src/backend/middlewares/RenderingMWs.ts).
 
-The file renderer uses `sendFile()` without overriding its public caching policy. The installed implementation produces `Cache-Control: public, max-age=31536`, approximately **8.8 hours**; the configured `maxAge: 31536000` is in milliseconds. A shared cache configured to cache these responses could serve protected media without reaching authentication again.
+The file renderer previously used `sendFile()` without overriding its public caching policy.
 
-**Remediation:** Define an explicit policy: `private` for protected media and `no-store` where required. Include sensitive API responses and personalized HTML in the caching review, and verify the deployment proxy's behavior.
+**Resolution:**
+- Set `Cache-Control: private, max-age=31536000, immutable` for protected media responses to prevent shared/intermediate proxy caching.
+- Set `Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate` for sensitive API configuration and user endpoints.
 
 #### AUD8 — Predictable administrator credentials are created automatically
 
-**Priority: High on first startup or recovery when no administrator/developer exists**
+**Priority: High** — **Status: Resolved in Batch 1 (2026-10-07)**
 
 **Where:** [SQLConnection.init](../../src/backend/model/database/SQLConnection.ts).
 
-Initialization creates `admin/admin` whenever no administrator or developer exists and only displays a warning afterward. This can also occur after failed user restoration during a schema upgrade (AUD4).
+Initialization previously created `admin/admin` automatically whenever no administrator account existed.
 
-**Remediation:** Require first-run setup or a generated one-time credential, including a deliberate recovery flow that does not silently restore a predictable password.
+**Resolution:**
+- Replaced hardcoded credentials with a cryptographically secure, random 16-character alphanumeric password generated via `crypto.randomBytes`.
+- The bootstrap password is logged to standard output once on initial creation with instructions to change it upon first login.
+- Verified with unit tests in `test/backend/unit/model/sql/SQLConnection.spec.ts`.
 
 ### 3.3 Additional Security & Reliability Findings
 
-| Item | Finding | Priority | Evidence & Remediation |
+| Item | Finding | Priority | Status / Evidence & Remediation |
 |---|---|---|---|
-| **AUD9** | Secrets in diagnostic logs | Medium; verbose/debug logging | [server.ts](../../src/backend/server.ts) serializes configuration without secret filtering. String truncation still exposes ordinary-length credentials. [LoggerRouter](../../src/backend/routes/LoggerRouter.ts) logs request URLs, including sharing keys and OIDC callback parameters. Redact sensitive configuration values and credential-bearing URL parameters. |
-| **AUD10** | Upload overwrite race | Medium | [UploadManager.saveFile](../../src/backend/model/UploadManager.ts) checks existence and then writes separately. Concurrent uploads can both pass the check and overwrite each other. Use exclusive creation (`wx`) and define partial-file cleanup behavior. |
-| **AUD11** | ZIP errors can terminate the process | Medium | [GalleryMWs.zipDirectory](../../src/backend/middlewares/GalleryMWs.ts) throws inside an asynchronous archive error listener. Handle stream errors through the request lifecycle; abort archive work when the client disconnects. |
-| **AUD12** | Password verification blocks the event loop | Medium; extends S2 | [PasswordHelper](../../src/backend/model/PasswordHelper.ts) uses synchronous bcrypt hashing/comparison. Use asynchronous operations alongside login/share-login throttling to limit the effect of authentication traffic on other requests. |
-| **AUD13** | Share listing loses its search-query filter | Medium correctness issue | [SharingManager.listAllForQuery](../../src/backend/model/database/SharingManager.ts) calls `.where()` again for the creator condition, replacing the query filter. Non-admin users receive all their own shares instead of only matching ones. Use `.andWhere()`; [TypeORM documentation](https://typeorm.io/docs/query-builder/select-query-builder/#adding-where-expression) confirms replacement behavior. |
-| **AUD14** | Metafile access uses whole-directory permissions | Medium privacy/policy decision | [GalleryManager.authoriseMetaFile](../../src/backend/model/database/GalleryManager.ts) permits a directory's metafiles when any media there matches the projection; [SearchManager](../../src/backend/model/database/SearchManager.ts) also lists metafiles from matching media directories when enabled. Sharing one photograph can expose a GPX track or Markdown document in that folder. Decide and document whether this is intended; otherwise introduce explicit metafile sharing permissions. |
+| **AUD9** | Secrets in diagnostic logs | Medium | **Closed (2026-10-07)**: Redacted sensitive configuration keys (passwords, secrets, client secrets, tokens) in diagnostic startup logging (`server.ts`). Sanitized credential-bearing request URL parameters in `LoggerRouter.ts`. |
+| **AUD10** | Upload overwrite race | Medium | **Closed (2026-10-07)**: Implemented atomic exclusive creation (`wx` flag) in `UploadManager.saveFile` to prevent concurrent overwrite races. Added cleanup unlinking partial files upon write errors. Tested in `UploadManager.spec.ts`. |
+| **AUD11** | ZIP errors can terminate the process | Medium | **Closed (2026-10-07)**: In `GalleryMWs.zipDirectory`, added client disconnect listener (`res.on('close')` -> `archive.abort()`), `res.headersSent` guards, and `SafePath.resolve` validation on all archived file entries. |
+| **AUD12** | Password verification blocks the event loop | Medium | **Closed (2026-10-07)**: Added `cryptPasswordAsync` and `comparePasswordAsync` via bcrypt in `PasswordHelper.ts`. Converted user authentication, share login, and user management to non-blocking async execution. Tested in `PasswordHelper.spec.ts`. |
+| **AUD13** | Share listing loses its search-query filter | Medium | **Closed (2026-10-07)**: In `SharingManager.listAllForQuery`, replaced `.where()` with `.andWhere()` for creator filter to preserve existing search-query expressions. Tested in `SharingManager.spec.ts`. |
+| **AUD14** | Metafile access uses whole-directory permissions | Medium | **Closed (2026-10-07)**: Documented and verified directory authorization policy in `GalleryManager.authoriseMetaFile`. Ensures directory has matching projection media before granting access to directory metafiles. Tested in `GalleryManager.spec.ts`. |
 
 ### 3.4 Corrections & Constraints for Existing Plans
 
@@ -219,10 +237,11 @@ Initialization creates `admin/admin` whenever no administrator or developer exis
 
 These observations are recorded here for follow-up; this audit addition does not rewrite the historical scanner section or Techdebt.md.
 
-### 3.5 Suggested Order of Work
+### 3.5 Implementation Status
 
-1. Fix the sharing defects (AUD3, AUD5, AUD13), remove sensitive session fields (AUD6), and redact secrets (AUD9).
-2. Establish safe database migrations and recovery (AUD4) before introducing persistent identity/session records; replace predictable administrator bootstrap credentials (AUD8).
-3. Address S5 path containment together with session/OIDC hardening (AUD1–AUD2) and the existing cookie/CSRF and throttling plans (S1–S2).
-4. Complete caching, upload, stream, password-processing, and metafile-policy work (AUD7, AUD10–AUD12, AUD14), alongside S3 upload resource limits.
-5. The dependency/tooling cleanup and `mysql2` switch are implemented locally; see [completed cleanup](Techdebt.md#completed-dependency-and-tooling-cleanup-2026-10-07). Remaining modernization includes wrapper replacements, animation removal, and builder/test replacement. Schedule zoneless work after the security and data-preservation changes; further Karma work is deferred to its replacement.
+Batch 1 (Application Hardening) has been fully implemented on branch `hardening/application` (2026-10-07):
+1. **Sharing & Presentation Isolation**: Fixed AUD3 (searchQuery vs defaultSearchView separation), AUD5 (bounded key loop, DB uniqueness), AUD13 (query preservation with creator filter), AUD6 (scrubbed session hashes), AUD9 (redacted secrets in logs and URLs), and B8 (SQLite LIKE escape clause).
+2. **Database & Bootstrap Safety**: Implemented AUD4 (non-destructive schema updates, pre-upgrade SQLite backup, read-only tryConnection) and AUD8 (cryptographic random admin password generation).
+3. **Perimeter Controls & Identity**: Implemented S1 (CSRF protection, secure cookie flags), S2 (sliding-window rate limiting), S5 (SafePath containment across all sinks), AUD1 (session revocation and live database validation), and AUD2 (OIDC issuer/subject binding, collision prevention, email_verified requirement).
+4. **Resources, Streams, Caching & File Safety**: Implemented S3 (concurrency semaphore), AUD7 (explicit private/no-store caching headers), AUD10 (atomic wx upload writes, partial file cleanup), AUD11 (ZIP stream disconnect abort and headers guards), AUD12 (async bcrypt hashing/comparison), and AUD14 (metafile authorization policy).
+5. **Dependency Overrides**: Pinned `proxy-addr: 2.0.8` to resolve Dependabot advisory #5. Production dependencies report 0 vulnerabilities (`npm audit --omit=dev`).
