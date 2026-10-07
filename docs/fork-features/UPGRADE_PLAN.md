@@ -4,13 +4,8 @@ Status: Steps 0–7 are completed; the upgrade branches through Express 5 are
 merged into this fork (`b8312f9d`, PR #9). The step notes below preserve the
 tooling, test results, and issues observed during each upgrade.
 
-Post-upgrade update (2026-10-07): dependency and tooling cleanup is merged into
-`master` (`c088d0a6`, PR #13). Native Node scripts replace Gulp/ts-node, `build-en`
-builds only English, `mysql2` replaces `mysql`, and c8 replaces nyc. Application
-hardening is implemented on `hardening/application` (covering S1–S3, S5, AUD1–AUD14,
-B8, and Dependabot #5). See the
-[completed cleanup and validation](Techdebt.md#completed-dependency-and-tooling-cleanup-2026-10-07)
-and [completed hardening](Techdebt.md#completed-application-hardening-2026-10-07).
+Post-upgrade update (2026-10-07): Platform upgrade (Steps 0–7) is complete and merged.
+See [Techdebt.md](Techdebt.md) for remaining tech debt and [Security-Updates.md](Security-Updates.md) for application hardening.
 
 ## Goal
 
