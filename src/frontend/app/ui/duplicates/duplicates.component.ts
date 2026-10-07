@@ -25,6 +25,7 @@ interface GroupedDuplicate {
     templateUrl: './duplicates.component.html',
     styleUrls: ['./duplicates.component.css'],
     changeDetection: ChangeDetectionStrategy.Eager,
+    providers: [DuplicateService],
     imports: [
     FrameComponent,
     RouterLink,

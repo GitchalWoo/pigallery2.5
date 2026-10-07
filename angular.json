@@ -101,6 +101,13 @@
             "main": "src/frontend/main.ts",
             "tsConfig": "src/frontend/tsconfig.app.json",
             "polyfills": "src/frontend/polyfills.ts",
+            "allowedCommonJsDependencies": [
+              "typeconfig",
+              "typeconfig/common",
+              "typeconfig/src/decorators/builders/WebConfigClassBuilder",
+              "leaflet",
+              "leaflet.markercluster"
+            ],
             "assets": [
               "src/frontend/robots.txt",
               {

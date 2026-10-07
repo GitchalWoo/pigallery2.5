@@ -22,12 +22,14 @@ import { UsersComponent } from '../settings/users/users.component';
 import { SharingsListComponent } from '../settings/sharings-list/sharings-list.component';
 import { ExtensionInstallerComponent } from '../settings/extension-installer/extension-installer.component';
 import { StringifyEnum } from '../../pipes/StringifyEnum';
+import { ScheduledJobsService } from '../settings/scheduled-jobs.service';
 
 @Component({
     selector: 'app-admin',
     templateUrl: './admin.component.html',
     styleUrls: ['./admin.component.css'],
     changeDetection: ChangeDetectionStrategy.Eager,
+    providers: [SettingsService, ScheduledJobsService],
     imports: [
     FrameComponent,
     PopoverDirective,

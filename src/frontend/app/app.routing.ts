@@ -6,16 +6,10 @@ import {
   UrlSegment,
 } from '@angular/router';
 import { LoginComponent } from './ui/login/login.component';
-import { GalleryComponent } from './ui/gallery/gallery.component';
-import { AdminComponent } from './ui/admin/admin.component';
 import { ShareLoginComponent } from './ui/sharelogin/share-login.component';
 import { QueryParams } from '../../common/QueryParams';
-import { DuplicateComponent } from './ui/duplicates/duplicates.component';
-import { FacesComponent } from './ui/faces/faces.component';
 import { AuthGuard } from './model/network/helper/auth.guard';
-import { AlbumsComponent } from './ui/albums/albums.component';
 import { ErrorComponent } from './ui/error/error.component';
-import { TimelineComponent } from './ui/timeline/timeline.component';
 
 export function galleryMatcherFunction(
   segments: UrlSegment[]
@@ -67,27 +61,36 @@ const routes: Routes = [
   },
   {
     path: 'admin',
-    component: AdminComponent,
+    loadComponent: () =>
+      import('./ui/admin/admin.component').then((m) => m.AdminComponent),
     canActivate: [AuthGuard],
   },
   {
     path: 'duplicates',
-    component: DuplicateComponent,
+    loadComponent: () =>
+      import('./ui/duplicates/duplicates.component').then(
+        (m) => m.DuplicateComponent
+      ),
     canActivate: [AuthGuard],
   },
   {
     path: 'albums',
-    component: AlbumsComponent,
+    loadComponent: () =>
+      import('./ui/albums/albums.component').then((m) => m.AlbumsComponent),
     canActivate: [AuthGuard],
   },
   {
     path: 'faces',
-    component: FacesComponent,
+    loadComponent: () =>
+      import('./ui/faces/faces.component').then((m) => m.FacesComponent),
     canActivate: [AuthGuard],
   },
   {
     path: 'timeline',
-    component: TimelineComponent,
+    loadComponent: () =>
+      import('./ui/timeline/timeline.component').then(
+        (m) => m.TimelineComponent
+      ),
     canActivate: [AuthGuard],
   },
   {
@@ -96,7 +99,10 @@ const routes: Routes = [
   },
   {
     matcher: galleryMatcherFunction,
-    component: GalleryComponent,
+    loadComponent: () =>
+      import('./ui/gallery/gallery.component').then(
+        (m) => m.GalleryComponent
+      ),
     canActivate: [AuthGuard],
   },
   { path: '', redirectTo: '/login', pathMatch: 'full' },

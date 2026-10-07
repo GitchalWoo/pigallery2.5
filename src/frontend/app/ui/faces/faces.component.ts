@@ -16,6 +16,7 @@ import { FacesNavigatorComponent } from './navigator/navigator.faces.component';
     templateUrl: './faces.component.html',
     styleUrls: ['./faces.component.css'],
     changeDetection: ChangeDetectionStrategy.Eager,
+    providers: [FacesService],
     imports: [
     FrameComponent,
     FaceComponent,
