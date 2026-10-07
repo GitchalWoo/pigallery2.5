@@ -3,6 +3,7 @@ import * as path from 'path';
 import {DirectoryPathDTO, ParentDirectoryDTO, SubDirectoryDTO,} from '../../../common/entities/DirectoryDTO';
 import {PhotoDTO} from '../../../common/entities/PhotoDTO';
 import {ProjectPath} from '../../ProjectPath';
+import {SafePath} from './SafePath';
 import {Config} from '../../../common/config/private/Config';
 import {VideoDTO} from '../../../common/entities/VideoDTO';
 import {FileDTO} from '../../../common/entities/FileDTO';
@@ -142,14 +143,8 @@ export class DiskManager {
     relativeDirectoryName = this.normalizeDirPath(relativeDirectoryName);
     const dto = this.getDTOFromPath(relativeDirectoryName);
 
-    const absoluteDirectoryName = path.join(
-      ProjectPath.ImageFolder,
-      relativeDirectoryName
-    );
-
-    const stat = await fsp.stat(
-      path.join(ProjectPath.ImageFolder, relativeDirectoryName)
-    );
+    const absoluteDirectoryName = await SafePath.resolveExisting(ProjectPath.ImageFolder, relativeDirectoryName);
+    const stat = await fsp.stat(absoluteDirectoryName);
     const directory: ParentDirectoryDTO = {
       id: null,
       parent: null,
@@ -179,10 +174,11 @@ export class DiskManager {
     ) {
       return directory;
     }
-    const list = await fsp.readdir(absoluteDirectoryName);
+    const list = await fsp.readdir(absoluteDirectoryName, {withFileTypes: true});
     let count = 0;
 
-    for (const file of list) {
+    for (const entry of list) {
+      const file = entry.name;
       count++;
 
       if (count % 1000 === 0) {
@@ -194,7 +190,17 @@ export class DiskManager {
       const fullFilePath = path.normalize(
         path.join(absoluteDirectoryName, file)
       );
-      if ((await fsp.stat(fullFilePath)).isDirectory()) {
+      let isDirectory = entry.isDirectory();
+      if (entry.isSymbolicLink()) {
+        try {
+          await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, fullFilePath));
+          isDirectory = (await fsp.stat(fullFilePath)).isDirectory();
+        } catch (err) {
+          Logger.warn(LOG_TAG, 'Skipping inaccessible or external symbolic link: ' + fullFilePath, err.toString());
+          continue;
+        }
+      }
+      if (isDirectory) {
         try {
           if (
             settings.noDirectory === true ||

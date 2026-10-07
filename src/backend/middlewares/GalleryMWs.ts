@@ -70,11 +70,12 @@ export class GalleryMWs {
     const directoryName = (req.params['directory'] || '/') as string;
     let absoluteDirectoryName: string;
     try {
-      absoluteDirectoryName = SafePath.resolve(
+      absoluteDirectoryName = await SafePath.resolveExisting(
         ProjectPath.ImageFolder,
         directoryName
       );
-    } catch {
+    } catch (err) {
+      if (err.code === 'ENOENT' || err.code === 'ENOTDIR') return next();
       return next(new ErrorDTO(ErrorCodes.PATH_ERROR, 'Path traversal detected'));
     }
     try {
@@ -181,7 +182,7 @@ export class GalleryMWs {
         let mediaPath: string;
         try {
           const relDir = path.join(media.directory.path || '', media.directory.name || '');
-          mediaPath = SafePath.resolve(ProjectPath.ImageFolder, path.join(relDir, media.name));
+          mediaPath = await SafePath.resolveExisting(ProjectPath.ImageFolder, path.join(relDir, media.name));
         } catch {
           continue; // Skip any file that resolves outside ImageFolder
         }
@@ -344,7 +345,7 @@ export class GalleryMWs {
     }
     let fullMediaPath: string;
     try {
-      fullMediaPath = SafePath.resolve(
+      fullMediaPath = await SafePath.resolveExisting(
         ProjectPath.ImageFolder,
         req.params['mediaPath'] as string
       );
@@ -386,6 +387,7 @@ export class GalleryMWs {
         VideoProcessing.generateConvertedFilePath(fullMediaPath);
 
       // check if transcoded video exist
+      await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, convertedVideo));
       await fsp.access(convertedVideo);
       req.resultPipe = convertedVideo;
       // eslint-disable-next-line no-empty

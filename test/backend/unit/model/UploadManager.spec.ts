@@ -1,4 +1,5 @@
 import {expect} from 'chai';
+import assert from 'assert/strict';
 import * as path from 'path';
 import * as fs from 'fs';
 import {UploadManager} from '../../../../src/backend/model/UploadManager';
@@ -159,6 +160,75 @@ describe('UploadManager', () => {
       expect.fail('Should have failed path traversal');
     } catch (e) {
       expect(e.message).to.contain('Path traversal detected');
+    }
+  });
+
+  it('should reject upload targeting directory symlink pointing outside ImageFolder', async () => {
+    const outsideDir = path.join(testDir, '..', 'tmp_outside_upload');
+    if (!fs.existsSync(outsideDir)) {
+      fs.mkdirSync(outsideDir, {recursive: true});
+    }
+    const symlinkPath = path.join(testDir, 'symlink_outside');
+    if (!fs.existsSync(symlinkPath)) {
+      fs.symlinkSync(outsideDir, symlinkPath);
+    }
+    try {
+      const file: any = {
+        originalname: 'escape.jpg',
+        buffer: Buffer.from('content')
+      };
+      await uploadManager.saveFile('symlink_outside', file);
+      expect.fail('Should have rejected symlink upload');
+    } catch (e) {
+      expect(e.message).to.contain('symlink escapes base directory');
+      expect(fs.existsSync(path.join(outsideDir, 'escape.jpg'))).to.be.false;
+    } finally {
+      if (fs.existsSync(symlinkPath)) {
+        fs.unlinkSync(symlinkPath);
+      }
+      if (fs.existsSync(outsideDir)) {
+        fs.rmSync(outsideDir, {recursive: true, force: true});
+      }
+    }
+  });
+
+  it('does not unlink an existing file when opening the destination fails', async () => {
+    const destination = path.join(testDir, 'untouched.jpg');
+    fs.writeFileSync(destination, 'original');
+    const originalOpen = fs.promises.open;
+    const failure = Object.assign(new Error('permission denied'), {code: 'EACCES'});
+    fs.promises.open = async () => { throw failure; };
+    try {
+      await assert.rejects(uploadManager.saveFile('', {
+        originalname: 'untouched.jpg', buffer: Buffer.from('replacement')
+      } as Express.Multer.File), err => err === failure);
+      expect(fs.readFileSync(destination, 'utf8')).to.equal('original');
+    } finally {
+      fs.promises.open = originalOpen;
+    }
+  });
+
+  it('closes and removes its own partial file after a write failure', async () => {
+    const originalOpen = fs.promises.open;
+    const failure = Object.assign(new Error('disk full'), {code: 'ENOSPC'});
+    let opened: fs.promises.FileHandle;
+    fs.promises.open = async (...args: Parameters<typeof originalOpen>) => {
+      opened = await originalOpen(...args);
+      const originalWrite = opened.writeFile.bind(opened);
+      opened.writeFile = async () => {
+        await originalWrite(Buffer.from('partial'));
+        throw failure;
+      };
+      return opened;
+    };
+    try {
+      await assert.rejects(uploadManager.saveFile('', {
+        originalname: 'partial.jpg', buffer: Buffer.from('full content')
+      } as Express.Multer.File), err => err === failure);
+      expect(opened.fd).to.equal(-1);
+      expect(fs.existsSync(path.join(testDir, 'partial.jpg'))).to.be.false;
+    } finally {
+      fs.promises.open = originalOpen;
     }
   });
 

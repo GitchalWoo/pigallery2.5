@@ -317,16 +317,14 @@ export class PublicRouter {
     });
 
     const renderFile = (subDir = '') => {
-      return (req: Request, res: Response) => {
+      return async (req: Request, res: Response) => {
         let file: string;
         try {
           const base = path.join(ProjectPath.FrontendFolder, req.localePath, subDir);
-          file = SafePath.resolve(base, req.params.file as string);
-        } catch {
+          file = await SafePath.resolveExisting(base, req.params.file as string);
+        } catch (err) {
+          if (err.code === 'ENOENT') return res.sendStatus(404);
           return res.sendStatus(403);
-        }
-        if (!fs.existsSync(file)) {
-          return res.sendStatus(404);
         }
         res.sendFile(file, {
           maxAge: 31536000,

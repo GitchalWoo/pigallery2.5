@@ -60,11 +60,11 @@ export class GalleryManager {
         return await this.getParentDirFromId(connection, session, dir.id);
       }
 
-      const statPath = SafePath.resolve(
+      const statPath = await SafePath.resolveExisting(
         ProjectPath.ImageFolder,
         relativeDirectoryName
       );
-      const stat = fs.statSync(statPath);
+      const stat = await fs.promises.stat(statPath);
       const lastModified = DiskManager.calcLastModified(stat);
 
       // If it seems that the content did not change, do not work on it

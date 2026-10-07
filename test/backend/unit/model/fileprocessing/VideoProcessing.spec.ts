@@ -49,7 +49,10 @@ describe('VideoProcessing', () => {
   it('should convert video and detect existing converted video', async () => {
     const fs = require('fs');
     ProjectPath.ImageFolder = path.join(__dirname, './../../../assets');
+    const originalTemp = ProjectPath.TempFolder;
+    const originalTranscoded = ProjectPath.TranscodedFolder;
     ProjectPath.TranscodedFolder = path.join(__dirname, '../../../../../test/tmp/transcoded-tests');
+    ProjectPath.TempFolder = path.dirname(ProjectPath.TranscodedFolder);
     const videoPath = path.join(ProjectPath.ImageFolder, 'video.mp4');
 
     await fs.promises.mkdir(ProjectPath.TranscodedFolder, {recursive: true});
@@ -65,6 +68,9 @@ describe('VideoProcessing', () => {
         await fs.promises.rm(ProjectPath.TranscodedFolder, {recursive: true, force: true});
       } catch {
         // ignore
+      } finally {
+        ProjectPath.TempFolder = originalTemp;
+        ProjectPath.TranscodedFolder = originalTranscoded;
       }
     }
   });

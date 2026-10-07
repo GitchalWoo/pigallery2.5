@@ -173,7 +173,7 @@ export class AuthenticationMWs {
         if (val.includes('\0')) {
           return next(new ErrorDTO(ErrorCodes.PATH_ERROR, 'Invalid path'));
         }
-        // If the path contains relative segments escaping root, reject
+        // Normalize request syntax only; filesystem checks use the actual resource root.
         try {
           SafePath.resolve('/pigallery_root', val);
         } catch {

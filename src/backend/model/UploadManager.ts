@@ -24,10 +24,17 @@ export class UploadManager {
     const fullDirPath = SafePath.resolve(ProjectPath.ImageFolder, relativeDir);
 
     if (Config.Upload.enforcedDirectoryConfig === true) {
-      const hasUploadConf = Object.keys(PG2ConfMap.upload).some(filename => {
-        const pg2confPath = path.join(fullDirPath, filename);
-        return fs.existsSync(pg2confPath);
-      });
+      let hasUploadConf = false;
+      for (const filename of Object.keys(PG2ConfMap.upload)) {
+        try {
+          await SafePath.resolveExisting(ProjectPath.ImageFolder,
+            path.relative(ProjectPath.ImageFolder, path.join(fullDirPath, filename)));
+          hasUploadConf = true;
+          break;
+        } catch (err) {
+          if (err.code !== 'ENOENT') throw err;
+        }
+      }
       if (!hasUploadConf) {
         throw new Error('Upload is not enabled in this directory');
       }
@@ -57,24 +64,33 @@ export class UploadManager {
       throw new Error('Unsupported file format: ' + extension);
     }
 
-    const fullFilePath = SafePath.resolve(fullDirPath, basename);
+    const relativeFile = path.relative(ProjectPath.ImageFolder, SafePath.resolve(fullDirPath, basename));
+    const fullFilePath = await SafePath.resolveForWrite(ProjectPath.ImageFolder, relativeFile);
+    await fs.promises.mkdir(fullDirPath, {recursive: true});
 
-    if (!fs.existsSync(fullDirPath)) {
-      await fs.promises.mkdir(fullDirPath, {recursive: true});
-    }
-
-    // Atomic exclusive creation with 'wx' flag to prevent overwrite races
+    // Exclusive creation rejects existing files and final-component symlinks.
+    // An open failure must never trigger cleanup of a file we did not create.
+    let handle: fs.promises.FileHandle;
     try {
-      await fs.promises.writeFile(fullFilePath, file.buffer, {flag: 'wx'});
+      handle = await fs.promises.open(fullFilePath, 'wx');
     } catch (err) {
       if (err.code === 'EEXIST') {
         throw new FileAlreadyExists('File already exists: ' + fullFilePath, basename);
       }
-      // If error occurs, attempt partial file cleanup
+      throw err;
+    }
+    try {
       try {
+        await handle.writeFile(file.buffer);
+      } finally {
+        await handle.close();
+      }
+    } catch (err) {
+      try {
+        await SafePath.resolveExisting(ProjectPath.ImageFolder, relativeFile);
         await fs.promises.unlink(fullFilePath);
       } catch {
-        // ignore if not created
+        // Preserve the write error if cleanup fails or the parent is no longer safe.
       }
       throw err;
     }

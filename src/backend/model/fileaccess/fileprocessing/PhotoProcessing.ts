@@ -61,11 +61,15 @@ export class PhotoProcessing {
 
     // check if thumbnail already exist
     try {
+      await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, thPath));
       await fsp.access(thPath, fsConstants.R_OK);
       return thPath;
     } catch (e) {
       // ignoring errors
     }
+
+    await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, mediaPath));
+    await SafePath.resolveForWrite(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, thPath));
 
     const margin = {
       x: Math.round(
@@ -233,6 +237,7 @@ export class PhotoProcessing {
 
 
     try {
+      await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, origFilePath));
       await fsp.access(origFilePath, fsConstants.R_OK);
     } catch (e) {
       return false;
@@ -251,6 +256,7 @@ export class PhotoProcessing {
 
     // check if file already exist
     try {
+      await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
       await fsp.access(outPath, fsConstants.R_OK);
       return true;
     } catch (e) {
@@ -271,11 +277,15 @@ export class PhotoProcessing {
 
     // check if file already exist
     try {
+      await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
       await fsp.access(outPath, fsConstants.R_OK);
       return outPath;
     } catch (e) {
       // ignoring errors
     }
+
+    await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, mediaPath));
+    await SafePath.resolveForWrite(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
 
     // run on other thread
     const input = {
@@ -323,11 +333,14 @@ export class PhotoProcessing {
 
     // check if the file already exists
     try {
+      await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, hashedOutPath));
       await fsp.access(hashedOutPath, fsConstants.R_OK);
       return hashedOutPath;
     } catch (e) {
       // ignoring errors
     }
+
+    await SafePath.resolveForWrite(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, hashedOutPath));
 
     const size = 256;
     // run on other thread
