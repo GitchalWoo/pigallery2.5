@@ -8,7 +8,7 @@ import {QueryParams} from '../../../../../common/QueryParams';
 import {ContentLoaderService} from '../contentLoader.service';
 import { NgIconComponent } from '@ng-icons/core';
 import { FormsModule } from '@angular/forms';
-import { ClipboardModule } from 'ngx-clipboard';
+import { ClipboardService } from '../../../model/clipboard.service';
 
 import { StringifyEnum } from '../../../pipes/StringifyEnum';
 import { LightBoxTitleTexts } from '../../../../../common/config/public/ClientConfig';
@@ -22,7 +22,6 @@ import {Utils} from '../../../../../common/Utils';
     imports: [
     NgIconComponent,
     FormsModule,
-    ClipboardModule,
     StringifyEnum
 ]
   })
@@ -56,7 +55,8 @@ import {Utils} from '../../../../../common/Utils';
       private notification: NotificationService,
       private route: ActivatedRoute,
       private router: Router,
-      private modalService: BsModalService
+      private modalService: BsModalService,
+      private clipboardService: ClipboardService
   ) {
     // keep for potential future route driven defaults
     this.subscription = this.route.queryParams.subscribe(() => {
@@ -185,6 +185,12 @@ import {Utils} from '../../../../../common/Utils';
     document.body.style.paddingRight = '0px';
     this.buildUrl();
     return false;
+  }
+
+  async copy(): Promise<void> {
+    if (await this.clipboardService.copy(this.url)) {
+      this.onCopy();
+    }
   }
 
   onCopy(): void {

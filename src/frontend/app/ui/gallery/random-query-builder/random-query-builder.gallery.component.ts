@@ -12,7 +12,7 @@ import {SearchQueryParserService} from '../search/search-query-parser.service';
 import {ContentLoaderService} from '../contentLoader.service';
 import { NgIconComponent } from '@ng-icons/core';
 import { FormsModule } from '@angular/forms';
-import { ClipboardModule } from 'ngx-clipboard';
+import { ClipboardService } from '../../../model/clipboard.service';
 import { GallerySearchQueryBuilderComponent } from '../search/query-builder/query-bulder.gallery.component';
 import {SearchQueryUtils} from '../../../../../common/SearchQueryUtils';
 
@@ -24,7 +24,6 @@ import {SearchQueryUtils} from '../../../../../common/SearchQueryUtils';
     imports: [
         NgIconComponent,
         FormsModule,
-        ClipboardModule,
         GallerySearchQueryBuilderComponent,
     ]
 })
@@ -47,7 +46,8 @@ export class RandomQueryBuilderGalleryComponent implements OnInit, OnDestroy {
       private notification: NotificationService,
       private searchQueryParserService: SearchQueryParserService,
       private route: ActivatedRoute,
-      private modalService: BsModalService
+      private modalService: BsModalService,
+      private clipboardService: ClipboardService
   ) {
     this.subscription = this.route.params.subscribe((params: Params) => {
       if (!params[QueryParams.gallery.search.query]) {
@@ -105,6 +105,12 @@ export class RandomQueryBuilderGalleryComponent implements OnInit, OnDestroy {
     document.body.style.paddingRight = '0px';
     this.onQueryChange();
     return false;
+  }
+
+  async copy(): Promise<void> {
+    if (await this.clipboardService.copy(this.url)) {
+      this.onCopy();
+    }
   }
 
   onCopy(): void {

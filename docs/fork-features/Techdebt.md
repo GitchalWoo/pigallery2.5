@@ -16,7 +16,7 @@ later, **L** = cleanup.
 | F5 | Webpack-based builder through `@angular-builders/custom-webpack` | `angular.json`, `angular.webpack.js`, `karma.conf.js` | M | Only customisation is one `IgnorePlugin`; custom-webpack 22.0.1 retains the output layout. Angular 22 now explicitly warns that webpack support is deprecated; moving to `@angular/build:application` changes output layout and backend serving |
 | F6 | Karma + Jasmine test runner | `karma.conf.js` | M | Angular is moving to Vitest; Karma is deprecated upstream. The nested plugin resolution workaround is fragile |
 | F7 | zone.js change detection and newer ngx-bootstrap releases | `main.ts`, `polyfills.ts`, `package.json` | M | Step 3 retains `provideZoneChangeDetection()` with ngx-bootstrap 22.0.0 signal APIs and direct module imports. Its published guide prescribes zoneless; the inspected implementation uses signals/explicit render notifications without a bootstrap assertion. This is a locally validated compatibility choice; separate zoneless sub-plan in UPGRADE_PLAN.md. ngx-toastr 20.0.5 still has Angular 21 peers, overridden only for common/core |
-| F8 | Stagnant Angular libraries: `ngx-clipboard` 16, `@ngx-loading-bar/core` 7 | `package.json` | M | Confirmed in step 0 & 4: `ngx-clipboard` is used in 3 components and can be replaced with 1 line of native `navigator.clipboard.writeText()` or `@angular/cdk/clipboard`; `@ngx-loading-bar/core` is used only for a 3px top bar in `frame.component` and can be replaced with a small Angular signal service + CSS |
+| F8 | Stagnant Angular libraries: `ngx-clipboard` 16, `@ngx-loading-bar/core` 7 | `package.json` | Closed | Resolved in Batch 2 (2026-10-07): Replaced `ngx-clipboard` with standard browser `navigator.clipboard.writeText()` via `ClipboardService`; replaced `@ngx-loading-bar/core` with Angular signal `LoadingBarService` and CSS progress element |
 
 ## Backend
 
@@ -48,13 +48,13 @@ Items to tackle after the 7-step upgrade plan completes, focused on removing dea
 
 ### Redundant wrappers with native / standard alternatives
 
-| # | Item | Where | Modern Replacement |
-|---|---|---|---|
-| R1 | `locale` (0.1.0) middleware | `server.ts`, `PublicRouter.ts` | 13-year-old unmaintained package. Replace with Express built-in `req.acceptsLanguages(Config.Server.languages)` |
-| R2 | `ngx-clipboard` (16.0.0) | 3 gallery components | Replace with standard browser `navigator.clipboard.writeText()` or `@angular/cdk/clipboard` (Item F8) |
-| R3 | `ngx-device-detector` (12.0.0) | `directories`, `frame` components | Used only for `this.deviceService.isDesktop()`. Replace with standard CSS media queries (`window.matchMedia('(pointer: coarse)')`) or `@angular/cdk/layout` |
-| R4 | `@ngx-loading-bar/core` (7.0.1) | `frame.component` | Used only for a 3px top progress bar. Replace with an Angular signal service and a CSS progress element (Item F8) |
-| R6 | `xml2js` (0.6.2) → `fast-xml-parser` | `GPXProcessing.ts` | Replace legacy callback parser with high-performance, TypeScript-native `fast-xml-parser` |
+| # | Item | Where | Modern Replacement | Status |
+|---|---|---|---|---|
+| R1 | `locale` (0.1.0) middleware | `server.ts`, `PublicRouter.ts` | 13-year-old unmaintained package. Replace with Express built-in `req.acceptsLanguages(Config.Server.languages)` | Closed |
+| R2 | `ngx-clipboard` (16.0.0) | 3 gallery components | Replace with standard browser `navigator.clipboard.writeText()` via `ClipboardService` (Item F8) | Closed |
+| R3 | `ngx-device-detector` (12.0.0) | `directories`, `frame` components | Used only for `this.deviceService.isDesktop()`. Replace with standard CSS media queries (`window.matchMedia('(pointer: coarse)')`) via `DeviceService` | Closed |
+| R4 | `@ngx-loading-bar/core` (7.0.1) | `frame.component` | Used only for a 3px top progress bar. Replace with an Angular signal service and a CSS progress element (Item F8) | Closed |
+| R6 | `xml2js` (0.6.2) → `fast-xml-parser` | `GPXProcessing.ts` | Replace legacy callback parser with high-performance, TypeScript-native `fast-xml-parser` | Closed |
 
 ### Tooling, build & test modernization
 
@@ -126,3 +126,19 @@ perimeter controls (S1, S2, S3, S5), search glob escaping (B8), and dependency o
 | **Deps** | Pinned `proxy-addr: 2.0.8` via npm override to resolve Dependabot advisory #5. |
 
 Validation: 788 passing backend tests on SQLite and MariaDB (0 failures), 152 frontend Karma tests, 4 tooling tests, and 0 production vulnerabilities (`npm audit --omit=dev`).
+
+## Completed Redundant Wrapper Modernization (2026-10-07)
+
+Implemented on `refactor/redundant-wrappers`. Replaced dead, unmaintained, or redundant wrapper libraries with native platform APIs, Angular signals, and standard TypeScript alternatives (R1, R2, R3, R4, R6, F8).
+
+| Item | Package Removed | Replacement Implementation | Scope & Details |
+|---|---|---|---|
+| **R1** | `locale` (0.1.0) | Express built-in `req.acceptsLanguages()` | Replaced 13-year-old unmaintained CoffeeScript middleware in `server.ts` and `PublicRouter.ts` with native Express `req.acceptsLanguages(Config.Server.languages)` and `'en'` fallback. |
+| **R2** | `ngx-clipboard` (16.0.0) | Standard `navigator.clipboard.writeText()` via `ClipboardService` | Created root `ClipboardService` using modern standard Async Clipboard API; eliminated `ngx-clipboard` directives across `PhotoFrameBuilder`, `RandomQueryBuilder`, and `Share` components. |
+| **R3** | `ngx-device-detector` (12.0.0) | CSS media query `window.matchMedia` via `DeviceService` | Created root `DeviceService` detecting pointer and hover characteristics (`(hover: hover) and (pointer: fine)` / `!(pointer: coarse)`); removed `ngx-device-detector` from `DirectoriesComponent` and `FrameComponent`. |
+| **R4** | `@ngx-loading-bar/core` (7.0.1) | Angular Signals `LoadingBarService` + CSS progress | Created reactive `LoadingBarService` using Angular `signal()` and `computed()`; replaced 3px loading bar in `FrameComponent` with pure CSS indeterminate animation (`.top-loading-bar`); cleaned `NetworkService` to call `start()` / `complete()` directly. |
+| **R6** | `xml2js` (0.6.2), `@types/xml2js` | `fast-xml-parser` (4.5.7) | Replaced legacy callback-based `xml2js` parser/builder in `GPXProcessing.ts` with high-performance, TypeScript-native `XMLParser` and `XMLBuilder` from `fast-xml-parser` (pinned 4.5.7 with zero deprecations). |
+
+Dependency cleanup: removed 6 packages (`locale`, `ngx-clipboard`, `ngx-device-detector`, `@ngx-loading-bar/core`, `xml2js`, `@types/xml2js`); added `fast-xml-parser` 4.5.7.
+Validation: 806 passing backend tests on SQLite and MariaDB (including new `GPXProcessing.spec.ts`), 152 frontend Karma tests (0 failures), 3 passing Cypress e2e tests (`share.cy.ts`), 8 tooling tests, 0 ESLint errors, clean Angular localized build (`npm run build-en`), and 0 production vulnerabilities (`npm audit --omit=dev`).
+

@@ -23,8 +23,7 @@
       </div>
       <div class="col-auto">
         <button id="copyButton" name="copyButton"
-          ngxClipboard [cbContent]="url"
-          (cbOnSuccess)="onCopy()"
+          (click)="copy()"
           class="btn btn-primary btn-block" i18n>Copy
         </button>
       </div>

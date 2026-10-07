@@ -1,4 +1,6 @@
-<ngx-loading-bar [includeSpinner]="false" color="#337ab7" height="3px"></ngx-loading-bar>
+@if (loadingBarService.isLoading()) {
+  <div class="top-loading-bar" role="progressbar" aria-label="Loading"></div>
+}
 <div #navContainer class="navbar-container auto-hide-navbar"
   [class.navbar-keep-top]="navbarKeepTop || fixNavbarOnTop"
   [class.hide-navbar]="!navbarKeepTop && shouldHideNavbar"

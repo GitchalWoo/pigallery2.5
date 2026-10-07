@@ -94,10 +94,10 @@ Compatibility matrix (fill in during step 0):
 | ngx-markdown | 20.1.0 | 21.3.0 | 22.1.0 | Synchronized with Angular releases |
 | ngx-toastr | 19.1.0 | 20.0.5 | 20.0.5 (overrides) | 19.1.0 peer is `>=16.0.0-0` (works on 20); 20.0.5 peer is `^21.0.0` (works on 21); for Ng 22, use npm overrides or local toast service |
 | ngx-cookie-service | 20.1.1 | 21.3.1 | 22.0.0 | Synchronized with Angular releases |
-| ngx-device-detector | 10.1.0 | 11.0.0 | 12.0.0 | Versioned independently (v10 for Ng 20, v11 for Ng 21, v12 for Ng 22) |
+| ngx-device-detector | 10.1.0 | 11.0.0 | 12.0.0 | Replaced in Batch 2 (`refactor/redundant-wrappers`) with standard `window.matchMedia` via root `DeviceService` (Item R3) |
 | @ng-icons/core, ionicons | 32.0.0 | 34.0.0 | 36.1.0 | Versioned independently (v32 for Ng 20, v34 for Ng 21, v36 for Ng 22) |
-| ngx-clipboard | 16.0.0 | 16.0.0 | 16.0.0 | Unmaintained (peer is `>=13.0.0`, installs cleanly). Decision: replace with native `navigator.clipboard` or `@angular/cdk/clipboard` in Step 1 |
-| @ngx-loading-bar/core | 7.0.1 | 7.0.1 | 7.0.1 | Peer is `>=16.0.0` (installs cleanly). Decision: retain 7.0.1 or replace with lightweight local progress bar component in Step 1 |
+| ngx-clipboard | 16.0.0 | 16.0.0 | 16.0.0 | Replaced in Batch 2 (`refactor/redundant-wrappers`) with standard `navigator.clipboard.writeText()` via root `ClipboardService` (Item R2, F8) |
+| @ngx-loading-bar/core | 7.0.1 | 7.0.1 | 7.0.1 | Replaced in Batch 2 (`refactor/redundant-wrappers`) with Angular signals `LoadingBarService` and CSS indeterminate progress bar (Item R4, F8) |
 
 ### Step 1 – Angular 19 → 20 (branch `upgrade/angular-20`)
 

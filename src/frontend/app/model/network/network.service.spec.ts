@@ -2,7 +2,7 @@ import {getTestBed, inject, TestBed} from '@angular/core/testing';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import {NetworkService} from './network.service';
 import {Message} from '../../../../common/entities/Message';
-import {LoadingBarService} from '@ngx-loading-bar/core';
+import {LoadingBarService} from '../loading-bar.service';
 import {VersionService} from '../version.service';
 import {Config} from '../../../../common/config/public/Config';
 import { provideHttpClient, withInterceptorsFromDi, withXhr } from '@angular/common/http';

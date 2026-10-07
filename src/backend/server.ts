@@ -3,9 +3,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import * as _http from 'http';
 import {Server as HttpServer} from 'http';
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-import locale from 'locale';
+
 import {ObjectManagers} from './model/ObjectManagers';
 import {Logger} from './Logger';
 import {LoggerRouter} from './routes/LoggerRouter';
@@ -15,7 +13,6 @@ import {CookieNames} from '../common/CookieNames';
 import {Router} from './routes/Router';
 import {PhotoProcessing} from './model/fileaccess/fileprocessing/PhotoProcessing';
 import {Event} from '../common/event/Event';
-import {QueryParams} from '../common/QueryParams';
 import {ConfigClassBuilder} from 'typeconfig/node';
 import {ConfigClassOptions} from 'typeconfig/src/decorators/class/IConfigClass';
 import {ServerConfig} from '../common/config/private/PrivateConfig';
@@ -107,7 +104,11 @@ export class Server {
     PhotoProcessing.init();
     Localizations.init();
 
-    this.app.use(locale(Config.Server.languages, 'en'));
+    this.app.use((req, res, next) => {
+      const match = req.acceptsLanguages(Config.Server.languages);
+      req.locale = (typeof match === 'string' && match) ? match : 'en';
+      next();
+    });
     await ObjectManagers.getInstance().init();
 
     Router.route(this.app);

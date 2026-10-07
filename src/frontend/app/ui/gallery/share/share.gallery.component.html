@@ -46,9 +46,7 @@
           @if (sharing) {
             <button
               id="copyButton" name="copyButton"
-              ngxClipboard
-              [cbContent]="url"
-              (cbOnSuccess)="onCopy()"
+              (click)="copy()"
               [disabled]="!shareForm.form.valid"
               class="btn btn-primary btn-block float-end"
             i18n>Copy</button>

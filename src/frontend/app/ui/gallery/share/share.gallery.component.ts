@@ -9,7 +9,7 @@ import {BsModalRef, BsModalService} from 'ngx-bootstrap/modal';
 import {Subscription} from 'rxjs';
 import {UserRoles} from '../../../../../common/entities/UserDTO';
 import {AuthenticationService} from '../../../model/network/authentication.service';
-import { ClipboardService, ClipboardModule } from 'ngx-clipboard';
+import { ClipboardService } from '../../../model/clipboard.service';
 import {ContentLoaderService} from '../contentLoader.service';
 import { DatePipe } from '@angular/common';
 import { NgIconComponent } from '@ng-icons/core';
@@ -25,7 +25,6 @@ import { StringifySearchQuery } from '../../../pipes/StringifySearchQuery';
     imports: [
     NgIconComponent,
     FormsModule,
-    ClipboardModule,
     DatePipe,
     StringifySearchQuery
 ]
@@ -211,6 +210,12 @@ export class GalleryShareComponent implements OnInit, OnDestroy {
     this.modalRef = this.modalService.show(template);
   }
 
+  async copy(): Promise<void> {
+    if (await this.clipboardService.copy(this.url)) {
+      this.onCopy();
+    }
+  }
+
   onCopy(): void {
     this.notification.success($localize`Sharing link has been copied to clipboard`);
   }
@@ -224,7 +229,7 @@ export class GalleryShareComponent implements OnInit, OnDestroy {
   async share() {
     await this.get();
     if (this.clipboardService.isSupported) {
-      this.clipboardService.copy(this.url);
+      await this.clipboardService.copy(this.url);
       this.onCopy();
     }
 
