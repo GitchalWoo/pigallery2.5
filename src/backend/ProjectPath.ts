@@ -42,7 +42,7 @@ export class ProjectPathClass {
 
     // create the thumbnail folder if it does not exist
     if (!fs.existsSync(this.TempFolder)) {
-      fs.mkdirSync(this.TempFolder);
+      fs.mkdirSync(this.TempFolder, {recursive: true});
     }
   }
 }

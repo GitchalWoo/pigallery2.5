@@ -23,14 +23,14 @@ WORKDIR /build
 COPY package*.json ./
 RUN npm ci
 COPY . /build
-RUN mkdir -p /build/release/data/config \
-    && mkdir -p /build/release/data/db \
-    && mkdir -p /build/release/data/images \
-    && mkdir -p /build/release/data/tmp \
-    && npm run create-release
+RUN npm run create-release
 WORKDIR /build/release
 RUN npm install --no-package-lock node-addon-api@8.5.0 node-gyp@11.5.0 && \
-    npm run build --prefix node_modules/sharp
+    npm run build --prefix node_modules/sharp && \
+    mkdir -p /build/release/data/config \
+             /build/release/data/db \
+             /build/release/data/images \
+             /build/release/data/tmp
 
 #-----------------MAIN--------------------
 #-----------------------------------------
