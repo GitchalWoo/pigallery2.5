@@ -23,11 +23,7 @@ WORKDIR /build
 COPY package*.json ./
 RUN npm ci
 COPY . /build
-RUN mkdir -p /build/release/data/config \
-    && mkdir -p /build/release/data/db \
-    && mkdir -p /build/release/data/images \
-    && mkdir -p /build/release/data/tmp \
-    && npm run create-release
+RUN npm run create-release
 WORKDIR /build/release
 RUN npm install --no-package-lock node-addon-api@8.5.0 node-gyp@11.5.0 && \
     npm run build --prefix node_modules/sharp
@@ -61,6 +57,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /build/release /app
 COPY --from=builder /usr/local/lib /usr/local/lib
+RUN mkdir -p /app/data/config /app/data/db /app/data/images /app/data/tmp
 
 # Run build time diagnostics to make sure the app would work after build is finished
 RUN ["node", "--expose-gc", "./src/backend/index", "--run-diagnostics", "--config-path=/app/diagnostics-config.json", "--Server-Log-level=silly"]
