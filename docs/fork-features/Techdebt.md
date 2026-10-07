@@ -15,7 +15,7 @@ later, **L** = cleanup.
 | # | Item | Where | Priority | Notes |
 |---|---|---|---|---|
 | F4 | `@angular/animations` (`AnimationBuilder`, `provideAnimations`) | lightbox, `main.ts` | M | Deprecated since 20.2, planned removal in v23. Replace with CSS transitions or Web Animations API |
-| F5 | `@angular-builders/custom-webpack` → `@angular/build:application` | `angular.json` | M | Webpack builder is deprecated in Angular 22. Moving to esbuild application builder yields 5x–10x faster builds |
+| F5 / A2 | `@angular-builders/custom-webpack` → `@angular/build:application` | `angular.json`, build scripts | Closed | Implemented on `refactor/application-builder`; output and release layouts preserved. Details and measured timings below |
 | F6 | Karma + Jasmine → Vitest | `karma.conf.js`, frontend specs | M | Karma is deprecated upstream by Angular. Local Brave runner workaround (`CHROME_BIN=/opt/brave.com/brave/brave`) is in place until Vitest migration |
 | F7 | Full zoneless change detection | `main.ts`, `polyfills.ts` | M | Migrate async state across Gallery, Timeline, and Upload services to Angular Signals; adopt `provideExperimentalZonelessChangeDetection()`; drop `zone.js` |
 
@@ -23,7 +23,7 @@ later, **L** = cleanup.
 
 | # | Item | Priority | Notes |
 |---|---|---|---|
-| S4 | Full `npm audit`: 19 advisories in devDependencies/tooling | M | Tracked for future tooling updates; `--omit=dev` is 0. Overrode `proxy-addr` to 2.0.8 (Dependabot #5) |
+| S4 | Tooling / devDependency advisories | M | Last recorded pre-F5 snapshot: 19 advisories; `--omit=dev` was 0. F5 removes webpack packages; no fresh audit count was measured during this migration. Overrode `proxy-addr` to 2.0.8 (Dependabot #5) |
 
 ## Tooling / repo hygiene
 
@@ -94,4 +94,55 @@ Validation:
 - End-to-End tests: 3/3 passing Cypress tests (`share.cy.ts`) against local test server.
 - Code quality: 0 ESLint errors across the workspace.
 
+## Completed Application Builder Migration (2026-10-08)
 
+Implemented on `refactor/application-builder` (F5 / A2), following the
+[Angular build-system migration guide](https://angular.dev/tools/cli/build-system-migration).
+
+- Replaced custom-webpack build, serve, extract-i18n, and test targets with
+  `@angular/build` 22.2.1. Production/development builds and Karma now use
+  esbuild; the Angular dev server uses Vite. Removed `angular.webpack.js`,
+  `@angular-builders/custom-webpack`, and `webpack-bundle-analyzer`.
+- Replaced `IgnorePlugin` with build/test file replacements mapping private
+  `Config.ts` to public `Config.ts`. Browser bundle dependency inspection found
+  no `src/backend/` inputs. Admin configuration schemas remain available.
+- Configured `outputPath` with `browser: ''` and `media: 'assets'`, including
+  overrides from `scripts/build.mjs` and the release pipeline. English-only,
+  all-locale, development, and release builds retain their existing paths;
+  CSS images remain reachable through the backend's `/assets/` route.
+- Kept locale-prefixed entrypoints (`en.main-<hash>.js`, etc.) and the backend's
+  EJS injection of configuration, custom head content, theme CSS, and URL base.
+- Kept Karma/Jasmine for F6. Removed the unused webpack `require.context` test
+  bootstrap. Listed `zone.js` explicitly in test polyfills so the new builder
+  initializes zone-based TestBed rather than selecting zoneless behavior.
+- `npm run build-stats` builds English and emits `dist/browser-stats.json`.
+  `npm run analyze` uses esbuild's metafile analyzer to print module sizes;
+  an alternate metafile can be passed as an argument. Metafiles describe
+  builder output names before locale-prefix renaming.
+- Dependency installation removed 361 installed packages; the lockfile has
+  no webpack, custom-webpack, or `@angular-devkit/build-angular` package entries.
+
+Timing: one local frontend-only English production run took **20.3 seconds**
+with webpack and **6.9 seconds** with the application builder (approximately
+**2.9× faster**). These are single local runs, not a CI benchmark or a promised
+5×–10× improvement. The initial bundle is **1.58 MB**, below the 2 MB budget.
+
+Validation:
+- `npm run build-en`, `npm run build`, and the all-16-locale release/ZIP pipeline.
+- Artifact checks for both `dist` and `release/dist`: locale HTML, EJS injection,
+  renamed entrypoints, lazy-import targets, CSS assets, ZIP contents, and the
+  production release manifest.
+- Development build, Vite startup/HTTP response, translation extraction
+  (1,083 messages), build stats, module analysis, and `npm ls --all`.
+- Existing frontend suite: **152 Karma tests passed** with the esbuild builder.
+- Four tooling cases passed, including updated esbuild entrypoint/modulepreload
+  rename coverage. Full backend tests, lint, standalone
+  TypeScript checks, Sonar, and security audit commands were not rerun.
+- Seven temporary Cypress browser smoke checks passed: gallery, timeline,
+  albums, faces, duplicates, admin, and CSS asset serving through the backend.
+  Used Electron against an isolated config/database/cache and copied demo
+  media; the integrated browser was unavailable.
+
+All-locale builds retain the `pt-br` → `pt` locale-data fallback warning;
+English builds have no warnings. F4 (animations), F6 (Vitest), and F7
+(zoneless) remain separate follow-ups.

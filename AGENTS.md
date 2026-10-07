@@ -18,6 +18,9 @@
 - Use Node.js 24 (`nvm use`, using `.nvmrc` at 24.21.0). The project supports Node `>=24.15.0 <25` and npm `>=11.19.0 <12`; install the pinned npm with `npm install --global npm@11.19.0`, then run `npm ci`. Native modules such as `better-sqlite3` must match the active Node ABI (137 on Node 24).
 - To run the local app, build the English frontend with `npm run build-en`, then start the backend with `npm start -- --Server-port=8081`; open `http://localhost:8081/`. The backend serves the built frontend. Do not change Angular's serve configuration for this workflow.
 - `npm run build-en` builds only English; `npm run build` builds all 16 locales. Native Node scripts in `scripts/` replace Gulp. Locale arrays are passed through the CLI-owned Angular Architect API.
+- Frontend targets use `@angular/build` 22.2.1 (application/esbuild, Vite dev server, extract-i18n, and esbuild Karma). Keep `outputPath.browser: ''` and `outputPath.media: 'assets'` in both Angular configuration and script overrides: the backend and release package expect `dist/<locale>/` and serve CSS resources through `/assets/`.
+- Browser build/test targets replace `src/common/config/private/Config.ts` with `src/common/config/public/Config.ts`. Preserve this replacement when overriding `fileReplacements`, including production builds; the shared `SupportedFormats` runtime selector must never bundle backend configuration loading.
+- `npm run build-stats` builds English and writes `dist/browser-stats.json`; `npm run analyze` prints an esbuild module-size report. Pass another metafile path with `npm run analyze -- <path>`.
 - TypeScript under `src/` is authoritative. `npm run build-backend` compiles it; avoid hand-editing generated JavaScript.
 - Backend tests run with `npm run test-backend`. To narrow Mocha tests, append a grep, for example `npm run test-backend -- --grep UploadRouter`.
 
@@ -32,7 +35,7 @@
 - `.mocharc.js` loads `test/root-hooks.cjs` to reset shared managers and close the remaining database pool. The cleanup batch passed 740 tests on SQLite/MariaDB and exited naturally. Keep the root hook when bypassing Mocha config. `npm run test-backend-coverage` collects V8 coverage with c8; `npm run coverage` regenerates LCOV.
 - Frontend (Karma): no Chrome is installed; use Brave via `CHROME_BIN=/opt/brave.com/brave/brave npx ng test --watch=false`. Narrow with `--include='src/frontend/app/ui/timeline/**/*.spec.ts'` (repeatable).
 - Further Karma work is deferred to its replacement (Techdebt M2). The local Brave wrapper shutdown workaround is recorded in [Techdebt.md](docs/fork-features/Techdebt.md#tooling-build--test-modernization).
-- `karma.conf.js` resolves the Angular Karma plugin through `@angular-builders/custom-webpack`, because `@angular-devkit/build-angular` is only installed nested there; the plugin must be the builder's own instance. Keep it that way when touching dependencies.
+- `@angular/build:karma` initializes TestBed and discovers specs. `karma.conf.js` uses only Jasmine and browser/reporting plugins. Keep `zone.js` explicitly listed in the test target's polyfills: this builder detects that literal entry to provide zone-based change detection; hiding it inside `polyfills.ts` selects zoneless tests instead.
 - Without a browser, type-check frontend specs with `npx tsc -p src/frontend/tsconfig.spec.json --noEmit` (templates are not checked; `npm run build-en` covers them).
 - End-to-End (Cypress):
   - `start-e2e-server` runs on port 8080 (`node ./test/folder-reset test/e2e && node ./src/backend/index --config-path=test/e2e/config.json --Database-dbFolder=test/e2e --Server-port=8080 --Users.suppressDefUserWarn=true`).
@@ -76,8 +79,8 @@
   - Keep `@angular-devkit/schematics` and `@schematics/angular` aligned with the CLI (currently `22.2.1`). ng-icons has unbounded peer ranges; inspect `npm ls` after updates.
   - `typescript-eslint` **8.71.1** supports TypeScript 6. Check compiler support when updating lint tooling.
   - Keep the obsolete `marked/marked.min.js` entry out of Angular's global scripts. ngx-markdown imports its supported Marked peer directly.
-  - ngx-markdown 22's optional `marked-katex-extension` peer must be installed for webpack to resolve its dynamic import, even when math rendering is unused.
-  - custom-webpack 22 uses jiti for build configs. The cleanup batch replaced `gulpfile.ts` with native Node scripts and removed `ts-node`. The release backend still uses plain `tsc` with `tsconfig.release.json` to preserve CommonJS emission under NodeNext.
+  - Keep ngx-markdown 22's optional `marked-katex-extension` peer installed for its dynamic import, even when math rendering is unused.
+  - The cleanup batch replaced `gulpfile.ts` with native Node scripts and removed `ts-node`. The release backend still uses plain `tsc` with `tsconfig.release.json` to preserve CommonJS emission under NodeNext; migrating the frontend builder does not require SSR or an ESM backend.
 - **Angular 22 Type Checking and Gestures**:
   - A resize handler with no parameters must use `@HostListener('window:resize')`, without an event argument.
   - Interfaces in decorated frontend classes need explicit type-only imports under TS 6 to avoid nonexistent runtime exports. Do not change runtime class imports used as injection tokens to type-only imports.

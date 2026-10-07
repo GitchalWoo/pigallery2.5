@@ -43,7 +43,7 @@ export async function localizeBundles(outputPath) {
   }
 }
 
-export async function buildFrontend({outputPath = 'dist', languages, release = false} = {}) {
+export async function buildFrontend({outputPath = 'dist', languages, release = false, statsJson = false} = {}) {
   let locales;
   if (languages) {
     locales = languages.split(',').map(locale => locale.trim()).filter(Boolean);
@@ -54,6 +54,12 @@ export async function buildFrontend({outputPath = 'dist', languages, release = f
       throw new Error(`Unsupported languages: ${languages}. Choose from ${supported.join(', ')}.`);
     }
   }
-  await run(process.execPath, [path.join(root, 'scripts/frontend.mjs'), JSON.stringify({outputPath, localize: locales || true, extractLicenses: release})]);
+  // Keep dist/<locale>/ and release/dist/<locale>/ without the builder's browser/ subdirectory.
+  await run(process.execPath, [path.join(root, 'scripts/frontend.mjs'), JSON.stringify({
+    outputPath: {base: outputPath, browser: '', media: 'assets'},
+    localize: locales || true,
+    extractLicenses: release,
+    statsJson,
+  })]);
   await localizeBundles(path.resolve(root, outputPath));
 }

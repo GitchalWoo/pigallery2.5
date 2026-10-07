@@ -11,15 +11,17 @@ test('localized bundles match each index and repeat safely without touching asse
   t.after(() => rm(dir, {recursive: true, force: true}));
   for (const locale of ['en', 'pl']) {
     await mkdir(path.join(dir, locale));
-    await writeFile(path.join(dir, locale, 'index.html'), '<script src="main.abc.js"></script><script src="runtime.js"></script>');
-    await writeFile(path.join(dir, locale, 'main.abc.js'), 'bundle');
+    await writeFile(path.join(dir, locale, 'index.html'), '<link rel="modulepreload" href="chunk-ABC.js"><script src="main-ABC.js" type="module"></script><script src="polyfills-ABC.js" type="module"></script>');
+    await writeFile(path.join(dir, locale, 'main-ABC.js'), 'import "./chunk-ABC.js";');
+    await writeFile(path.join(dir, locale, 'chunk-ABC.js'), 'export const value = 1;');
   }
   await mkdir(path.join(dir, 'assets'));
   await localizeBundles(dir);
   await localizeBundles(dir);
   for (const locale of ['en', 'pl']) {
-    assert.equal(await readFile(path.join(dir, locale, 'index.html'), 'utf8'), `<script src="${locale}.main.abc.js"></script><script src="runtime.js"></script>`);
-    assert.deepEqual((await readdir(path.join(dir, locale))).sort(), [`${locale}.main.abc.js`, 'index.html'].sort());
+    assert.equal(await readFile(path.join(dir, locale, 'index.html'), 'utf8'), `<link rel="modulepreload" href="chunk-ABC.js"><script src="${locale}.main-ABC.js" type="module"></script><script src="polyfills-ABC.js" type="module"></script>`);
+    assert.equal(await readFile(path.join(dir, locale, `${locale}.main-ABC.js`), 'utf8'), 'import "./chunk-ABC.js";');
+    assert.deepEqual((await readdir(path.join(dir, locale))).sort(), [`${locale}.main-ABC.js`, 'chunk-ABC.js', 'index.html'].sort());
   }
 });
 
