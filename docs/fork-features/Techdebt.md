@@ -97,7 +97,7 @@ build, all 16 release locales, ZIP/manifest/binary-fixture checks, XLIFF extract
 (1,083 messages), and byte-identical generated configuration manual. c8 reports
 189 backend/common TypeScript files.
 
-## Completed Application Hardening Batch 1 (2026-10-07)
+## Completed Application Hardening (2026-10-07)
 
 Implemented on `hardening/application`. Covers security audit findings (AUD1–AUD14),
 perimeter controls (S1, S2, S3, S5), search glob escaping (B8), and dependency overrides (Dependabot #5).

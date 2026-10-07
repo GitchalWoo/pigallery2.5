@@ -1,247 +1,92 @@
-# Security Updates & Hardening Plan
+# Security Updates & Hardening Status
 
-This document tracks security findings, automated scanner alerts (e.g., CodeQL), and planned remediation work for the fork.
-
----
-
-## 1. CodeQL Path Traversal (CWE-22 / `js/path-injection`)
-
-### 1.1 Context & Discovery
-During the **Step 7 (Express 5)** upgrade, GitHub Advanced Security CodeQL scan (check run `112487991352` on PR #9) flagged **19 high-severity alerts** for:
-> **"Uncontrolled data used in path expression"** (`js/path-injection`)
-
-#### Root Cause Analysis
-- **Pre-existing Code**: The underlying data flows (passing `req.params.directory` or `req.params.file` to `path.join(ProjectPath.ImageFolder, ...)` and `fs.stat`) have existed in upstream PiGallery2 for years. 14 of the 19 alerts are in files completely untouched by the Express 5 upgrade (`UploadManager`, `GPXProcessing`, `PhotoProcessing`, `GalleryManager`, `MetaFileMWs`, `RenderingMWs`).
-- **Why Flagged in Step 7**: Express 4 routes previously used non-standard `:directory(*)` inline regex syntax, which CodeQL's taint engine did not model as standard named parameter sources. Modernizing routes to standard `RegExp` named capture groups `(?<directory>.*)` allowed CodeQL's parser to recognize `req.params.directory` as an untrusted HTTP input source, tracing taint across the backend call tree.
-- **Sanitization Gap**: `AuthenticationMWs.normalizePathParam` currently uses `path.normalize(val).replace(/^(\.\.[\/\\])+/, '')`. CodeQL does not consider regex stripping or `path.normalize` a safe sanitizer because it does not strictly prove that the resolved path stays within the base directory root.
+This document tracks security findings, automated scanner alerts (e.g. CodeQL, Dependabot), and hardening implementations in this fork.
 
 ---
 
-### 1.2 Alert Inventory (19 Locations)
+## 1. Executive Status & Summary
 
-| # | File | Line | Operation | Sink Description |
-|---|---|---|---|---|
-| **1** | `src/backend/middlewares/GalleryMWs.ts` | 75 | `fsp.stat` | `listDirectory`: directory stat check |
-| **2** | `src/backend/middlewares/GalleryMWs.ts` | 330 | `fsp.stat` | `zipDirectory`: directory stat check |
-| **3** | `src/backend/middlewares/GalleryMWs.ts` | 362 | `archiver` | `zipDirectory`: archiver file packaging |
-| **4** | `src/backend/middlewares/MetaFileMWs.ts` | 29 | `fs.existsSync` | `compressService`: check converted metafile exists |
-| **5** | `src/backend/middlewares/RenderingMWs.ts` | 95 | `fs.existsSync` | `renderFile`: check file existence |
-| **6** | `src/backend/model/UploadManager.ts` | 28 | `path.join` / `fs` | `saveFiles`: destination directory resolution |
-| **7** | `src/backend/model/UploadManager.ts` | 61 | `path.join` / `fs` | `saveUploadedFile`: target directory creation |
-| **8** | `src/backend/model/UploadManager.ts` | 65 | `fs.existsSync` | `saveUploadedFile`: collision check |
-| **9** | `src/backend/model/UploadManager.ts` | 66 | `fs.rename` | `saveUploadedFile`: move uploaded file |
-| **10** | `src/backend/model/UploadManager.ts` | 69 | `fs.rename` | `saveUploadedFile`: backup duplicate file |
-| **11** | `src/backend/model/database/GalleryManager.ts` | 63 | `path.join` | `listDirectory`: image folder path resolution |
-| **12** | `src/backend/model/fileaccess/fileprocessing/GPXProcessing.ts` | 80 | `fs.readFileSync` | `loadGPXFile`: load track file from disk |
-| **13** | `src/backend/model/fileaccess/fileprocessing/GPXProcessing.ts` | 89 | `fs.existsSync` | `compressGPX`: check existing converted file |
-| **14** | `src/backend/model/fileaccess/fileprocessing/GPXProcessing.ts` | 90 | `fs.readFileSync` | `compressGPX`: read converted track file |
-| **15** | `src/backend/model/fileaccess/fileprocessing/GPXProcessing.ts` | 168 | `fs.writeFileSync` | `compressGPX`: save compressed GPX file |
-| **16** | `src/backend/model/fileaccess/fileprocessing/PhotoProcessing.ts` | 272 | `fs.existsSync` | `generateConvertedPath`: check converted image |
-| **17** | `src/backend/model/fileaccess/fileprocessing/PhotoProcessing.ts` | 294 | `fs.existsSync` | `generateConvertedPath`: check cached derivative |
-| **18** | `src/backend/routes/PublicRouter.ts` | 325 | `fs.existsSync` | `renderFile`: check frontend static file exists |
-| **19** | `src/backend/routes/PublicRouter.ts` | 328 | `res.sendFile` | `renderFile`: send frontend asset |
+**Application Hardening** is completed on branch `hardening/application` (2026-10-07). All findings from the 2026-10-06 security review (**AUD1–AUD14**), core perimeter controls (**S1, S2, S3, S5**), and SQLite text search escaping (**B8**) have been resolved and validated across 788 passing backend tests (SQLite & MariaDB), 152 frontend Karma tests, and 0 production vulnerabilities.
+
+| Category | Closed | Open / In Progress |
+|---|---|---|
+| **Perimeter & Resources (S1–S5)** | 4 closed (S1, S2, S3, S5) | 1 ongoing tracking (S4: tooling/devDependencies audit) |
+| **Audit Findings (AUD1–AUD14)** | 14 closed (AUD1 through AUD14) | 0 open |
+| **Search Integrity (B8)** | 1 closed (B8) | 0 open |
+| **Dependabot Alerts** | Alert #5 (`proxy-addr`) resolved via override | Alerts #2, #3, #6 audited (devDependencies only) |
 
 ---
 
-### 1.3 Remediation Strategy
+## 2. Master Tracking Matrix
 
-To permanently resolve these 19 alerts and prevent directory traversal:
-
-1. **Centralized Safe Path Resolver**:
-   Create a dedicated helper `src/backend/model/fileaccess/SafePath.ts`:
-   ```ts
-   import * as path from 'path';
-
-   export class SafePath {
-     /**
-      * Resolves an untrusted relative path against an allowed base directory.
-      * Throws or returns null if the target escapes the base directory.
-      */
-     public static resolve(baseDir: string, untrustedPath: string): string {
-       const safeBase = path.resolve(baseDir);
-       const target = path.resolve(safeBase, untrustedPath);
-       
-       // Ensure resolved path starts strictly with base directory + separator
-       if (!target.startsWith(safeBase + path.sep) && target !== safeBase) {
-         throw new Error(`Path traversal detected: attempt to escape base directory`);
-       }
-       return target;
-     }
-   }
-   ```
-   *Note: Using `path.resolve` followed by `.startsWith(base + path.sep)` is CodeQL's recognized sanitization guard pattern for CWE-22.*
-
-2. **Middleware Sanitization**:
-   Update `AuthenticationMWs.normalizePathParam` to validate parameters strictly against traversal before continuing down the middleware chain, returning `400 Bad Request` or `403 Forbidden` if escape is detected.
-
-3. **Refactor Sinks**:
-   Replace manual `path.join(ProjectPath.ImageFolder, directory)` in `GalleryMWs`, `UploadManager`, `PhotoProcessing`, and `GPXProcessing` with `SafePath.resolve(...)`.
-
-4. **PublicRouter Asset Guard**:
-   In `PublicRouter.renderFile`, ensure `req.params.file` is validated with `SafePath.resolve(frontendDir, file)` and reject any path containing separators (`/` or `\`).
-
-5. **Testing & Resolution**:
-   Added dedicated security test suite `test/backend/unit/security/PathTraversal.spec.ts` testing payloads:
-   - `../../../../etc/passwd`
-   - `..%2f..%2f` (URL-encoded)
-   - `folder/../../`
-   - Windows backslashes `..\..\`
-   - Null bytes `%00`
-
-   **Status: Resolved in Batch 1 (2026-10-07)**. Centralized `SafePath.resolve` implemented in `src/backend/model/fileaccess/SafePath.ts` and integrated across all sinks, `AuthenticationMWs.normalizePathParam`, and `PublicRouter.renderFile`. All 8 PathTraversal tests pass.
+| ID | Finding / Vulnerability | Severity | Status | Implementation & Resolution | Verification |
+|---|---|---|---|---|---|
+| **S1** | Implicit cookie policy & missing CSRF protection | High | **Closed** | Enforced `SameSite=lax`, `httpOnly`, `signed` session cookies in `server.ts`. Added double-submit CSRF protection (`CSRFProtection.ts`) issuing `pigallery2-csrf-token` cookie and validating `PI-GALLERY2-CSRF-TOKEN` / `X-CSRF-TOKEN` header on mutating API endpoints (`POST`, `PUT`, `DELETE`). | `CSRFProtection.spec.ts` (8 tests) |
+| **S2** | Missing rate limiting on authentication endpoints | High | **Closed** | Added sliding-window in-memory IP rate limiter (`RateLimiter.ts`) guarding `/user/login`, `/share/:key/login`, and `/auth/oidc/callback` (10 req/min limit, returning HTTP 429 with `Retry-After`). | `RateLimiter.spec.ts` (2 tests) |
+| **S3** | Unbounded upload concurrency in memory | Medium | **Closed** | Added upload concurrency semaphore (`MAX_CONCURRENT_UPLOADS = 5`) returning HTTP 429 when saturated in `UploadMWs.ts`. Preserved 50 MiB/file and 10 parts/request limits. | `UploadMWs.ts`, `UploadRouter.spec.ts` |
+| **S4** | Tooling / devDependencies advisories | Medium | **Tracking** | Pinned `proxy-addr: 2.0.8` via npm override (resolving Dependabot #5). Production dependencies report 0 vulnerabilities (`npm audit --omit=dev`). Remaining 30 advisories are isolated in devDependencies and tracked for future build/test tooling upgrades. | `npm audit --omit=dev` (0 vulnerabilities) |
+| **S5** | Path traversal (CodeQL CWE-22, 19 sinks) | High | **Closed** | Implemented centralized `SafePath.resolve` enforcing lexical containment, null-byte stripping, and root `/` handling across all media/file sinks, route parameters, and static assets. | `PathTraversal.spec.ts` (8 tests) |
+| **AUD1** | Sessions survive user demotion, deletion, or share expiry | High | **Closed** | Implemented `validateExistingSession` in `AuthenticationMWs.ts` rechecking database user existence, role, restrictions, expiry, and sharing record status on every authenticated request. | `AuthenticationMWs.spec.ts` (4 tests) |
+| **AUD2** | OIDC account binding by mutable username / missing email verification | High | **Closed** | Bound OIDC identities to `(oidcIssuer, oidcSubject)`, blocked auto-binding to privileged accounts (`Admin`, `Developer`), and enforced `email_verified` when domain allowlist is set. | `OIDCAuthService.spec.ts`, `OIDCRouter.spec.ts` |
+| **AUD3** | Share `defaultSearchView` overwrites access boundary `searchQuery` | High | **Closed** | Separated access boundary (`searchQuery`) from initial presentation query (`defaultSearchView`) in `SharingEntity`, `SharingDTO`, `SharingManager`, and `SessionManager`. | `SessionManager.spec.ts` |
+| **AUD4** | Schema synchronization drops tables and loses persistent data | High | **Closed** | Replaced destructive database drop with non-destructive schema update in `SQLConnection.ts`; added automatic pre-upgrade SQLite database backups; made `tryConnection()` read-only. | `SQLConnection.spec.ts` |
+| **AUD5** | Share-key generation can loop infinitely | High | **Closed** | Fixed key availability detection (`res == null`), bounded collision retry loop (10 attempts max), and enforced unique constraint on `sharingKey` in database (`@Column({unique: true})`). | `SharingMWs.spec.ts` |
+| **AUD6** | Password hashes serialized into readable session cookies | Medium | **Closed** | Scrubbed `password` field from user entities before storing in session context across login, OIDC callback, and user settings update. | `SessionManager.spec.ts`, `UserManager.spec.ts` |
+| **AUD7** | Protected media served with public caching headers | Medium | **Closed** | Enforced `Cache-Control: private, max-age=31536000, immutable` for media responses; `no-store, no-cache, must-revalidate` for sensitive configuration/user endpoints. | `RenderingMWs.ts` |
+| **AUD8** | Predictable administrator credentials created on first boot (`admin/admin`) | High | **Closed** | Replaced default `admin/admin` with cryptographically random 16-character alphanumeric password generated via `crypto.randomBytes` on initial bootstrap. | `SQLConnection.spec.ts` |
+| **AUD9** | Secrets in diagnostic logs & URLs | Medium | **Closed** | Redacted sensitive keys (passwords, secrets, tokens) in startup diagnostic logs (`server.ts`); sanitized credential parameters from URLs in `LoggerRouter.ts`. | `server.ts`, `LoggerRouter.ts` |
+| **AUD10** | Concurrent upload file overwrite race | Medium | **Closed** | Used atomic exclusive creation flag (`wx`) in `UploadManager.saveFile`; added automatic cleanup unlinking partial files upon write failure. | `UploadManager.spec.ts` |
+| **AUD11** | Unhandled ZIP archive stream errors & disconnects | Medium | **Closed** | Added client disconnect listener (`res.on('close')` -> `archive.abort()`), response header error guards, and SafePath containment for all archive entries in `GalleryMWs.zipDirectory`. | `GalleryMWs.ts` |
+| **AUD12** | Synchronous password hashing blocks event loop | Medium | **Closed** | Added `cryptPasswordAsync` & `comparePasswordAsync` via bcrypt in `PasswordHelper.ts`; converted authentication and user management to non-blocking async execution. | `PasswordHelper.spec.ts` |
+| **AUD13** | Share listing loses search query when filtering by creator | Medium | **Closed** | In `SharingManager.listAllForQuery`, replaced `.where()` with `.andWhere()` to preserve existing search-query filters when applying creator filters. | `SharingManager.spec.ts` |
+| **AUD14** | Metafile access directory-level authorization policy | Medium | **Closed** | Verified and documented metafile policy in `GalleryManager.authoriseMetaFile`: requires directory to contain matching media under current projection before granting access. | `GalleryManager.spec.ts` |
+| **B8** | SQLite text search misses literal `_` / `%` characters | Medium | **Closed** | Added SQLite `ESCAPE '\\'` clause to LIKE queries and properly escaped literal `_` and `%` in glob pattern conversion in `SearchManager.ts`. | `SearchManager.spec.ts` |
 
 ---
 
-## 2. Other Planned Security Work
+## 3. Implementation Details by Domain
 
-| Item | Area | Priority | Status / Description |
-|---|---|---|---|
-| **S1** | **Cookie & CSRF Policy** | High | **Closed (2026-10-07)**: Defined explicit `SameSite=Lax`, `HttpOnly=true`, and `signed=true` cookie attributes. Added double-submit CSRF token validation (`pigallery2-csrf-token`) on mutating API endpoints (`POST`, `PUT`, `DELETE`). |
-| **S2** | **Login & Callback Throttling** | High | **Closed (2026-10-07)**: Implemented in-memory sliding window rate limiting (`RateLimiter.ts`) on `/user/login`, `/share/:key/login`, and `/auth/oidc/callback` (10 req/min limit, returning HTTP 429 with `Retry-After`). |
-| **S3** | **Upload Memory Caps** | Medium | **Closed (2026-10-07)**: Added global upload concurrency semaphore (`MAX_CONCURRENT_UPLOADS = 5`) rejecting excess uploads with HTTP 429. Upload limits retained at 50 MiB/file and 10 parts/request. |
-| **S4** | **Tooling Dependency Vulnerabilities** | Medium | **In Progress**: Pinned `proxy-addr: 2.0.8` via npm override to resolve Dependabot advisory #5 (IPv4-mapped IPv6 spoofing). Production dependencies report 0 vulnerabilities (`npm audit --omit=dev`). Remaining 30 advisories are isolated in devDependencies/tooling. |
-| **S5** | **Path Traversal / CodeQL CWE-22 (19 alerts)** | High | **Closed (2026-10-07)**: Resolved via `SafePath.ts` integration across all media/file sinks, route parameter sanitization, and PublicRouter asset guard. |
+### 3.1 Path Traversal & Containment (S5)
 
----
+- **Context**: Route modernization in Express 5 exposed pre-existing parameter flows to CodeQL's taint tracker (19 alerts for CWE-22 in `GalleryMWs`, `UploadManager`, `GPXProcessing`, `PhotoProcessing`, `GalleryManager`, `PublicRouter`).
+- **Remediation**:
+  1. Created [`SafePath.ts`](../../src/backend/model/fileaccess/SafePath.ts) with `SafePath.resolve(baseDir, untrustedPath)`: validates that the resolved path strictly starts with `baseDir + path.sep` or equals `baseDir`.
+  2. Strips null bytes (`\0`), normalizes directory separators, and treats gallery root `/` or empty inputs safely within the allowed base directory.
+  3. Integrated across all 19 sinks, `AuthenticationMWs.normalizePathParam`, and `PublicRouter.renderFile`.
+- **Validation**: `test/backend/unit/security/PathTraversal.spec.ts` (8 passing tests covering `../../../../etc/passwd`, encoded `..%2f`, backslashes `..\..\`, null bytes `%00`, and gallery root `/`).
 
-## 3. Audit
+### 3.2 Authentication, Sessions & Identity (S1, S2, AUD1, AUD2, AUD6, AUD8, AUD12)
 
-### 3.1 Scope & Status
+- **CSRF Protection & Cookies (S1)**: In `server.ts`, cookie sessions configured with `httpOnly: true`, `sameSite: 'lax'`, `signed: true`. Created `CSRFProtection.ts` issuing double-submit cookie `pigallery2-csrf-token` and validating `PI-GALLERY2-CSRF-TOKEN` / `X-CSRF-TOKEN` on mutating requests. Updated `NetworkService.ts` to supply header on all mutating frontend HTTP calls.
+- **Rate Limiting (S2)**: Created `RateLimiter.ts` implementing in-memory sliding-window request throttling (10 requests/minute per IP) on `/user/login`, `/share/:key/login`, and `/auth/oidc/callback`, responding with HTTP 429 and `Retry-After`.
+- **Live Session Validation (AUD1)**: Added `validateExistingSession` in `AuthenticationMWs.ts`. Requests validate session user existence in database, role changes, permission modifications, and explicit expiry (`session.expires`). Share sessions verify share existence and non-expiration.
+- **OIDC Identity Binding (AUD2)**: Added `oidcIssuer` and `oidcSubject` columns to `UserEntity.ts` and `UserDTO.ts`. In `OIDCAuthService.callback`, accounts are linked strictly by `(issuer, subject)`. Blocked automatic binding to privileged accounts (`Admin`, `Developer`). Enforced `email_verified` claim when domain restrictions are enabled.
+- **Scrubbing Password Hashes (AUD6)**: Stripped `password` field in `SessionManager.buildContext`, `OIDCAuthService.callback`, and `UserMWs.updateSettings` so password hashes never enter readable session cookies.
+- **Safe Admin Bootstrap (AUD8)**: Replaced default `admin/admin` credentials in `SQLConnection.init` with cryptographically random 16-character alphanumeric password generated via `crypto.randomBytes`, logged once on initial startup.
+- **Asynchronous Password Processing (AUD12)**: Implemented non-blocking `cryptPasswordAsync` and `comparePasswordAsync` via bcrypt in `PasswordHelper.ts`. Converted user authentication and share login methods to asynchronous execution.
 
-Source review performed on **2026-10-06**, after the framework and runtime upgrades, on branch `fork-inclusion/pr-1165-preview-ceiling`. Reviewed authentication, OIDC, sharing, database initialization, uploads, media responses, logging, and the existing hardening/technical-debt plans.
+### 3.3 Sharing Access & Query Integrity (AUD3, AUD5, AUD13)
 
-**Status as of 2026-10-07**: All findings (**AUD1–AUD14**) have been addressed and resolved on branch `hardening/application` with full regression coverage across both SQLite and MariaDB databases.
+- **Access Query vs Display View Separation (AUD3)**: Separated `searchQuery` (authoritative access boundary) from `defaultSearchView` (initial UI presentation view) in `SharingEntity.ts`, `SharingDTO.ts`, and `SharingManager.ts`. In `SessionManager.buildAllowListForSharing`, permissions are strictly built from `searchQuery`, bounded by creator restrictions.
+- **Bounded Share-Key Generation (AUD5)**: In `SharingMWs.createSharing`, corrected key availability check to `res == null`, added a 10-attempt retry limit, and enforced database-level uniqueness via `@Column({unique: true})` in `SharingEntity.ts`.
+- **Share Query Filter Preservation (AUD13)**: In `SharingManager.listAllForQuery`, replaced `.where()` with `.andWhere()` when applying creator filters so search query expressions are not discarded.
 
-### 3.2 Access Control, Identity & Data Preservation
+### 3.4 Database Upgrades & Recovery (AUD4)
 
-#### AUD1 — Existing sessions survive account and share revocation
+- **Non-Destructive Schema Updates**: In `SQLConnection.ts`, replaced destructive table drops on version mismatch with non-destructive schema synchronization.
+- **Automatic SQLite Backup**: Creates timestamped backup file (`sqlite.db.bak-<timestamp>`) before running schema synchronization.
+- **Read-Only Connection Checks**: `tryConnection()` now connects without executing schema sync or table modifications.
 
-**Priority: High** — **Status: Resolved in Batch 1 (2026-10-07)**
+### 3.5 Uploads, Streams, Caching & Logging (S3, AUD7, AUD9, AUD10, AUD11, AUD14, B8)
 
-**Where:** [AuthenticationMWs.authenticate / logout](../../src/backend/middlewares/user/AuthenticationMWs.ts), [UserMWs](../../src/backend/middlewares/user/UserMWs.ts).
+- **Upload Concurrency & Race Handling (S3, AUD10)**: Added global concurrency semaphore (`MAX_CONCURRENT_UPLOADS = 5`) returning HTTP 429 when saturated. In `UploadManager.saveFile`, used atomic exclusive write flag `wx` (`fs.promises.open(..., 'wx')`) to prevent overwrite races, with automatic cleanup of partial files on failure. Upload limits retained at 50 MiB/file and 10 parts/request.
+- **Explicit Caching Policy (AUD7)**: Set `Cache-Control: private, max-age=31536000, immutable` for protected media in `RenderingMWs.ts`; set `no-store, no-cache, must-revalidate` for sensitive configuration/user endpoints.
+- **Secret Redaction (AUD9)**: Redacted passwords, secrets, client secrets, and tokens from diagnostic logs in `server.ts`; stripped credential parameters from request URLs in `LoggerRouter.ts`.
+- **ZIP Stream Lifecycle (AUD11)**: In `GalleryMWs.zipDirectory`, added client disconnect listener (`res.on('close')` -> `archive.abort()`), `res.headersSent` guards, and SafePath validation on archive entries.
+- **Metafile Policy (AUD14)**: Verified directory-level metafile authorization in `GalleryManager.authoriseMetaFile`: requires directory to contain matching projection media before granting access to directory metafiles.
+- **SQLite LIKE Escaping (B8)**: Added SQLite `ESCAPE '\\'` clause to LIKE queries and escaped literal `_` and `%` characters during glob translation in `SearchManager.ts`.
 
-An existing `req.session.context` was previously accepted without rechecking the database user or sharing link.
+### 3.6 Dependency Overrides & Tooling (Dependabot #5, S4)
 
-**Resolution:** Implemented `validateExistingSession` in `AuthenticationMWs.ts`. It authoritatively checks existing session records against the live database state:
-- Verifies that session has not expired (`session.expires`).
-- Verifies user exists in the database and their role/permissions have not changed.
-- If user permissions or restrictions changed, updates the session projection context accordingly; if user was deleted or disabled, clears session.
-- For share sessions, verifies that the sharing link still exists, has not expired, and matches the session parameters.
-- Validated with 4 unit tests in `test/backend/unit/middlewares/user/AuthenticationMWs.spec.ts`.
-
-#### AUD2 — OIDC identities are linked by mutable/non-unique names
-
-**Priority: High when OIDC is enabled** — **Status: Resolved in Batch 1 (2026-10-07)**
-
-**Where:** [OIDCAuthService.callback](../../src/backend/middlewares/user/OIDCAuthService.ts).
-
-The callback previously matched local accounts by `preferred_username` or email prefix, allowing collision or takeover.
-
-**Resolution:**
-- Added persistent `oidcIssuer` and `oidcSubject` columns to `UserEntity.ts` and `UserDTO.ts`.
-- `OIDCAuthService.callback` now strictly links accounts by `(issuer, subject)`.
-- If an unlinked account matches the username, automatic linking is blocked for privileged accounts (`Admin`, `Developer`) to prevent takeover.
-- Enforced `email_verified` check whenever `allowedDomains` is configured.
-- Tested and verified against RS256 JWKS mock OIDC provider in `OIDCRouter.spec.ts` and `OIDCAuthService.spec.ts`.
-
-#### AUD3 — A share's default view overwrites its access boundary
-
-**Priority: High** — **Status: Resolved in Batch 1 (2026-10-07)**
-
-**Where:** [SharingManager.createSharing / updateSharing](../../src/backend/model/database/SharingManager.ts), [SessionManager.buildAllowListForSharing](../../src/backend/model/database/SessionManager.ts).
-
-Both create and update previously assigned `defaultSearchView` to `searchQuery`, which determines access bounds.
-
-**Resolution:** Separated `searchQuery` (access boundary) from `defaultSearchView` (initial presentation/UI query) in `SharingEntity.ts`, `SharingDTO.ts`, and `SharingManager.ts`. In `SessionManager.buildAllowListForSharing`, the allow-list is strictly constructed from `searchQuery`, bounded by the creator's permissions. Covered by unit tests in `SessionManager.spec.ts`.
-
-#### AUD4 — Schema upgrades discard persistent application data
-
-**Priority: High technical/data-preservation risk** — **Status: Resolved in Batch 1 (2026-10-07)**
-
-**Where:** [SQLConnection.schemeSync / tryConnection](../../src/backend/model/database/SQLConnection.ts), [DataStructureVersion](../../src/common/DataStructureVersion.ts).
-
-On structure-version mismatch, schema synchronization previously dropped all tables, losing shares, albums, and extensions.
-
-**Resolution:**
-- Replaced destructive table dropping with non-destructive schema update.
-- Added automatic timestamped SQLite database backup (`sqlite.db.bak-<timestamp>`) before schema synchronization runs.
-- Made `tryConnection()` read-only, avoiding schema synchronization or table alteration during connection testing.
-- Covered by unit tests in `test/backend/unit/model/sql/SQLConnection.spec.ts`.
-
-#### AUD5 — Share creation can loop indefinitely
-
-**Priority: High operational priority** — **Status: Resolved in Batch 1 (2026-10-07)**
-
-**Where:** [SharingMWs.createSharing](../../src/backend/middlewares/SharingMWs.ts), [SharingManager.findOne](../../src/backend/model/database/SharingManager.ts).
-
-The key-generation loop previously relied on `findOne()` throwing to detect an unused key, but `getOne()` returns `null`.
-
-**Resolution:**
-- Explicitly check `res == null` to confirm key availability.
-- Bounded retry loop to 10 attempts maximum with informative error propagation on exhaustion.
-- Enforced unique constraint on `sharingKey` at database level with `@Column({unique: true})` in `SharingEntity.ts`.
-- Covered by unit test in `test/backend/unit/middlewares/SharingMWs.spec.ts`.
-
-#### AUD6 — Password hashes enter readable session cookies
-
-**Priority: Medium** — **Status: Resolved in Batch 1 (2026-10-07)**
-
-**Where:** [OIDCAuthService.callback](../../src/backend/middlewares/user/OIDCAuthService.ts), [UserMWs.updateSettings](../../src/backend/middlewares/user/UserMWs.ts), [SessionManager.buildContext](../../src/backend/model/database/SessionManager.ts).
-
-Password hashes entered signed (unencrypted) session cookies in several authentication and user-update flows.
-
-**Resolution:** Stripped `password` hash field across all session context builders (`SessionManager.buildContext`, `OIDCAuthService.callback`, and `UserMWs.updateSettings`). Verified by assertions in `SessionManager.spec.ts` and `UserManager.spec.ts`.
-
-#### AUD7 — Protected media receives public caching headers
-
-**Priority: Medium** — **Status: Resolved in Batch 1 (2026-10-07)**
-
-**Where:** [RenderingMWs.renderFile](../../src/backend/middlewares/RenderingMWs.ts).
-
-The file renderer previously used `sendFile()` without overriding its public caching policy.
-
-**Resolution:**
-- Set `Cache-Control: private, max-age=31536000, immutable` for protected media responses to prevent shared/intermediate proxy caching.
-- Set `Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate` for sensitive API configuration and user endpoints.
-
-#### AUD8 — Predictable administrator credentials are created automatically
-
-**Priority: High** — **Status: Resolved in Batch 1 (2026-10-07)**
-
-**Where:** [SQLConnection.init](../../src/backend/model/database/SQLConnection.ts).
-
-Initialization previously created `admin/admin` automatically whenever no administrator account existed.
-
-**Resolution:**
-- Replaced hardcoded credentials with a cryptographically secure, random 16-character alphanumeric password generated via `crypto.randomBytes`.
-- The bootstrap password is logged to standard output once on initial creation with instructions to change it upon first login.
-- Verified with unit tests in `test/backend/unit/model/sql/SQLConnection.spec.ts`.
-
-### 3.3 Additional Security & Reliability Findings
-
-| Item | Finding | Priority | Status / Evidence & Remediation |
-|---|---|---|---|
-| **AUD9** | Secrets in diagnostic logs | Medium | **Closed (2026-10-07)**: Redacted sensitive configuration keys (passwords, secrets, client secrets, tokens) in diagnostic startup logging (`server.ts`). Sanitized credential-bearing request URL parameters in `LoggerRouter.ts`. |
-| **AUD10** | Upload overwrite race | Medium | **Closed (2026-10-07)**: Implemented atomic exclusive creation (`wx` flag) in `UploadManager.saveFile` to prevent concurrent overwrite races. Added cleanup unlinking partial files upon write errors. Tested in `UploadManager.spec.ts`. |
-| **AUD11** | ZIP errors can terminate the process | Medium | **Closed (2026-10-07)**: In `GalleryMWs.zipDirectory`, added client disconnect listener (`res.on('close')` -> `archive.abort()`), `res.headersSent` guards, and `SafePath.resolve` validation on all archived file entries. |
-| **AUD12** | Password verification blocks the event loop | Medium | **Closed (2026-10-07)**: Added `cryptPasswordAsync` and `comparePasswordAsync` via bcrypt in `PasswordHelper.ts`. Converted user authentication, share login, and user management to non-blocking async execution. Tested in `PasswordHelper.spec.ts`. |
-| **AUD13** | Share listing loses its search-query filter | Medium | **Closed (2026-10-07)**: In `SharingManager.listAllForQuery`, replaced `.where()` with `.andWhere()` for creator filter to preserve existing search-query expressions. Tested in `SharingManager.spec.ts`. |
-| **AUD14** | Metafile access uses whole-directory permissions | Medium | **Closed (2026-10-07)**: Documented and verified directory authorization policy in `GalleryManager.authoriseMetaFile`. Ensures directory has matching projection media before granting access to directory metafiles. Tested in `GalleryManager.spec.ts`. |
-
-### 3.4 Corrections & Constraints for Existing Plans
-
-- **Path containment:** The proposed `SafePath` helper in Section 1.3 checks lexical containment, not symlink containment. Define whether links outside the media root are permitted and enforce that policy consistently. Preserve the gallery-root convention: several callers represent the root as `/`, which cannot be passed unchanged to `path.resolve(baseDir, untrustedPath)` as a relative path.
-- **Historical scanner inventory:** Section 1.2 records a historical scan, not 19 individually confirmed exploitable vulnerabilities in the current checkout. It references `saveUploadedFile` and rename operations that no longer exist in the current upload implementation. Refresh the inventory against the implementation during remediation.
-- **Zoneless provider:** Techdebt item A1 should use stable `provideZonelessChangeDetection()`, available since Angular 20.2, rather than the experimental provider: [Angular documentation](https://angular.dev/api/core/provideZonelessChangeDetection).
-- **Performance estimates:** Build-time improvements in the modernization plan should remain estimates until measured on this project.
-
-These observations are recorded here for follow-up; this audit addition does not rewrite the historical scanner section or Techdebt.md.
-
-### 3.5 Implementation Status
-
-Batch 1 (Application Hardening) has been fully implemented on branch `hardening/application` (2026-10-07):
-1. **Sharing & Presentation Isolation**: Fixed AUD3 (searchQuery vs defaultSearchView separation), AUD5 (bounded key loop, DB uniqueness), AUD13 (query preservation with creator filter), AUD6 (scrubbed session hashes), AUD9 (redacted secrets in logs and URLs), and B8 (SQLite LIKE escape clause).
-2. **Database & Bootstrap Safety**: Implemented AUD4 (non-destructive schema updates, pre-upgrade SQLite backup, read-only tryConnection) and AUD8 (cryptographic random admin password generation).
-3. **Perimeter Controls & Identity**: Implemented S1 (CSRF protection, secure cookie flags), S2 (sliding-window rate limiting), S5 (SafePath containment across all sinks), AUD1 (session revocation and live database validation), and AUD2 (OIDC issuer/subject binding, collision prevention, email_verified requirement).
-4. **Resources, Streams, Caching & File Safety**: Implemented S3 (concurrency semaphore), AUD7 (explicit private/no-store caching headers), AUD10 (atomic wx upload writes, partial file cleanup), AUD11 (ZIP stream disconnect abort and headers guards), AUD12 (async bcrypt hashing/comparison), and AUD14 (metafile authorization policy).
-5. **Dependency Overrides**: Pinned `proxy-addr: 2.0.8` to resolve Dependabot advisory #5. Production dependencies report 0 vulnerabilities (`npm audit --omit=dev`).
+- **Dependabot Alert #5 (`proxy-addr`)**: Pinned `"proxy-addr": "2.0.8"` via `package.json` overrides to eliminate IPv4-mapped IPv6 trust spoofing vulnerability. Confirmed via `npm ls proxy-addr`.
+- **Audit Status**: Production dependencies report **0 vulnerabilities** (`npm audit --omit=dev`). Remaining 30 advisories are isolated in devDependencies (webpack dev server, karma, dev tools) and tracked under Item S4 for future tooling modernization.

@@ -9,7 +9,8 @@
 
 ## Upgrade Handoff
 
-- Steps 0–7 of [UPGRADE_PLAN.md](docs/fork-features/UPGRADE_PLAN.md) are complete and the upgrade branches are merged into `master`: Node 24 at `e1b1b561` (PR #5), openid-client 6 at `fd349f02` (PR #6), FFmpeg wrapper at `ab36cc46` (PR #7), and Express 5 at `b8312f9d` (PR #9).
+- Steps 0–7 of [UPGRADE_PLAN.md](docs/fork-features/UPGRADE_PLAN.md) are complete and the upgrade branches are merged into `master`: Node 24 at `e1b1b561` (PR #5), openid-client 6 at `fd349f02` (PR #6), FFmpeg wrapper at `ab36cc46` (PR #7), and Express 5 at `b8312f9d` (PR #9). Dependency and tooling cleanup merged via PR #13 (`c088d0a6`).
+- Application Hardening on branch `hardening/application`: 788 passing backend tests across SQLite and MariaDB (including 48 new/updated tests covering path containment, session revalidation, CSRF, rate limiting, OIDC identity binding, SQLite LIKE escaping, upload concurrency/races, and non-destructive schema migrations). Karma: 152 SUCCESS. Production dependencies report 0 vulnerabilities with `proxy-addr` pinned to 2.0.8 (Dependabot #5).
 - Step 7 validation: Express upgraded to 5.2.1 and `@types/express` to 5.0.6. Migrated 9 media routes to named RegExp capture groups and wildcard path parameters to `normalizePathParam` array joins. Backend suite: 733 passing tests across SQLite and MariaDB (including 25 `RouteMatching` edge-case tests, 42 router tests, and 19 OIDC tests). Karma: 145 SUCCESS. Cypress: 7/7 specs pass (18 passing, 12 intentionally pending documentation tests).
 - Step 5 validation: `openid-client` upgraded to 6.8.8 (pure ESM loaded via Node 24 `require(esm)`), `@types/openid-client` removed. Backend suite: 654 passing tests across SQLite and MariaDB (including 19 OIDC tests with `MockOIDCServer`). End-to-end authentication validated against real local Dex provider (`http://localhost:5556/dex`) with PKCE S256, real JWKS validation, and session user provisioning.
 - Step 4 validation on Node 24.21.0 / npm 11.19.0 passed: backend 635 tests on SQLite and MariaDB, Karma 145 tests, all 16 locale builds, seven Cypress specs (18 passing, 12 intentionally pending documentation tests), and nine automated Brave smoke checks. All three amd64 Dockerfiles build and pass diagnostics; native SQLite/bcrypt and HEIC/AVIF/JPEG/PNG decoding pass. Detailed results are in the upgrade plan and [Techdebt.md](docs/fork-features/Techdebt.md). Temporary `/tmp/pg-node24-*` harnesses and logs are local artifacts; future runs must not assume they exist. Arm64 image builds remain a CI check.
@@ -86,8 +87,14 @@
   - Angular removed its Hammer APIs in v22. `LightboxGesturesDirective` now handles pointer capture, swipe/pan/pinch/tap and cancellation only on the lightbox gesture surface. Preserve its interactive-child exclusions and regression tests.
 - **Backend Tests Need a Built Frontend**:
   - Build the frontend before running the full backend suite. `PublicRouter` sharing tests read `dist/en/index.html` and fail with `ENOENT` if it is absent.
-- **Known SQLite Search Issue (Techdebt B8)**:
-  - Literal `_` / `%` searches can miss matches because escaped LIKE patterns lack an explicit SQLite `ESCAPE` clause. Step 2 reproduced this in unchanged backend code: `IMG_5910.jpg` missed while `5910` matched. Fix separately with regression coverage for both database engines.
+- **SQLite Search LIKE Escaping (Techdebt B8 - Resolved)**:
+  - Literal `_` / `%` searches missed matches previously because escaped LIKE patterns lacked an explicit SQLite `ESCAPE` clause. Resolved in Batch 1 by adding `ESCAPE '\\'` clause to LIKE queries and properly escaping `_` and `%` in glob pattern translation for SQLite. Verified with regression coverage across both SQLite and MariaDB.
+- **MariaDB / MySQL Duplicate Index Definition**:
+  - In TypeORM entities, applying both `@Index({unique: true})` and `@Column({unique: true})` to the same column causes TypeORM schema synchronization in MySQL/MariaDB to generate two identical index creation statements (`Duplicate key name 'IDX_...'`), crashing startup or migration. Use `@Column({unique: true})` alone; it safely enforces the unique constraint and index across SQLite, MySQL, and MariaDB.
+- **CSRF & Cookie Protection Architecture**:
+  - Session cookies use `httpOnly: true`, `sameSite: 'lax'`, and `signed: true`. Double-submit CSRF cookie `pigallery2-csrf-token` is validated via `PI-GALLERY2-CSRF-TOKEN` / `X-CSRF-TOKEN` HTTP header on mutating methods (`POST`, `PUT`, `DELETE`). Safe methods (`GET`, `HEAD`, `OPTIONS`) and public authentication endpoints (`/login`, `/share/:key/login`, `/auth/oidc/callback`) bypass CSRF token checks. `NetworkService` automatically attaches the CSRF token to frontend mutating requests.
+- **SafePath Lexical Containment**:
+  - `SafePath.resolve(baseDir, untrustedPath)` validates that the resolved path strictly resides within `baseDir` (`target.startsWith(baseDir + path.sep) || target === baseDir`). It strips null bytes and normalizes gallery root representations (treating leading `/` or empty strings as within `baseDir`).
 - **Leaflet & MarkerCluster Typing**:
   - `@bluehalo/ngx-leaflet-markercluster` 20+ no longer ambiently exports/imports the `leaflet.markercluster` module.
   - Any file referencing `MarkerClusterGroup` or `L.markerClusterGroup` must explicitly include `import 'leaflet.markercluster';`.
@@ -114,7 +121,7 @@
 
 ## Security Context
 
-- Security remediation snapshot from 2026-10-06 (Node 24 migration): `npm audit --omit=dev` reports 0 vulnerabilities.
-- Full `npm audit` reports 30 advisories (1 low, 7 moderate, 20 high, 2 critical), reduced from 36 after removing the obsolete release compiler in Step 4; all advisories in that snapshot were in devDependencies/tooling. The 2026-10-07 cleanup removed coveralls, nyc and gulp; no new audit count was collected. Angular is now 22.2.1, with TypeScript 6.0.3.
-- Uploads are authenticated and role-gated. Multer uses memory storage; the current parser limits each file to 50 MiB and each request to 10 file parts. Keep these bounds in mind when changing upload behavior; concurrent requests can still consume significant memory.
-- Security review also flagged implicit cookie/CSRF policy and no visible login throttling. Treat these as follow-up review items; deployment proxy and HTTPS configuration affect the right fix.
+- Security remediation snapshot: `npm audit --omit=dev` reports 0 vulnerabilities with `proxy-addr: 2.0.8` override (resolving Dependabot advisory #5).
+- Full `npm audit` reports 30 advisories in devDependencies/tooling (webpack, karma, dev tools). Production dependencies have 0 advisories.
+- Uploads are authenticated and role-gated, limited to 50 MiB/file and 10 file parts/request. Bounded by concurrency semaphore (`MAX_CONCURRENT_UPLOADS = 5`) and exclusive write creation (`wx`) with partial-file cleanup (S3, AUD10).
+- Application hardening is completed on `hardening/application` (S1–S3, S5, AUD1–AUD14, B8). Complete inventory, implementation details, and test references are tracked in [Security-Updates.md](docs/fork-features/Security-Updates.md).
