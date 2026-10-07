@@ -115,6 +115,10 @@
   - In Docker builds, `docker/build-libvips.sh` compiles libvips with `-Draw=enabled`, and Debian Dockerfiles include `libraw-dev` / `libraw23t64`.
 - **Git Operations in Sandbox**:
   - `.git` is protected/read-only in standard sandbox mode. Git mutations require the tool's sandbox escalation option (`sandbox_permissions: "require_escalated"` with `exec_command`).
+- **Frontend Standalone Route Lazy-Loading & CommonJS Whitelisting**:
+  - Secondary routes (`admin`, `duplicates`, `albums`, `faces`, `timeline`) and the `gallery` matcher route use Angular standalone `loadComponent: () => import(...)`. Heavy admin/duplicate/face services are scoped to component-level `providers` (such as `SettingsService` and `ScheduledJobsService` on `AdminComponent`), keeping initial bundle size well within the 2.0 MB budget (1.72 MB).
+  - CommonJS modules like `typeconfig` and `leaflet` trigger Webpack optimization bailout warnings unless whitelisted in `angular.json` under `architect.build.options.allowedCommonJsDependencies`.
+  - Leaflet's default marker icon is initialized in `MarkerFactory.ts`, eliminating the need to import `Marker` or `LeafletModule` in `main.ts`.
 
 ## Security Context
 

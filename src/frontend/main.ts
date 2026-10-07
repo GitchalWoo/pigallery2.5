@@ -25,15 +25,11 @@ import {ThumbnailManagerService} from './app/ui/gallery/thumbnailManager.service
 import {NotificationService} from './app/model/notification.service';
 import {FullScreenService} from './app/ui/gallery/fullscreen.service';
 import {NavigationService} from './app/model/navigation.service';
-import {SettingsService} from './app/ui/settings/settings.service';
 import {SeededRandomService} from './app/model/seededRandom.service';
 import {OverlayService} from './app/ui/gallery/overlay.service';
 import {QueryService} from './app/model/query.service';
 import {ThemeService} from './app/model/theme.service';
-import {DuplicateService} from './app/ui/duplicates/duplicates.service';
-import {FacesService} from './app/ui/faces/faces.service';
 import {VersionService} from './app/model/version.service';
-import {ScheduledJobsService} from './app/ui/settings/scheduled-jobs.service';
 import {BackendtextService} from './app/model/backendtext.service';
 import {CookieService} from 'ngx-cookie-service';
 import {GPXFilesFilterPipe} from './app/pipes/GPXFilesFilterPipe';
@@ -134,12 +130,8 @@ import {PopoverModule} from 'ngx-bootstrap/popover';
 import {BsDropdownModule} from 'ngx-bootstrap/dropdown';
 import {BsDatepickerModule} from 'ngx-bootstrap/datepicker';
 import {TimepickerModule} from 'ngx-bootstrap/timepicker';
-import {LeafletModule} from '@bluehalo/ngx-leaflet';
-import {LeafletMarkerClusterModule} from '@bluehalo/ngx-leaflet-markercluster';
-import {MarkdownModule} from 'ngx-markdown';
+import {provideMarkdown} from 'ngx-markdown';
 import {AppComponent} from './app/app.component';
-import {Marker} from 'leaflet';
-import {MarkerFactory} from './app/ui/gallery/map/MarkerFactory';
 import {DurationPipe} from './app/pipes/DurationPipe';
 import {GalleryService} from './app/ui/gallery/gallery.service';
 import {UploaderService} from './app/ui/gallery/uploader/uploader.service';
@@ -166,8 +158,6 @@ export class CustomUrlSerializer implements UrlSerializer {
       .replace(/%29/g, ')');
   }
 }
-
-Marker.prototype.options.icon = MarkerFactory.defIcon;
 
 bootstrapApplication(AppComponent, {
   providers: [
@@ -199,9 +189,8 @@ bootstrapApplication(AppComponent, {
         ionFingerPrint, ionCloudUploadOutline
       }), TooltipModule, ToastrModule.forRoot(),
       ModalModule, CollapseModule, PopoverModule,
-      BsDropdownModule, BsDatepickerModule, TimepickerModule,
-      LeafletModule, LeafletMarkerClusterModule,
-      MarkdownModule.forRoot({loader: HttpClient})),
+      BsDropdownModule, BsDatepickerModule, TimepickerModule),
+    provideMarkdown({loader: HttpClient}),
     {provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true},
     {provide: UrlSerializer, useClass: CustomUrlSerializer},
     StringifySortingMethod,
@@ -226,15 +215,11 @@ bootstrapApplication(AppComponent, {
     NotificationService,
     FullScreenService,
     NavigationService,
-    SettingsService,
     SeededRandomService,
     OverlayService,
     QueryService,
     ThemeService,
-    DuplicateService,
-    FacesService,
     VersionService,
-    ScheduledJobsService,
     UploaderService,
     BackendtextService,
     CookieService,

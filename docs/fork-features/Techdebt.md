@@ -18,7 +18,6 @@ later, **L** = cleanup.
 | F5 | `@angular-builders/custom-webpack` → `@angular/build:application` | `angular.json` | M | Webpack builder is deprecated in Angular 22. Moving to esbuild application builder yields 5x–10x faster builds |
 | F6 | Karma + Jasmine → Vitest | `karma.conf.js`, frontend specs | M | Karma is deprecated upstream by Angular. Local Brave runner workaround (`CHROME_BIN=/opt/brave.com/brave/brave`) is in place until Vitest migration |
 | F7 | Full zoneless change detection | `main.ts`, `polyfills.ts` | M | Migrate async state across Gallery, Timeline, and Upload services to Angular Signals; adopt `provideExperimentalZonelessChangeDetection()`; drop `zone.js` |
-| F10 | Initial bundle optimization | Frontend lazy routes/chunks | L | Split heavy dependencies (`leaflet`, `ngx-markdown`, `katex`, icons) into lazy chunks to get below 2 MB threshold |
 
 ## Security follow-ups
 
@@ -75,4 +74,24 @@ Implemented on `refactor/redundant-wrappers`. Replaced dead, unmaintained, or re
 
 Dependency cleanup: removed 6 packages (`locale`, `ngx-clipboard`, `ngx-device-detector`, `@ngx-loading-bar/core`, `xml2js`, `@types/xml2js`); added `fast-xml-parser` 4.5.7.
 Validation: 806 passing backend tests on SQLite and MariaDB (including new `GPXProcessing.spec.ts`), 152 frontend Karma tests (0 failures), 3 passing Cypress e2e tests (`share.cy.ts`), 8 tooling tests, 0 ESLint errors, clean Angular localized build (`npm run build-en`), and 0 production vulnerabilities (`npm audit --omit=dev`).
+
+
+## Completed Bundle Optimization and Build Warning Elimination (2026-10-08)
+
+Implemented on `perf/bundle-optimization`. Resolved initial chunk budget overflow (F10) and all CommonJS optimization bailout warnings.
+
+| Item | Area | Optimization Implementation | Impact & Result |
+|---|---|---|---|
+| **F10** | Route-level lazy loading (`app.routing.ts`) | Converted `admin`, `duplicates`, `albums`, `faces`, `timeline`, and `gallery` routes to standalone `loadComponent: () => import(...)` | Deferred heavy feature trees (admin settings suite, duplicate finder, face clustering, albums manager, timeline, and gallery grid/lightbox) into on-demand chunks. Initial bundle dropped from **2.09 MB to 1.72 MB** (below 2.0 MB budget). |
+| **F10** | Scoped feature providers | Scoped `SettingsService` and `ScheduledJobsService` to `AdminComponent.providers`, `DuplicateService` to `DuplicateComponent.providers`, and `FacesService` to `FacesComponent.providers` | Removed heavy admin config schemas and single-purpose feature services from root `main.ts`, reducing initial transfer size and avoiding unnecessary early instantiation. |
+| **CJS Warnings** | `angular.json` | Configured `allowedCommonJsDependencies` for `typeconfig` and `leaflet` (`leaflet.markercluster`) | Eliminated all Webpack CommonJS optimization bailout warnings. |
+| **Tree-shaking** | `MarkerFactory.ts`, `main.ts` | Initialized Leaflet `Marker.prototype.options.icon` in `MarkerFactory.ts`; removed unused `LeafletModule` / `LeafletMarkerClusterModule` and `Marker` imports from `main.ts`; migrated to `provideMarkdown({loader: HttpClient})` | Leaflet and Markdown extensions are only loaded when feature views require them; root injector bootstrap is completely stripped of unused imports. |
+
+Validation:
+- Build output: **0 warnings** on `npm run build-en` (zero CJS bailout warnings, initial total 1.72 MB within 2.0 MB budget).
+- Unit tests: 152/152 passing frontend Karma tests (0 failures).
+- Tooling tests: 8/8 passing `test-tooling` tests.
+- End-to-End tests: 3/3 passing Cypress tests (`share.cy.ts`) against local test server.
+- Code quality: 0 ESLint errors across the workspace.
+
 

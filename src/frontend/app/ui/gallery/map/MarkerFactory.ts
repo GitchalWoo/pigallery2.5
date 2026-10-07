@@ -1,4 +1,4 @@
-import {DivIcon, setOptions} from 'leaflet';
+import {DivIcon, Marker, setOptions} from 'leaflet';
 
 export interface SvgIconOptions {
   color?: string;
@@ -35,3 +35,5 @@ export class MarkerFactory {
   }
 
 }
+
+Marker.prototype.options.icon = MarkerFactory.defIcon;
