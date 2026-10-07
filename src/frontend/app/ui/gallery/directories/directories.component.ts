@@ -1,5 +1,5 @@
 import {Component, ElementRef, HostListener, Input, type OnChanges, ChangeDetectionStrategy} from '@angular/core';
-import {DeviceDetectorService} from 'ngx-device-detector';
+import {DeviceService} from '../../../model/device.service';
 import {type SubDirectoryDTO} from '../../../../../common/entities/DirectoryDTO';
 
 import { GalleryDirectoryComponent } from './directory/directory.gallery.component';
@@ -18,7 +18,7 @@ export class DirectoriesComponent implements OnChanges {
 
   constructor(
       private container: ElementRef,
-      private deviceService: DeviceDetectorService
+      private deviceService: DeviceService
   ) {
     this.isDesktop = this.deviceService.isDesktop();
   }

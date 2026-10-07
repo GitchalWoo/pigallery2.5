@@ -1,7 +1,7 @@
 import {Injectable} from '@angular/core';
 import {HttpClient, type HttpEvent, HttpEventType, HttpResponse} from '@angular/common/http';
 import {Message} from '../../../../common/entities/Message';
-import {LoadingBarService} from '@ngx-loading-bar/core';
+import {LoadingBarService} from '../loading-bar.service';
 import {ErrorCodes, ErrorDTO} from '../../../../common/entities/Error';
 import {Config} from '../../../../common/config/public/Config';
 import {Utils} from '../../../../common/Utils';
@@ -51,16 +51,16 @@ export class NetworkService {
   }
 
   public getXML(url: string): Promise<Document> {
-    this.loadingBarService.useRef().start();
+    this.loadingBarService.start();
 
     const process = (res: string): Document => {
-      this.loadingBarService.useRef().complete();
+      this.loadingBarService.complete();
       const parser = new DOMParser();
       return parser.parseFromString(res, 'text/xml');
     };
 
     const err = <T>(error: T) => {
-      this.loadingBarService.useRef().complete();
+      this.loadingBarService.complete();
       return this.handleError(error);
     };
 
@@ -71,15 +71,15 @@ export class NetworkService {
   }
 
   public getText(url: string): Promise<string> {
-    this.loadingBarService.useRef().start();
+    this.loadingBarService.start();
 
     const process = (res: string): string => {
-      this.loadingBarService.useRef().complete();
+      this.loadingBarService.complete();
       return res;
     };
 
     const err = <T>(error: T) => {
-      this.loadingBarService.useRef().complete();
+      this.loadingBarService.complete();
       return this.handleError(error);
     };
 
@@ -94,7 +94,7 @@ export class NetworkService {
   }
 
   public postFormData<T>(url: string, data: FormData): Observable<HttpEvent<Message<T>>> {
-    this.loadingBarService.useRef().start();
+    this.loadingBarService.start();
     return this.http.post<Message<T>>(this.apiBaseUrl + url, data, {
       headers: this.getCsrfHeaders(),
       reportProgress: true,
@@ -102,7 +102,7 @@ export class NetworkService {
     }).pipe(tap({
       next: (event) => {
         if (event.type === HttpEventType.Response) {
-          this.loadingBarService.useRef().complete();
+          this.loadingBarService.complete();
           if (event.headers.has(CustomHeaders.dataVersion)) {
             this.versionService.onNewVersion(
               event.headers.get(CustomHeaders.dataVersion)
@@ -116,7 +116,7 @@ export class NetworkService {
         }
       },
       error: () => {
-        this.loadingBarService.useRef().complete();
+        this.loadingBarService.complete();
       }
     }));
   }
@@ -144,10 +144,10 @@ export class NetworkService {
   ): Promise<T> {
     const body = data;
 
-    this.loadingBarService.useRef().start();
+    this.loadingBarService.start();
 
     const process = (res: HttpResponse<Message<T>>): T => {
-      this.loadingBarService.useRef().complete();
+      this.loadingBarService.complete();
       const msg = res.body;
       if (res.headers.has(CustomHeaders.dataVersion)) {
         this.versionService.onNewVersion(
@@ -169,7 +169,7 @@ export class NetworkService {
     };
 
     const err = <T>(error: T) => {
-      this.loadingBarService.useRef().complete();
+      this.loadingBarService.complete();
       return this.handleError(error);
     };
 

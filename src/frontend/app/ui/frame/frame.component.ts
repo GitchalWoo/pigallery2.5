@@ -13,8 +13,8 @@ import {PageHelper} from '../../model/page.helper';
 import {BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective} from 'ngx-bootstrap/dropdown';
 import {LanguageComponent} from '../language/language.component';
 import {ThemeService} from '../../model/theme.service';
-import {DeviceDetectorService} from 'ngx-device-detector';
-import {LoadingBarModule} from '@ngx-loading-bar/core';
+import {DeviceService} from '../../model/device.service';
+import {LoadingBarService} from '../../model/loading-bar.service';
 import {IconComponent} from '../../icon.component';
 import {CollapseDirective} from 'ngx-bootstrap/collapse';
 
@@ -33,7 +33,6 @@ import {SearchQueryUtils} from '../../../../common/SearchQueryUtils';
   encapsulation: ViewEncapsulation.Emulated,
   changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
-    LoadingBarModule,
     RouterLink,
     IconComponent,
     CollapseDirective,
@@ -82,7 +81,8 @@ export class FrameComponent {
     public queryService: QueryService,
     private router: Router,
     public themeService: ThemeService,
-    private deviceService: DeviceDetectorService,
+    private deviceService: DeviceService,
+    public loadingBarService: LoadingBarService,
     public galleryService: GalleryService,
     public uploadService: UploaderService
   ) {

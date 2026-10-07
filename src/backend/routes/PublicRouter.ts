@@ -43,6 +43,10 @@ export class PublicRouter {
           selectedLocale = req.cookies[CookieNames.lang];
         }
       }
+      if (!selectedLocale) {
+        const match = typeof req.acceptsLanguages === 'function' ? req.acceptsLanguages(Config.Server.languages) : 'en';
+        selectedLocale = (typeof match === 'string' && match) ? match : 'en';
+      }
       res.cookie(CookieNames.lang, selectedLocale);
       req.localePath = selectedLocale;
       next();

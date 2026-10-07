@@ -3,7 +3,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import {NetworkService} from './network.service';
 import {UserService} from './user.service';
 import {LoginCredential} from '../../../../common/entities/LoginCredential';
-import {LoadingBarService} from '@ngx-loading-bar/core';
+import {LoadingBarService} from '../loading-bar.service';
 import {ShareService} from '../../ui/gallery/share.service';
 import {VersionService} from '../version.service';
 import { provideHttpClient, withInterceptorsFromDi, withXhr } from '@angular/common/http';

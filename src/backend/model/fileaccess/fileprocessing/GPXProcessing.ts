@@ -1,12 +1,18 @@
 import * as path from 'path';
 import {constants as fsConstants, promises as fsp} from 'fs';
-import * as xml2js from 'xml2js';
+import {XMLParser, XMLBuilder} from 'fast-xml-parser';
 import {ProjectPath} from '../../../ProjectPath';
 import {SafePath} from '../SafePath';
 import {Config} from '../../../../common/config/private/Config';
 import {SupportedFormats} from '../../../../common/SupportedFormats';
 
-type gpxEntry = { '$': { lat: string, lon: string }, ele?: string[], time?: string[], extensions?: unknown };
+type gpxEntry = {
+  '@_lat': string | number;
+  '@_lon': string | number;
+  ele?: unknown;
+  time?: string | string[];
+  extensions?: unknown;
+};
 
 export class GPXProcessing {
   private static readonly GPX_FLOAT_ACCURACY = 6;
@@ -94,15 +100,20 @@ export class GPXProcessing {
     const outDir = path.dirname(outPath);
 
     await fsp.mkdir(outDir, {recursive: true});
-    const gpxStr = await fsp.readFile(filePath);
-    const gpxObj = await (new xml2js.Parser()).parseStringPromise(gpxStr);
+    const gpxStr = await fsp.readFile(filePath, 'utf8');
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+      isArray: (name) => ['trk', 'trkseg', 'trkpt'].includes(name)
+    });
+    const gpxObj = parser.parse(gpxStr);
 
-    if (gpxObj.gpx?.trk?.[0].trkseg[0]) { // only compress paths if there is any
+    if (gpxObj.gpx?.trk?.[0]?.trkseg?.[0]?.trkpt) { // only compress paths if there is any
       const distance = (entry1: gpxEntry, entry2: gpxEntry) => {
-        const lat1 = parseFloat(entry1.$.lat);
-        const lon1 = parseFloat(entry1.$.lon);
-        const lat2 = parseFloat(entry2.$.lat);
-        const lon2 = parseFloat(entry2.$.lon);
+        const lat1 = parseFloat(String(entry1['@_lat']));
+        const lon1 = parseFloat(String(entry1['@_lon']));
+        const lat2 = parseFloat(String(entry2['@_lat']));
+        const lon2 = parseFloat(String(entry2['@_lon']));
 
         // credits to: https://www.movable-type.co.uk/scripts/latlong.html
         const R = 6371e3; // metres
@@ -119,11 +130,20 @@ export class GPXProcessing {
         const d = R * c; // in metres
         return d;
       };
+
+      const getTime = (entry?: gpxEntry): number => {
+        if (!entry?.time) {
+          return NaN;
+        }
+        const t = Array.isArray(entry.time) ? entry.time[0] : entry.time;
+        return Date.parse(t);
+      };
+
       const gpxEntryFilter = (value: gpxEntry, i: number, list: gpxEntry[]) => {
         if (i === 0 || i >= list.length - 1) { // always keep the first and last items
           return true;
         }
-        const timeDelta = (Date.parse(list[i]?.time?.[0]) - Date.parse(list[i - 1]?.time?.[0])); // mill sec.
+        const timeDelta = getTime(list[i]) - getTime(list[i - 1]); // mill sec.
         const dist = distance(list[i - 1], list[i]); // meters
 
         // if time is not available, consider it as all points are created the same time
@@ -136,12 +156,11 @@ export class GPXProcessing {
           return true;
         }
         /* if point on the same line that the next and prev point would draw, lets skip it*/
-        const avg = (a: string, b: string) => ((parseFloat(a) + parseFloat(b)) / 2).toFixed(this.GPX_FLOAT_ACCURACY);
+        const avg = (a: string | number, b: string | number) =>
+          ((parseFloat(String(a)) + parseFloat(String(b))) / 2).toFixed(this.GPX_FLOAT_ACCURACY);
         const modPoint: gpxEntry = {
-          $: {
-            lat: avg(list[i - 1].$.lat, list[i + 1].$.lat),
-            lon: avg(list[i - 1].$.lon, list[i + 1].$.lon)
-          }
+          '@_lat': avg(list[i - 1]['@_lat'], list[i + 1]['@_lat']),
+          '@_lon': avg(list[i - 1]['@_lon'], list[i + 1]['@_lon'])
         };
         if (list[i].time) {
           modPoint.time = list[i].time;
@@ -152,27 +171,38 @@ export class GPXProcessing {
       };
 
       for (let i = 0; i < gpxObj.gpx.trk.length; ++i) {
-        for (let j = 0; j < gpxObj.gpx.trk[0].trkseg.length; ++j) {
-          const trkseg: { trkpt: gpxEntry[] } = gpxObj.gpx.trk[i].trkseg[j];
+        if (!gpxObj.gpx.trk[i]?.trkseg) {
+          continue;
+        }
+        for (let j = 0; j < gpxObj.gpx.trk[i].trkseg.length; ++j) {
+          const trkseg: { trkpt?: gpxEntry[] } = gpxObj.gpx.trk[i].trkseg[j];
+          if (!trkseg?.trkpt) {
+            continue;
+          }
 
           trkseg.trkpt = trkseg.trkpt.filter(gpxEntryFilter).map((v) => {
-            v.$.lon = parseFloat(v.$.lon).toFixed(this.GPX_FLOAT_ACCURACY);
-            v.$.lat = parseFloat(v.$.lat).toFixed(this.GPX_FLOAT_ACCURACY);
+            v['@_lon'] = parseFloat(String(v['@_lon'])).toFixed(this.GPX_FLOAT_ACCURACY);
+            v['@_lat'] = parseFloat(String(v['@_lat'])).toFixed(this.GPX_FLOAT_ACCURACY);
             delete v.ele;
             delete v.extensions;
             return v;
           });
 
-          for (let i = 0; i < trkseg.trkpt.length; ++i) {
-            if (!postFilter(i, trkseg.trkpt)) {
-              trkseg.trkpt.splice(i, 1);
-              --i;
+          for (let k = 0; k < trkseg.trkpt.length; ++k) {
+            if (!postFilter(k, trkseg.trkpt)) {
+              trkseg.trkpt.splice(k, 1);
+              --k;
             }
           }
         }
       }
     }
-    await fsp.writeFile(outPath, (new xml2js.Builder({renderOpts: {pretty: false}})).buildObject(gpxObj));
+    const builder = new XMLBuilder({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+      format: false
+    });
+    await fsp.writeFile(outPath, builder.build(gpxObj));
 
     return outPath;
   }

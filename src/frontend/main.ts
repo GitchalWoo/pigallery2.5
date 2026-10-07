@@ -126,7 +126,6 @@ import {
   ionVolumeMuteOutline,
   ionWarningOutline
 } from '@ng-icons/ionicons';
-import {ClipboardModule} from 'ngx-clipboard';
 import {TooltipModule} from 'ngx-bootstrap/tooltip';
 import {ToastrModule} from 'ngx-toastr';
 import {ModalModule} from 'ngx-bootstrap/modal';
@@ -135,7 +134,6 @@ import {PopoverModule} from 'ngx-bootstrap/popover';
 import {BsDropdownModule} from 'ngx-bootstrap/dropdown';
 import {BsDatepickerModule} from 'ngx-bootstrap/datepicker';
 import {TimepickerModule} from 'ngx-bootstrap/timepicker';
-import {LoadingBarModule} from '@ngx-loading-bar/core';
 import {LeafletModule} from '@bluehalo/ngx-leaflet';
 import {LeafletMarkerClusterModule} from '@bluehalo/ngx-leaflet-markercluster';
 import {MarkdownModule} from 'ngx-markdown';
@@ -199,10 +197,10 @@ bootstrapApplication(AppComponent, {
         ionAppsOutline, ionOpenOutline, ionRefresh, ionExtensionPuzzleOutline, ionList, ionPencil, ionReload,
         ionCaretForward, ionCaretDown,
         ionFingerPrint, ionCloudUploadOutline
-      }), ClipboardModule, TooltipModule, ToastrModule.forRoot(),
+      }), TooltipModule, ToastrModule.forRoot(),
       ModalModule, CollapseModule, PopoverModule,
       BsDropdownModule, BsDatepickerModule, TimepickerModule,
-      LoadingBarModule, LeafletModule, LeafletMarkerClusterModule,
+      LeafletModule, LeafletMarkerClusterModule,
       MarkdownModule.forRoot({loader: HttpClient})),
     {provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true},
     {provide: UrlSerializer, useClass: CustomUrlSerializer},
