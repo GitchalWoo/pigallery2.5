@@ -14,6 +14,24 @@ For this fork's build, release, translation, and test commands, use the local
 remaining work; the [security plan](docs/fork-features/Security-Updates.md) tracks
 open security findings.
 
+> [!WARNING]
+> **Security upgrades and existing OpenID Connect (OIDC) providers:** Back up your
+> database and configuration before upgrading this fork. Security updates can
+> change the database schema and how existing users are linked to your identity
+> provider. Existing OIDC users may need manual identity relinking or their
+> PiGallery2 user accounts recreated; Admin and Developer accounts are no longer
+> automatically linked by username. Verify that you have a working local
+> administrator login before deploying an upgrade.
+>
+> Some incompatible upgrades may require database recreation and user
+> reprovisioning. Treat that as a last resort: it loses database-held users,
+> shares, permissions, and indexed metadata unless they are restored from a
+> backup. The current **43 → 44 migration preserves existing data** and adds the
+> missing OIDC columns automatically; do not reset the database to resolve that
+> missing-column error. Review the
+> [database upgrade and recovery notes](docs/fork-features/Security-Updates.md#34-database-upgrades--recovery-aud4)
+> before deploying security updates.
+
 ## 🚀 Key Features
 - **⚡ Fast**: Optimized for low-end hardware.
 - **✔️ Simple**: Point to your photos and you are ready.

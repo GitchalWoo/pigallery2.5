@@ -12,7 +12,7 @@ import {VersionEntity} from './enitites/VersionEntity';
 import {Logger} from '../../Logger';
 import {MediaEntity} from './enitites/MediaEntity';
 import {VideoEntity} from './enitites/VideoEntity';
-import {DataStructureVersion} from '../../../common/DataStructureVersion';
+import {DatabaseMigrations} from './DatabaseMigrations';
 import {FileEntity} from './enitites/FileEntity';
 import {PersonEntry} from './enitites/person/PersonEntry';
 import {Utils} from '../../../common/Utils';
@@ -55,6 +55,7 @@ export class SQLConnection {
     ProjectedAlbumCacheEntity
   ];
   private static connection: Connection = null;
+  private static connectionPromise: Promise<Connection> = null;
   private static FIXED_SQL_TABLE = [
     'sqlite_sequence'
   ];
@@ -75,19 +76,36 @@ export class SQLConnection {
   }
 
   public static async getConnection(): Promise<Connection> {
-    if (this.connection == null) {
-      const options = this.getDriver(Config.Database);
-
-      Logger.debug(
-        LOG_TAG,
-        'Creating connection: ' + DatabaseType[Config.Database.type],
-        ', with driver:',
-        options.type
-      );
-      this.connection = await this.createConnection(options);
-      await SQLConnection.schemeSync(this.connection);
+    if (this.connection != null) {
+      return this.connection;
     }
-    return this.connection;
+    if (this.connectionPromise == null) {
+      // Concurrent callers must wait for the same migration before querying entities.
+      this.connectionPromise = this.openConnection().finally(() => {
+        this.connectionPromise = null;
+      });
+    }
+    return this.connectionPromise;
+  }
+
+  private static async openConnection(): Promise<Connection> {
+    const options = this.getDriver(Config.Database);
+    Logger.debug(
+      LOG_TAG,
+      'Creating connection: ' + DatabaseType[Config.Database.type],
+      ', with driver:',
+      options.type
+    );
+    const connection = await this.createConnection(options);
+    try {
+      await DatabaseMigrations.run(connection);
+      this.connection = connection;
+      return connection;
+    } catch (err) {
+      // Do not cache a connection whose schema upgrade failed.
+      await connection.close();
+      throw err;
+    }
   }
 
   public static async tryConnection(
@@ -245,48 +263,6 @@ export class SQLConnection {
       throw e;
     }
   }
-
-  private static async schemeSync(connection: Connection): Promise<void> {
-    let version = null;
-    try {
-      version = (await connection.getRepository(VersionEntity).find())[0];
-      // eslint-disable-next-line no-empty
-    } catch (ex) {
-    }
-    if (version && version.version === DataStructureVersion) {
-      return;
-    }
-    Logger.info(LOG_TAG, 'Updating database scheme');
-    if (!version) {
-      version = new VersionEntity();
-    }
-    version.version = DataStructureVersion;
-
-    if (Config.Database.type === DatabaseType.sqlite) {
-      const dbPath = SQLConnection.getSQLiteDB(Config.Database);
-      if (fs.existsSync(dbPath)) {
-        try {
-          const backupPath = `${dbPath}.bak-${Date.now()}`;
-          fs.copyFileSync(dbPath, backupPath);
-          Logger.info(LOG_TAG, `Created SQLite database backup before schema upgrade: ${backupPath}`);
-        } catch (err) {
-          Logger.warn(LOG_TAG, `Could not create database backup: ${(err as Error).message}`);
-        }
-      }
-    }
-
-    try {
-      await connection.synchronize(false);
-      await connection.getRepository(VersionEntity).save(version);
-    } catch (e) {
-      Logger.error(
-        LOG_TAG,
-        'Could not synchronize database scheme: ' + (e as Error).toString()
-      );
-      throw e;
-    }
-  }
-
 
   private static getDriver(config: ServerDataBaseConfig): Writeable<DataSourceOptions> {
     let driver: Writeable<DataSourceOptions>;
