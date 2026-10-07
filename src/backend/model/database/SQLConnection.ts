@@ -17,6 +17,8 @@ import {FileEntity} from './enitites/FileEntity';
 import {PersonEntry} from './enitites/person/PersonEntry';
 import {Utils} from '../../../common/Utils';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as crypto from 'crypto';
 import {DatabaseType, ServerDataBaseConfig, SQLLogLevel,} from '../../../common/config/private/PrivateConfig';
 import {AlbumBaseEntity} from './enitites/album/AlbumBaseEntity';
 import {SavedSearchEntity} from './enitites/album/SavedSearchEntity';
@@ -99,7 +101,7 @@ export class SQLConnection {
     const options = this.getDriver(config);
     options.name = 'test';
     const conn = await this.createConnection(options);
-    await SQLConnection.schemeSync(conn);
+    await conn.query('SELECT 1');
     await conn.close();
     return true;
   }
@@ -130,13 +132,33 @@ export class SQLConnection {
       }
     }
 
-    // Add dummy Admin to the db
+    // Add initial Admin to the db if none exists
     const admins = await userRepository.findBy({role: UserRoles.Admin});
     const devs = await userRepository.findBy({role: UserRoles.Developer});
     if (admins.length === 0 && devs.length === 0) {
       const a = new UserEntity();
       a.name = 'admin';
-      a.password = PasswordHelper.cryptPassword('admin');
+      let adminPassword = 'admin';
+      const isTestEnv = process.env.NODE_ENV === 'test' || Config.Users.suppressDefUserWarn === true;
+      if (!isTestEnv) {
+        adminPassword = crypto.randomBytes(12).toString('base64url');
+        Logger.warn(LOG_TAG, '=======================================================');
+        Logger.warn(LOG_TAG, 'NO ADMINISTRATOR ACCOUNT FOUND - GENERATING INITIAL ADMIN:');
+        Logger.warn(LOG_TAG, 'Username: admin');
+        Logger.warn(LOG_TAG, `Temporary Password: ${adminPassword}`);
+        Logger.warn(LOG_TAG, 'Please log in and change this password immediately.');
+        Logger.warn(LOG_TAG, '=======================================================');
+
+        try {
+          const bootstrapFilePath = path.join(ProjectPath.getAbsolutePath(Config.Database.dbFolder), 'admin-bootstrap.txt');
+          fs.writeFileSync(bootstrapFilePath, `Username: admin\nPassword: ${adminPassword}\nGenerated: ${new Date().toISOString()}\n`, {mode: 0o600});
+        } catch (err) {
+          Logger.warn(LOG_TAG, 'Could not write admin-bootstrap.txt: ' + (err as Error).toString());
+        }
+      } else {
+        adminPassword = 'admin';
+      }
+      a.password = PasswordHelper.cryptPassword(adminPassword);
       a.role = UserRoles.Admin;
       await userRepository.save(a);
     }
@@ -240,29 +262,28 @@ export class SQLConnection {
     }
     version.version = DataStructureVersion;
 
-    let users: UserEntity[] = [];
-    try {
-      users = await connection
-        .getRepository(UserEntity)
-        .createQueryBuilder('user')
-        .getMany();
-      // eslint-disable-next-line no-empty
-    } catch (ex) {
+    if (Config.Database.type === DatabaseType.sqlite) {
+      const dbPath = SQLConnection.getSQLiteDB(Config.Database);
+      if (fs.existsSync(dbPath)) {
+        try {
+          const backupPath = `${dbPath}.bak-${Date.now()}`;
+          fs.copyFileSync(dbPath, backupPath);
+          Logger.info(LOG_TAG, `Created SQLite database backup before schema upgrade: ${backupPath}`);
+        } catch (err) {
+          Logger.warn(LOG_TAG, `Could not create database backup: ${(err as Error).message}`);
+        }
+      }
     }
-    await connection.dropDatabase();
-    await connection.synchronize();
-    await connection.getRepository(VersionEntity).save(version);
+
     try {
-      await connection.getRepository(UserEntity).save(users);
-    } catch (e) {
-      await connection.dropDatabase();
-      await connection.synchronize();
+      await connection.synchronize(false);
       await connection.getRepository(VersionEntity).save(version);
-      Logger.warn(
+    } catch (e) {
+      Logger.error(
         LOG_TAG,
-        'Could not move users to the new db scheme, deleting them. Details:' +
-        e.toString()
+        'Could not synchronize database scheme: ' + (e as Error).toString()
       );
+      throw e;
     }
   }
 
