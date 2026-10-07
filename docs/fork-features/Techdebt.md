@@ -3,7 +3,9 @@
 Known debt in the fork. Items are deliberately outside the
 [upgrade plan](UPGRADE_PLAN.md) unless an item says it blocks a step.
 Items resolved during the 7-step upgrade (F1–F3, B1–B3, B5–B7, B9, T2) have
-been completed and archived in [UPGRADE_PLAN.md](UPGRADE_PLAN.md).
+been completed and archived in [UPGRADE_PLAN.md](UPGRADE_PLAN.md). Completed items
+from subsequent batches (hardening, wrapper modernization) are archived in the
+completed sections at the bottom.
 
 Priority: **H** = security or blocks upgrades, **M** = deprecated / will break
 later, **L** = cleanup.
@@ -16,23 +18,16 @@ later, **L** = cleanup.
 | F5 | Webpack-based builder through `@angular-builders/custom-webpack` | `angular.json`, `angular.webpack.js`, `karma.conf.js` | M | Only customisation is one `IgnorePlugin`; custom-webpack 22.0.1 retains the output layout. Angular 22 now explicitly warns that webpack support is deprecated; moving to `@angular/build:application` changes output layout and backend serving |
 | F6 | Karma + Jasmine test runner | `karma.conf.js` | M | Angular is moving to Vitest; Karma is deprecated upstream. The nested plugin resolution workaround is fragile |
 | F7 | zone.js change detection and newer ngx-bootstrap releases | `main.ts`, `polyfills.ts`, `package.json` | M | Step 3 retains `provideZoneChangeDetection()` with ngx-bootstrap 22.0.0 signal APIs and direct module imports. Its published guide prescribes zoneless; the inspected implementation uses signals/explicit render notifications without a bootstrap assertion. This is a locally validated compatibility choice; separate zoneless sub-plan in UPGRADE_PLAN.md. ngx-toastr 20.0.5 still has Angular 21 peers, overridden only for common/core |
-| F8 | Stagnant Angular libraries: `ngx-clipboard` 16, `@ngx-loading-bar/core` 7 | `package.json` | Closed | Resolved in Batch 2 (2026-10-07): Replaced `ngx-clipboard` with standard browser `navigator.clipboard.writeText()` via `ClipboardService`; replaced `@ngx-loading-bar/core` with Angular signal `LoadingBarService` and CSS progress element |
 
 ## Backend
 
-| # | Item | Where | Priority | Notes |
-|---|---|---|---|---|
-| B8 | SQLite text searches miss literal `_` / `%` characters | `SearchManager.ts` (`convertGlobToLike`, `getLikeExpr`) | Closed | Resolved in Batch 1 (2026-10-07): Added SQLite `ESCAPE '\\'` clause to LIKE queries and properly escaped literal `_` and `%` in glob patterns. Verified with regression coverage across both SQLite and MariaDB |
+All known backend debt items (B1–B9) are resolved and archived in [UPGRADE_PLAN.md](UPGRADE_PLAN.md) and completed sections below.
 
 ## Security follow-ups
 
 | # | Item | Priority | Notes |
 |---|---|---|---|
-| S1 | Implicit cookie / CSRF policy | Closed | Resolved in Batch 1 (2026-10-07): Added `httpOnly`, `sameSite: 'lax'`, `signed: true` cookie settings and double-submit CSRF protection (`CSRFProtection.ts`, `PI-GALLERY2-CSRF-TOKEN`) for mutating API endpoints |
-| S2 | No visible login throttling | Closed | Resolved in Batch 1 (2026-10-07): Implemented in-memory sliding-window rate limiting (`RateLimiter.ts`) on `/user/login`, `/share/:key/login`, and `/auth/oidc/callback` (10 req/min, 429 Retry-After) |
-| S3 | Upload memory use: multer memory storage, 50 MiB × 10 files per request, no concurrency cap | Closed | Resolved in Batch 1 (2026-10-07): Added upload concurrency semaphore (`MAX_CONCURRENT_UPLOADS = 5`) returning 429 when saturated. Retained 50 MiB/file and 10 parts/request limits |
-| S4 | Full `npm audit`: 30 advisories in devDependencies/tooling | M | Step 4 snapshot, 2026-10-06: 30 advisories (1 low, 7 moderate, 20 high, 2 critical); `--omit=dev` is 0. Removing the obsolete release compiler reduced the Step 3 total from 36. Includes webpack build/serve tooling, Karma and Mocha/Cypress/Gulp/coverage advisories. Overrode `proxy-addr` to 2.0.8 (Dependabot #5) |
-| S5 | Path traversal / CodeQL CWE-22 (19 alerts) | Closed | Resolved in Batch 1 (2026-10-07): Implemented centralized `SafePath.ts` containment verification, normalized path params, null byte stripping, and integrated into all media/file sinks and PublicRouter asset serving |
+| S4 | Full `npm audit`: 19 advisories in devDependencies/tooling | M | Step 4 snapshot, 2026-10-06: 19 advisories in devDependencies/tooling; `--omit=dev` is 0. Removing stagnant wrapper packages dropped dev advisories from 30. Overrode `proxy-addr` to 2.0.8 (Dependabot #5) |
 
 ## Tooling / repo hygiene
 
@@ -45,16 +40,6 @@ later, **L** = cleanup.
 ## Post-upgrade modernization & library cleanup
 
 Items to tackle after the 7-step upgrade plan completes, focused on removing dead code, eliminating obsolete packages, and replacing redundant wrappers with native platform APIs.
-
-### Redundant wrappers with native / standard alternatives
-
-| # | Item | Where | Modern Replacement | Status |
-|---|---|---|---|---|
-| R1 | `locale` (0.1.0) middleware | `server.ts`, `PublicRouter.ts` | 13-year-old unmaintained package. Replace with Express built-in `req.acceptsLanguages(Config.Server.languages)` | Closed |
-| R2 | `ngx-clipboard` (16.0.0) | 3 gallery components | Replace with standard browser `navigator.clipboard.writeText()` via `ClipboardService` (Item F8) | Closed |
-| R3 | `ngx-device-detector` (12.0.0) | `directories`, `frame` components | Used only for `this.deviceService.isDesktop()`. Replace with standard CSS media queries (`window.matchMedia('(pointer: coarse)')`) via `DeviceService` | Closed |
-| R4 | `@ngx-loading-bar/core` (7.0.1) | `frame.component` | Used only for a 3px top progress bar. Replace with an Angular signal service and a CSS progress element (Item F8) | Closed |
-| R6 | `xml2js` (0.6.2) → `fast-xml-parser` | `GPXProcessing.ts` | Replace legacy callback parser with high-performance, TypeScript-native `fast-xml-parser` | Closed |
 
 ### Tooling, build & test modernization
 
