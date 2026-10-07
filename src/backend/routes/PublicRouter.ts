@@ -14,6 +14,7 @@ import {PhotoProcessing} from '../model/fileaccess/fileprocessing/PhotoProcessin
 import {Utils} from '../../common/Utils';
 import {ObjectManagers} from '../model/ObjectManagers';
 import {CSRFProtection} from '../middlewares/CSRFProtection';
+import {SafePath} from '../model/fileaccess/SafePath';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -317,12 +318,13 @@ export class PublicRouter {
 
     const renderFile = (subDir = '') => {
       return (req: Request, res: Response) => {
-        const file = path.join(
-          ProjectPath.FrontendFolder,
-          req.localePath,
-          subDir,
-          req.params.file as string
-        );
+        let file: string;
+        try {
+          const base = path.join(ProjectPath.FrontendFolder, req.localePath, subDir);
+          file = SafePath.resolve(base, req.params.file as string);
+        } catch {
+          return res.sendStatus(403);
+        }
         if (!fs.existsSync(file)) {
           return res.sendStatus(404);
         }

@@ -7,6 +7,7 @@ import {RenderingMWs} from '../middlewares/RenderingMWs';
 import {ServerTimingMWs} from '../middlewares/ServerTimingMWs';
 import {Config} from '../../common/config/private/Config';
 import {RateLimiter} from '../middlewares/RateLimiter';
+import {CSRFProtection} from '../middlewares/CSRFProtection';
 
 export class UserRouter {
   public static route(app: Express): void {
@@ -27,6 +28,7 @@ export class UserRouter {
         RateLimiter.loginLimiter,
         AuthenticationMWs.inverseAuthenticate,
         AuthenticationMWs.login,
+        CSRFProtection.issueToken,
         ServerTimingMWs.addServerTiming,
         RenderingMWs.renderSessionUser
     );
@@ -45,6 +47,7 @@ export class UserRouter {
     app.get(
         Config.Server.apiPath + '/user/me',
         AuthenticationMWs.authenticate,
+        CSRFProtection.issueToken,
         ServerTimingMWs.addServerTiming,
         RenderingMWs.renderSessionUser
     );

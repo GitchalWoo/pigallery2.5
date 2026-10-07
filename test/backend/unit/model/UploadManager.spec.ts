@@ -148,4 +148,41 @@ describe('UploadManager', () => {
     expect(errors[0].filename).to.equal('exists.jpg');
     expect(errors[0].error).to.contain('already exists');
   });
+
+  it('should reject path traversal in directory parameter (S5)', async () => {
+    const file: any = {
+      originalname: 'escape.jpg',
+      buffer: Buffer.from('content')
+    };
+    try {
+      await uploadManager.saveFile('../../etc', file);
+      expect.fail('Should have failed path traversal');
+    } catch (e) {
+      expect(e.message).to.contain('Path traversal detected');
+    }
+  });
+
+  it('should prevent overwrite race using wx exclusive flag (AUD10)', async () => {
+    const file1: any = {
+      originalname: 'race.jpg',
+      buffer: Buffer.from('first content')
+    };
+    const file2: any = {
+      originalname: 'race.jpg',
+      buffer: Buffer.from('second content')
+    };
+
+    // Run two simultaneous saveFile calls for the same file
+    const results = await Promise.allSettled([
+      uploadManager.saveFile('race_test', file1),
+      uploadManager.saveFile('race_test', file2)
+    ]);
+
+    const fulfilled = results.filter(r => r.status === 'fulfilled');
+    const rejected = results.filter(r => r.status === 'rejected');
+
+    expect(fulfilled.length).to.equal(1);
+    expect(rejected.length).to.equal(1);
+    expect((rejected[0] as PromiseRejectedResult).reason.message).to.contain('already exists');
+  });
 });

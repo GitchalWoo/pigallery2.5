@@ -2,6 +2,7 @@ import * as path from 'path';
 import {constants as fsConstants, promises as fsp} from 'fs';
 import * as xml2js from 'xml2js';
 import {ProjectPath} from '../../../ProjectPath';
+import {SafePath} from '../SafePath';
 import {Config} from '../../../../common/config/private/Config';
 import {SupportedFormats} from '../../../../common/SupportedFormats';
 
@@ -21,9 +22,10 @@ export class GPXProcessing {
   }
 
   public static generateConvertedPath(filePath: string): string {
+    const relDir = ProjectPath.getRelativePathToImages(path.dirname(filePath));
+    const safeRelDir = SafePath.resolve(ProjectPath.TranscodedFolder, relDir);
     return path.join(
-        ProjectPath.TranscodedFolder,
-        ProjectPath.getRelativePathToImages(path.dirname(filePath)),
+        safeRelDir,
         path.basename(filePath)
         + '_' + Config.MetaFile.GPXCompressing.minDistance + 'm' +
         Config.MetaFile.GPXCompressing.minTimeDistance + 'ms' +

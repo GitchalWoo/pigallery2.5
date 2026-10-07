@@ -13,6 +13,8 @@ import {DatabaseType} from '../../../../src/common/config/private/PrivateConfig'
 import {ProjectPath} from '../../../../src/backend/ProjectPath';
 import * as chai from "chai";
 import {default as chaiHttp, request} from "chai-http";
+import {CustomHeaders} from '../../../../src/common/CustomHeaders';
+import {CookieNames} from '../../../../src/common/CookieNames';
 import {DBTestHelper} from '../../DBTestHelper';
 
 declare const describe: any;
@@ -69,6 +71,17 @@ describe('UploadRouter', () => {
     await sqlHelper.clearDB();
   };
 
+  const extractCsrfToken = (loginRes: any): string => {
+    const cookies = loginRes.res.headers['set-cookie'] || [];
+    for (const c of cookies) {
+      const match = c.match(new RegExp(`${CookieNames.csrfToken}=([^;]+)`));
+      if (match) {
+        return match[1];
+      }
+    }
+    return '';
+  };
+
   const login = async (srv: Server): Promise<any> => {
     return await (request.execute(srv.Server) as SuperAgentStatic)
       .post(Config.Server.apiPath + '/user/login')
@@ -87,9 +100,11 @@ describe('UploadRouter', () => {
 
     it('should upload a file', async () => {
       const loginRes = await login(server);
+      const csrf = extractCsrfToken(loginRes);
       const res = await request.execute(server.Server)
         .post(Config.Server.apiPath + '/upload/')
         .set('Cookie', loginRes.res.headers['set-cookie'])
+        .set(CustomHeaders.csrfToken, csrf)
         .attach('files', Buffer.from('test image'), 'test.jpg');
 
       if (res.body.error) {
@@ -106,9 +121,11 @@ describe('UploadRouter', () => {
 
     it('should reject files larger than the upload limit', async () => {
       const loginRes = await login(server);
+      const csrf = extractCsrfToken(loginRes);
       const res = await request.execute(server.Server)
         .post(Config.Server.apiPath + '/upload/')
         .set('Cookie', loginRes.res.headers['set-cookie'])
+        .set(CustomHeaders.csrfToken, csrf)
         .attach('files', Buffer.alloc(50 * 1024 * 1024 + 1), 'large.jpg');
 
       res.should.have.status(413);
@@ -116,9 +133,11 @@ describe('UploadRouter', () => {
 
     it('should upload a file to a sub-directory', async () => {
       const loginRes = await login(server);
+      const csrf = extractCsrfToken(loginRes);
       const res = await request.execute(server.Server)
         .post(Config.Server.apiPath + '/upload/sub_dir')
         .set('Cookie', loginRes.res.headers['set-cookie'])
+        .set(CustomHeaders.csrfToken, csrf)
         .attach('files', Buffer.from('test image 2'), 'test2.jpg');
 
       res.should.have.status(200);
@@ -129,9 +148,11 @@ describe('UploadRouter', () => {
 
     it('should return error for unsupported file', async () => {
       const loginRes = await login(server);
+      const csrf = extractCsrfToken(loginRes);
       const res = await request.execute(server.Server)
         .post(Config.Server.apiPath + '/upload/')
         .set('Cookie', loginRes.res.headers['set-cookie'])
+        .set(CustomHeaders.csrfToken, csrf)
         .attach('files', Buffer.from('test exe'), 'test.exe');
 
       res.should.have.status(200); // Middleware returns success, but result contains errors

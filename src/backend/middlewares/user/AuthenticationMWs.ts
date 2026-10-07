@@ -10,6 +10,7 @@ import * as path from 'path';
 import {Logger} from '../../Logger';
 import {ContextUser} from '../../model/SessionContext';
 import {SearchQueryUtils} from '../../../common/SearchQueryUtils';
+import {SafePath} from '../../model/fileaccess/SafePath';
 
 const LOG_TAG = 'AuthenticationMWs';
 
@@ -167,6 +168,17 @@ export class AuthenticationMWs {
       let val: any = req.params[paramName];
       if (Array.isArray(val)) {
         val = val.join('/');
+      }
+      if (typeof val === 'string') {
+        if (val.includes('\0')) {
+          return next(new ErrorDTO(ErrorCodes.PATH_ERROR, 'Invalid path'));
+        }
+        // If the path contains relative segments escaping root, reject
+        try {
+          SafePath.resolve('/pigallery_root', val);
+        } catch {
+          return next(new ErrorDTO(ErrorCodes.PATH_ERROR, 'Path traversal detected'));
+        }
       }
       req.params[paramName] = path
         .normalize(val || path.sep)

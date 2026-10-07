@@ -1,6 +1,7 @@
 import {ProjectPath} from '../ProjectPath';
 import * as path from 'path';
 import * as fs from 'fs';
+import {SafePath} from './fileaccess/SafePath';
 import {SupportedFormats} from '../../common/SupportedFormats';
 import {FileAlreadyExists} from '../exceptions/FileAlreadyExists';
 import {ObjectManagers} from './ObjectManagers';
@@ -20,7 +21,7 @@ export class UploadManager {
       throw new Error('Upload is disabled');
     }
     const relativeDir = directory || '';
-    const fullDirPath = path.join(ProjectPath.ImageFolder, relativeDir);
+    const fullDirPath = SafePath.resolve(ProjectPath.ImageFolder, relativeDir);
 
     if (Config.Upload.enforcedDirectoryConfig === true) {
       const hasUploadConf = Object.keys(PG2ConfMap.upload).some(filename => {
@@ -48,25 +49,35 @@ export class UploadManager {
 
   public async saveFile(directory: string, file: Express.Multer.File): Promise<void> {
     const relativeDir = directory || '';
-    const fullDirPath = path.join(ProjectPath.ImageFolder, relativeDir);
+    const fullDirPath = SafePath.resolve(ProjectPath.ImageFolder, relativeDir);
 
-
-    const extension = path.extname(file.originalname).toLowerCase().substring(1);
+    const basename = path.basename(file.originalname);
+    const extension = path.extname(basename).toLowerCase().substring(1);
     if (!this.isSupportedExtension(extension)) {
       throw new Error('Unsupported file format: ' + extension);
     }
 
-    const fullFilePath = path.join(fullDirPath, file.originalname);
-
-    if (fs.existsSync(fullFilePath)) {
-      throw new FileAlreadyExists('File already exists: ' + fullFilePath, file.originalname);
-    }
+    const fullFilePath = SafePath.resolve(fullDirPath, basename);
 
     if (!fs.existsSync(fullDirPath)) {
       await fs.promises.mkdir(fullDirPath, {recursive: true});
     }
 
-    await fs.promises.writeFile(fullFilePath, file.buffer);
+    // Atomic exclusive creation with 'wx' flag to prevent overwrite races
+    try {
+      await fs.promises.writeFile(fullFilePath, file.buffer, {flag: 'wx'});
+    } catch (err) {
+      if (err.code === 'EEXIST') {
+        throw new FileAlreadyExists('File already exists: ' + fullFilePath, basename);
+      }
+      // If error occurs, attempt partial file cleanup
+      try {
+        await fs.promises.unlink(fullFilePath);
+      } catch {
+        // ignore if not created
+      }
+      throw err;
+    }
   }
 
   private isSupportedExtension(ext: string): boolean {

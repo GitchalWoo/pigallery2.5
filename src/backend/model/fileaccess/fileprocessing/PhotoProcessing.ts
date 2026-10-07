@@ -3,6 +3,7 @@ import {constants as fsConstants, promises as fsp} from 'fs';
 import * as os from 'os';
 import * as crypto from 'crypto';
 import {ProjectPath} from '../../../ProjectPath';
+import {SafePath} from '../SafePath';
 import {Config} from '../../../../common/config/private/Config';
 import {MediaRendererInput, PhotoWorker, SvgRendererInput, ThumbnailSourceType,} from '../PhotoWorker';
 import {ITaskExecuter, TaskExecuter} from '../TaskExecuter';
@@ -115,9 +116,10 @@ export class PhotoProcessing {
   public static generateConvertedPath(mediaPath: string, size: number): string {
     const file = path.basename(mediaPath);
     const animated = Config.Media.Photo.animateGif && path.extname(mediaPath).toLowerCase() == '.gif';
+    const relDir = ProjectPath.getRelativePathToImages(path.dirname(mediaPath));
+    const safeRelDir = SafePath.resolve(ProjectPath.TranscodedFolder, relDir);
     return path.join(
-      ProjectPath.TranscodedFolder,
-      ProjectPath.getRelativePathToImages(path.dirname(mediaPath)),
+      safeRelDir,
       file + '_' + size + 'q' + Config.Media.Photo.quality +
       (animated ? 'anim' : '') +
       (Config.Media.Photo.smartSubsample ? 'cs' : '') +
