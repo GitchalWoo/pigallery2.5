@@ -4,7 +4,6 @@ import {type Dimension, DimensionUtils} from '../../../model/IRenderable';
 import {FullScreenService} from '../fullscreen.service';
 import {OverlayService} from '../overlay.service';
 import {WakeLockService} from '../wakelock.service';
-import {animate, AnimationBuilder, type AnimationPlayer, style,} from '@angular/animations';
 import {GalleryLightboxMediaComponent} from './media/media.lightbox.gallery.component';
 import {Subscription} from 'rxjs';
 import {ActivatedRoute, type Params, Router} from '@angular/router';
@@ -28,6 +27,10 @@ export enum LightboxStates {
   Opening = 2,
   Closing = 3,
   Closed = 4,
+}
+
+export interface LightboxAnimationPlayer {
+  onDone(callback: () => void): this;
 }
 
 @Component({
@@ -87,7 +90,6 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     public fullScreenService: FullScreenService,
     private changeDetector: ChangeDetectorRef,
     private overlayService: OverlayService,
-    private builder: AnimationBuilder,
     private router: Router,
     private queryService: QueryService,
     private route: ActivatedRoute,
@@ -306,16 +308,60 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
 
   }
 
-  animatePhoto(from: Dimension, to: Dimension = from): AnimationPlayer {
-    const elem = this.builder
-      .build([
-        style(DimensionUtils.toString(from)),
-        animate('0.2s ease-in-out', style(DimensionUtils.toString(to))),
-      ])
-      .create(this.mediaElement.elementRef.nativeElement);
-    elem.play();
+  private runAnimation(
+    target: HTMLElement,
+    from: Dimension,
+    to: Dimension = from
+  ): LightboxAnimationPlayer {
+    let doneCb: (() => void) | null = null;
+    let finished = false;
 
-    return elem;
+    const fromStyles = DimensionUtils.toString(from);
+    const toStyles = DimensionUtils.toString(to);
+
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (target?.style) {
+        Object.assign(target.style, toStyles);
+      }
+      if (doneCb) {
+        doneCb();
+      }
+    };
+
+    if (target && typeof target.animate === 'function') {
+      try {
+        const anim = target.animate([fromStyles, toStyles], {
+          duration: 200,
+          easing: 'ease-in-out',
+          fill: 'forwards',
+        });
+        anim.onfinish = finish;
+      } catch (e) {
+        finish();
+      }
+    } else {
+      setTimeout(finish, 0);
+    }
+
+    const player: LightboxAnimationPlayer = {
+      onDone(callback: () => void) {
+        if (finished) {
+          callback();
+        } else {
+          doneCb = callback;
+        }
+        return this;
+      },
+    };
+
+    return player;
+  }
+
+  animatePhoto(from: Dimension, to: Dimension = from): LightboxAnimationPlayer {
+    const elem = this.mediaElement?.elementRef?.nativeElement;
+    return this.runAnimation(elem, from, to);
   }
 
   animateLightbox(
@@ -326,15 +372,9 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
       height: this.photoFrameDim.height,
     } as Dimension,
     to: Dimension = from
-  ): AnimationPlayer {
-    const elem = this.builder
-      .build([
-        style(DimensionUtils.toString(from)),
-        animate('0.2s ease-in-out', style(DimensionUtils.toString(to))),
-      ])
-      .create(this.lightboxElement.nativeElement);
-    elem.play();
-    return elem;
+  ): LightboxAnimationPlayer {
+    const elem = this.lightboxElement?.nativeElement;
+    return this.runAnimation(elem, from, to);
   }
 
   public toggleInfoPanel(): void {

@@ -1,7 +1,6 @@
 import {ComponentFixture, fakeAsync, TestBed, tick} from '@angular/core/testing';
 import {ChangeDetectorRef, QueryList} from '@angular/core';
 import {ActivatedRoute, Router} from '@angular/router';
-import {AnimationBuilder} from '@angular/animations';
 import {BehaviorSubject, of, Subject} from 'rxjs';
 
 import {GalleryLightboxComponent, LightboxStates} from './lightbox.gallery.component';
@@ -94,23 +93,6 @@ class MockPiTitleService {
 }
 
 
-class MockAnimationBuilder {
-  build() {
-    return {
-      create() {
-        return {
-          play() {
-          },
-          onDone(callback: () => void) {
-            setTimeout(callback, 0);
-            return this;
-          }
-        };
-      }
-    };
-  }
-}
-
 class MockRouter {
   constructor(private ac: MockActivatedRoute) {
   }
@@ -178,7 +160,6 @@ describe('GalleryLightboxComponent - Slideshow Tests', () => {
         {provide: FullScreenService, useClass: MockFullScreenService},
         {provide: OverlayService, useClass: MockOverlayService},
         {provide: WakeLockService, useClass: MockWakeLockService},
-        {provide: AnimationBuilder, useClass: MockAnimationBuilder},
         {provide: Router, useValue: mockRouter},
         {provide: QueryService, useClass: MockQueryService},
         {provide: ActivatedRoute, useValue: mockActivatedRoute},
@@ -372,7 +353,6 @@ describe('GalleryLightboxComponent - paged source', () => {
         {provide: FullScreenService, useClass: MockFullScreenService},
         {provide: OverlayService, useClass: MockOverlayService},
         {provide: WakeLockService, useClass: MockWakeLockService},
-        {provide: AnimationBuilder, useClass: MockAnimationBuilder},
         {provide: Router, useValue: new MockRouter(mockActivatedRoute)},
         {provide: QueryService, useClass: MockQueryService},
         {provide: ActivatedRoute, useValue: mockActivatedRoute},

@@ -1,4 +1,4 @@
-import {enableProdMode, importProvidersFrom, provideZoneChangeDetection} from '@angular/core';
+import {ANIMATION_MODULE_TYPE, enableProdMode, importProvidersFrom, provideZoneChangeDetection} from '@angular/core';
 import {environment} from './environments/environment';
 import {HTTP_INTERCEPTORS, HttpClient, provideHttpClient, withInterceptorsFromDi, withXhr} from '@angular/common/http';
 import {ErrorInterceptor} from './app/model/network/helper/error.interceptor';
@@ -37,7 +37,6 @@ import {MDFilesFilterPipe} from './app/pipes/MDFilesFilterPipe';
 import {FileSizePipe} from './app/pipes/FileSizePipe';
 import {DatePipe} from '@angular/common';
 import {FormsModule} from '@angular/forms';
-import {provideAnimations} from '@angular/platform-browser/animations';
 import {AppRoutingModule} from './app/app.routing';
 import {NgIconsModule} from '@ng-icons/core';
 import {
@@ -229,7 +228,7 @@ bootstrapApplication(AppComponent, {
     DatePipe,
     DurationPipe,
     provideHttpClient(withXhr(), withInterceptorsFromDi()),
-    provideAnimations()
+    {provide: ANIMATION_MODULE_TYPE, useValue: 'NoopAnimations'}
   ]
 })
   .catch((err) => console.error(err));
