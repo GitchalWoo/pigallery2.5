@@ -22,9 +22,11 @@ sudo npm install --global npm@11.19.0
 ### 2. Install PiGallery2
 
 #### From Release
+Use a built archive for this fork, such as `pigallery2.zip` produced by
+`npm run create-release`, rather than an upstream source archive.
+
 ```bash
-wget https://github.com/bpatrik/pigallery2/releases/download/3.0.0/pigallery2-release.zip
-unzip pigallery2-release.zip -d pigallery2
+unzip pigallery2.zip -d pigallery2
 cd pigallery2
 npm install
 ```
@@ -32,12 +34,19 @@ npm install
 #### From Source
 **Note**: Requires ~2GB of memory for building.
 ```bash
-wget https://github.com/bpatrik/pigallery2/archive/master.zip
+wget https://github.com/GitchalWoo/pigallery2.5/archive/refs/heads/master.zip
 unzip master.zip
-cd pigallery2-master
+cd pigallery2.5-master
 npm ci
 npm run build
 ```
+
+When building this fork, `npm run build` builds all 16 locales; use
+`npm run build-en` instead if you only need English. Both commands compile the
+backend and produce the frontend under `dist/`. To produce a distributable
+release directory and `pigallery2.zip`, use `npm run create-release`.
+See the [contribution guide](../development/contributing.md#build-and-release-tooling)
+for the fork's release options.
 
 ## Running the App
 ```bash

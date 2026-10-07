@@ -1,0 +1,8 @@
+{
+  "all": true,
+  "include": ["src/backend/**/*.js", "src/common/**/*.js"],
+  "exclude-after-remap": false,
+  "reporter": ["text", "lcov"],
+  "reports-dir": "coverage",
+  "temp-directory": "coverage/tmp"
+}

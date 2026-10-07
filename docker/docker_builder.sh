@@ -64,7 +64,7 @@ echo "--- 5. Building Docker Image (Debian Trixie) ---"
 if [ -d "release" ]; then
     mv release pigallery2-release
 else
-    echo "Error: Release folder was not created by gulp."
+    echo "Error: Release folder was not created by the release script."
     exit 1
 fi
 

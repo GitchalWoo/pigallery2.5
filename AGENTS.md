@@ -9,7 +9,7 @@
 
 ## Upgrade Handoff
 
-- Steps 0–4 of [UPGRADE_PLAN.md](docs/fork-features/UPGRADE_PLAN.md) are merged into `master` (Step 4 / PR #5 merged at `e1b1b561`). Step 5 (`upgrade/openid-client-6`) and Step 6 (`upgrade/ffmpeg-wrapper`) are implemented and validated. Step 7 (`upgrade/express-5`) is implemented and validated on branch `upgrade/express-5`.
+- Steps 0–7 of [UPGRADE_PLAN.md](docs/fork-features/UPGRADE_PLAN.md) are complete and the upgrade branches are merged into `master`: Node 24 at `e1b1b561` (PR #5), openid-client 6 at `fd349f02` (PR #6), FFmpeg wrapper at `ab36cc46` (PR #7), and Express 5 at `b8312f9d` (PR #9).
 - Step 7 validation: Express upgraded to 5.2.1 and `@types/express` to 5.0.6. Migrated 9 media routes to named RegExp capture groups and wildcard path parameters to `normalizePathParam` array joins. Backend suite: 733 passing tests across SQLite and MariaDB (including 25 `RouteMatching` edge-case tests, 42 router tests, and 19 OIDC tests). Karma: 145 SUCCESS. Cypress: 7/7 specs pass (18 passing, 12 intentionally pending documentation tests).
 - Step 5 validation: `openid-client` upgraded to 6.8.8 (pure ESM loaded via Node 24 `require(esm)`), `@types/openid-client` removed. Backend suite: 654 passing tests across SQLite and MariaDB (including 19 OIDC tests with `MockOIDCServer`). End-to-end authentication validated against real local Dex provider (`http://localhost:5556/dex`) with PKCE S256, real JWKS validation, and session user provisioning.
 - Step 4 validation on Node 24.21.0 / npm 11.19.0 passed: backend 635 tests on SQLite and MariaDB, Karma 145 tests, all 16 locale builds, seven Cypress specs (18 passing, 12 intentionally pending documentation tests), and nine automated Brave smoke checks. All three amd64 Dockerfiles build and pass diagnostics; native SQLite/bcrypt and HEIC/AVIF/JPEG/PNG decoding pass. Detailed results are in the upgrade plan and [Techdebt.md](docs/fork-features/Techdebt.md). Temporary `/tmp/pg-node24-*` harnesses and logs are local artifacts; future runs must not assume they exist. Arm64 image builds remain a CI check.
@@ -19,7 +19,7 @@
 
 - Use Node.js 24 (`nvm use`, using `.nvmrc` at 24.21.0). The project supports Node `>=24.15.0 <25` and npm `>=11.19.0 <12`; install the pinned npm with `npm install --global npm@11.19.0`, then run `npm ci`. Native modules such as `better-sqlite3` must match the active Node ABI (137 on Node 24).
 - To run the local app, build the English frontend with `npm run build-en`, then start the backend with `npm start -- --Server-port=8081`; open `http://localhost:8081/`. The backend serves the built frontend. Do not change Angular's serve configuration for this workflow.
-- Despite its name, `npm run build-en` currently builds all locales: the Gulp frontend command does not forward the language filter. Check `dist/<locale>/index.html` outputs before scheduling a redundant full-locale build.
+- `npm run build-en` builds only English; `npm run build` builds all 16 locales. Native Node scripts in `scripts/` replace Gulp. Locale arrays are passed through the CLI-owned Angular Architect API.
 - TypeScript under `src/` is authoritative. `npm run build-backend` compiles it; avoid hand-editing generated JavaScript.
 - Backend tests run with `npm run test-backend`. To narrow Mocha tests, append a grep, for example `npm run test-backend -- --grep UploadRouter`.
 
@@ -28,12 +28,12 @@
 - New terminals do not inherit Node 24. Prefix commands with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`; otherwise `better-sqlite3` fails with a `NODE_MODULE_VERSION` mismatch.
 - Backend (Mocha): DB tests run on SQLite always and on MySQL only when one is reachable. Without MySQL, `mysql` "before all" hooks fail with `ECONNREFUSED`; that is environmental, not a regression.
 - MySQL/MariaDB for tests: a local container `pigallery-db` (MariaDB 11.4, `127.0.0.1:3306`, user `pigallery`, password `password`) may exist; check with `podman exec pigallery-db healthcheck.sh --connect --innodb_initialized`. Run with `MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_USERNAME=pigallery MYSQL_PASSWORD=password TEST_MYSQL=true npm run test-backend`. Tests drop and recreate `pigallery2_test`; never point them at a database with real data.
-- `.mocharc.js` loads the ignored `test/setup-local.js`. Inspect it before choosing test connection settings: local assignments can override command-line `MYSQL_*` environment variables. Preserve the user's local setup. When using a temporary setup with `--no-config`, retain `--recursive --timeout=20000` and explicitly exclude `test/folder-reset.js`; the script's basename-only exclusion does not match that path.
+- `.mocharc.js` loads `test/setup-local.js`. Inspect it before choosing test connection settings: local assignments can override command-line `MYSQL_*` environment variables. Preserve the user's local setup. When using a temporary setup with `--no-config`, retain `--require ./test/root-hooks.cjs --recursive --timeout=20000` and explicitly exclude `test/folder-reset.js`; the script's basename-only exclusion does not match that path.
 - Tests persist config to the ignored `test/tmp/config.json`. A run that ends on the MySQL engine leaves `Database.type: mysql` there, so the next run's SQLite hooks fail with `no such collation sequence: utf8mb4_bin`. Delete that file before a run. MySQL tests also need loopback networking, which the standard sandbox blocks (`ECONNREFUSED` even with the container up).
 - The full backend suite on both engines takes several minutes; redirect to a log (`> /tmp/pg-tests.log 2>&1`) and grep `passing|failing` plus `^\s+[0-9]+\) ` for failures instead of piping live output.
-- Mocha can remain alive after its final totals (Techdebt T5). Capture the runner PID/process group, verify the complete result, then stop only processes started for that run.
-- Frontend (Karma): no Chrome is installed; use Brave via `CHROME_BIN=/usr/bin/brave-browser-stable npx ng test --watch=false`. Narrow with `--include='src/frontend/app/ui/timeline/**/*.spec.ts'` (repeatable).
-- `ng test --watch=false` prints `TOTAL: N SUCCESS` but does not exit. Do not pipe it through `tail`/`grep` (they wait forever). Run it in the background writing to a log, capture its PID/process group, poll for the final `TOTAL`, then stop only that run's processes.
+- `.mocharc.js` loads `test/root-hooks.cjs` to reset shared managers and close the remaining database pool. The cleanup batch passed 740 tests on SQLite/MariaDB and exited naturally. Keep the root hook when bypassing Mocha config. `npm run test-backend-coverage` collects V8 coverage with c8; `npm run coverage` regenerates LCOV.
+- Frontend (Karma): no Chrome is installed; use Brave via `CHROME_BIN=/opt/brave.com/brave/brave npx ng test --watch=false`. Narrow with `--include='src/frontend/app/ui/timeline/**/*.spec.ts'` (repeatable).
+- Further Karma work is deferred to its replacement (Techdebt M2). The local Brave wrapper shutdown workaround is recorded in [Techdebt.md](docs/fork-features/Techdebt.md#tooling-build--test-modernization).
 - `karma.conf.js` resolves the Angular Karma plugin through `@angular-builders/custom-webpack`, because `@angular-devkit/build-angular` is only installed nested there; the plugin must be the builder's own instance. Keep it that way when touching dependencies.
 - Without a browser, type-check frontend specs with `npx tsc -p src/frontend/tsconfig.spec.json --noEmit` (templates are not checked; `npm run build-en` covers them).
 - End-to-End (Cypress):
@@ -79,7 +79,7 @@
   - `typescript-eslint` **8.71.1** supports TypeScript 6. Check compiler support when updating lint tooling.
   - Keep the obsolete `marked/marked.min.js` entry out of Angular's global scripts. ngx-markdown imports its supported Marked peer directly.
   - ngx-markdown 22's optional `marked-katex-extension` peer must be installed for webpack to resolve its dynamic import, even when math rendering is unused.
-  - custom-webpack 22 uses jiti for build configs. Its migration removed ts-node, but this project still needs **10.9.2** to load `gulpfile.ts`; do not remove it merely because the builder no longer needs it. ts-node was checked with TS 6 and Node 24. Since Step 4 the release backend uses plain `tsc` with `tsconfig.release.json`, because gulp-typescript did not preserve CommonJS emission under NodeNext.
+  - custom-webpack 22 uses jiti for build configs. The cleanup batch replaced `gulpfile.ts` with native Node scripts and removed `ts-node`. The release backend still uses plain `tsc` with `tsconfig.release.json` to preserve CommonJS emission under NodeNext.
 - **Angular 22 Type Checking and Gestures**:
   - A resize handler with no parameters must use `@HostListener('window:resize')`, without an event argument.
   - Interfaces in decorated frontend classes need explicit type-only imports under TS 6 to avoid nonexistent runtime exports. Do not change runtime class imports used as injection tokens to type-only imports.
@@ -115,6 +115,6 @@
 ## Security Context
 
 - Security remediation snapshot from 2026-10-06 (Node 24 migration): `npm audit --omit=dev` reports 0 vulnerabilities.
-- Full `npm audit` reports 30 advisories (1 low, 7 moderate, 20 high, 2 critical), reduced from 36 after removing the obsolete release compiler in Step 4; all remaining advisories are in devDependencies/tooling, including webpack build/serve dependencies, Karma, mocha, cypress, coveralls, nyc and gulp. Angular is now 22.2.1, with TypeScript 6.0.3.
+- Full `npm audit` reports 30 advisories (1 low, 7 moderate, 20 high, 2 critical), reduced from 36 after removing the obsolete release compiler in Step 4; all advisories in that snapshot were in devDependencies/tooling. The 2026-10-07 cleanup removed coveralls, nyc and gulp; no new audit count was collected. Angular is now 22.2.1, with TypeScript 6.0.3.
 - Uploads are authenticated and role-gated. Multer uses memory storage; the current parser limits each file to 50 MiB and each request to 10 file parts. Keep these bounds in mind when changing upload behavior; concurrent requests can still consume significant memory.
 - Security review also flagged implicit cookie/CSRF policy and no visible login throttling. Treat these as follow-up review items; deployment proxy and HTTPS configuration affect the right fix.

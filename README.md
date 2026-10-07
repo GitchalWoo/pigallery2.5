@@ -8,6 +8,12 @@ PiGallery2 is a **fast** directory-first photo gallery website, optimized for ru
 ## About This Fork
 This repository is a fork of [PiGallery2](https://github.com/bpatrik/pigallery2). It keeps the upstream project's core functionality and documentation, with additional changes maintained here. For the original project and its releases, visit the [upstream repository](https://github.com/bpatrik/pigallery2). Changes specific to this fork are tracked in this repository's commit history.
 
+For this fork's build, release, translation, and test commands, use the local
+[contribution guide](docs/development/contributing.md). The
+[tech debt tracker](docs/fork-features/Techdebt.md) records completed cleanup and
+remaining work; the [security plan](docs/fork-features/Security-Updates.md) tracks
+open security findings.
+
 ## 🚀 Key Features
 - **⚡ Fast**: Optimized for low-end hardware.
 - **✔️ Simple**: Point to your photos and you are ready.

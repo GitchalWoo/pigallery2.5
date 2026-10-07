@@ -97,7 +97,7 @@ To permanently resolve these 19 alerts and prevent directory traversal:
 | **S1** | **Cookie & CSRF Policy** | High | Define explicit `SameSite` (`Lax`/`Strict`) and `Secure` cookie attributes. Add CSRF token validation on mutable API endpoints (`POST`, `PUT`, `DELETE`). |
 | **S2** | **Login & Callback Throttling** | High | Implement rate limiting / progressive backoff on `/user/login` and `/auth/oidc/callback` to prevent credential stuffing and brute force attempts. |
 | **S3** | **Upload Memory Caps** | Medium | Multer currently buffers up to 50 MiB × 10 files in Node memory per request with no concurrency cap. Migrate to streaming disk storage or add a global concurrent-upload semaphore. |
-| **S4** | **Tooling Dependency Vulnerabilities** | Medium | Audit remaining 30 devDependencies advisories in tooling/test packages (Webpack dev-server, Karma, Mocha, Cypress). `--omit=dev` remains 0. |
+| **S4** | **Tooling Dependency Vulnerabilities** | Medium | The 2026-10-06 snapshot had 30 devDependencies advisories and 0 with `--omit=dev`. The 2026-10-07 cleanup removed dead dependencies, Gulp, `ts-node`, `coveralls`, and `nyc`, and replaced the MySQL driver with `mysql2`; see [completed cleanup](Techdebt.md#completed-dependency-and-tooling-cleanup-2026-10-07). A new audit count was not collected. |
 
 ---
 
@@ -225,4 +225,4 @@ These observations are recorded here for follow-up; this audit addition does not
 2. Establish safe database migrations and recovery (AUD4) before introducing persistent identity/session records; replace predictable administrator bootstrap credentials (AUD8).
 3. Address S5 path containment together with session/OIDC hardening (AUD1–AUD2) and the existing cookie/CSRF and throttling plans (S1–S2).
 4. Complete caching, upload, stream, password-processing, and metafile-policy work (AUD7, AUD10–AUD12, AUD14), alongside S3 upload resource limits.
-5. Continue low-risk dependency removals and the `mysql2` switch, followed by animation removal and builder/test modernization. Schedule zoneless work after the security and data-preservation changes.
+5. The dependency/tooling cleanup and `mysql2` switch are implemented locally; see [completed cleanup](Techdebt.md#completed-dependency-and-tooling-cleanup-2026-10-07). Remaining modernization includes wrapper replacements, animation removal, and builder/test replacement. Schedule zoneless work after the security and data-preservation changes; further Karma work is deferred to its replacement.

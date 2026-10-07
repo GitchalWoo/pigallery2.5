@@ -272,6 +272,7 @@ export class SQLConnection {
     if (config.type === DatabaseType.mysql) {
       driver = {
         type: 'mysql',
+        connectorPackage: 'mysql2',
         host: config.mysql.host,
         port: config.mysql.port,
         username: config.mysql.username,
