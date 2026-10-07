@@ -85,6 +85,7 @@
   - A resize handler with no parameters must use `@HostListener('window:resize')`, without an event argument.
   - Interfaces in decorated frontend classes need explicit type-only imports under TS 6 to avoid nonexistent runtime exports. Do not change runtime class imports used as injection tokens to type-only imports.
   - Angular removed its Hammer APIs in v22. `LightboxGesturesDirective` now handles pointer capture, swipe/pan/pinch/tap and cancellation only on the lightbox gesture surface. Preserve its interactive-child exclusions and regression tests.
+  - `@angular/animations` and `@angular/platform-browser-dynamic` were removed in favor of standard Web Animations API (`element.animate`) in `GalleryLightboxComponent`, eliminating deprecation warnings and shrinking initial bundle transfer to 1.52 MB (`main.js` from 80 kB to 20 kB). `ANIMATION_MODULE_TYPE` is provided as `'NoopAnimations'` in `main.ts` from `@angular/core`.
 - **Backend Tests Need a Built Frontend**:
   - Build the frontend before running the full backend suite. `PublicRouter` sharing tests read `dist/en/index.html` and fail with `ENOENT` if it is absent.
 - **SQLite Search LIKE Escaping**:
@@ -110,7 +111,7 @@
   - By default, `Upload.enabled` is `false`. When testing upload workflows against a standalone server instance, start with `--Upload-enabled=true`.
 - **Node 24 / npm and Docker native builds**:
   - Keep the Node 24 minimum at 24.15.0 for Angular 22. `.nvmrc` pins the validated patch; CI and Docker use npm 11.19.0. Node 22 is no longer supported by this fork.
-  - Angular DevKit 22 has an optional Chokidar 5 peer. Pin `chokidar` 5.0.0 directly: regenerating the lockfile can otherwise drop its nested copies and resolve the peer to Mocha's Chokidar 4, producing an invalid tree. Check `npm ls --all` after lockfile changes. npm 12 is deferred: its new default blocks dependency install scripts; review explicit approvals before removing the npm <12 cap (Techdebt T7).
+  - Angular DevKit 22 has an optional Chokidar 5 peer. Pin `chokidar` 5.0.0 directly: regenerating the lockfile can otherwise drop its nested copies and resolve the peer to Mocha's Chokidar 4, producing an invalid tree. Check `npm ls --all` after lockfile changes. Dependency install scripts are configured via `allowScripts` in `package.json` covering the 8 verified native addon/installer packages (`@parcel/watcher`, `bcrypt`, `better-sqlite3`, `cypress`, `esbuild`, `ffmpeg-static`, `lmdb`, `msgpackr-extract`) for npm 11 and npm 12 execution policies (Techdebt T7).
   - Sharp 0.35.5 no longer builds itself during `npm install` / `npm rebuild`. Docker explicitly runs its `build` script. It needs libvips >=8.18.7; `docker/build-libvips.sh` builds the pinned, checksum-verified version with the distribution codec libraries, HEIC, and LibRaw (`-Draw=enabled`) support. Preserve `/usr/local/lib`, its loader path and the Docker context exception in `.dockerignore`.
   - Official Node 24 images do not support ARMv7. Build amd64 and arm64 images; Raspberry Pi deployments require a 64-bit OS.
 - **Camera RAW & Embedded Preview Extraction (`.cr2`, `.arw`)**:
