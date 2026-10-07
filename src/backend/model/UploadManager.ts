@@ -1,6 +1,7 @@
 import {ProjectPath} from '../ProjectPath';
 import * as path from 'path';
 import * as fs from 'fs';
+import {SafePath} from './fileaccess/SafePath';
 import {SupportedFormats} from '../../common/SupportedFormats';
 import {FileAlreadyExists} from '../exceptions/FileAlreadyExists';
 import {ObjectManagers} from './ObjectManagers';
@@ -20,13 +21,20 @@ export class UploadManager {
       throw new Error('Upload is disabled');
     }
     const relativeDir = directory || '';
-    const fullDirPath = path.join(ProjectPath.ImageFolder, relativeDir);
+    const fullDirPath = SafePath.resolve(ProjectPath.ImageFolder, relativeDir);
 
     if (Config.Upload.enforcedDirectoryConfig === true) {
-      const hasUploadConf = Object.keys(PG2ConfMap.upload).some(filename => {
-        const pg2confPath = path.join(fullDirPath, filename);
-        return fs.existsSync(pg2confPath);
-      });
+      let hasUploadConf = false;
+      for (const filename of Object.keys(PG2ConfMap.upload)) {
+        try {
+          await SafePath.resolveExisting(ProjectPath.ImageFolder,
+            path.relative(ProjectPath.ImageFolder, path.join(fullDirPath, filename)));
+          hasUploadConf = true;
+          break;
+        } catch (err) {
+          if (err.code !== 'ENOENT') throw err;
+        }
+      }
       if (!hasUploadConf) {
         throw new Error('Upload is not enabled in this directory');
       }
@@ -48,25 +56,44 @@ export class UploadManager {
 
   public async saveFile(directory: string, file: Express.Multer.File): Promise<void> {
     const relativeDir = directory || '';
-    const fullDirPath = path.join(ProjectPath.ImageFolder, relativeDir);
+    const fullDirPath = SafePath.resolve(ProjectPath.ImageFolder, relativeDir);
 
-
-    const extension = path.extname(file.originalname).toLowerCase().substring(1);
+    const basename = path.basename(file.originalname);
+    const extension = path.extname(basename).toLowerCase().substring(1);
     if (!this.isSupportedExtension(extension)) {
       throw new Error('Unsupported file format: ' + extension);
     }
 
-    const fullFilePath = path.join(fullDirPath, file.originalname);
+    const relativeFile = path.relative(ProjectPath.ImageFolder, SafePath.resolve(fullDirPath, basename));
+    const fullFilePath = await SafePath.resolveForWrite(ProjectPath.ImageFolder, relativeFile);
+    await fs.promises.mkdir(fullDirPath, {recursive: true});
 
-    if (fs.existsSync(fullFilePath)) {
-      throw new FileAlreadyExists('File already exists: ' + fullFilePath, file.originalname);
+    // Exclusive creation rejects existing files and final-component symlinks.
+    // An open failure must never trigger cleanup of a file we did not create.
+    let handle: fs.promises.FileHandle;
+    try {
+      handle = await fs.promises.open(fullFilePath, 'wx');
+    } catch (err) {
+      if (err.code === 'EEXIST') {
+        throw new FileAlreadyExists('File already exists: ' + fullFilePath, basename);
+      }
+      throw err;
     }
-
-    if (!fs.existsSync(fullDirPath)) {
-      await fs.promises.mkdir(fullDirPath, {recursive: true});
+    try {
+      try {
+        await handle.writeFile(file.buffer);
+      } finally {
+        await handle.close();
+      }
+    } catch (err) {
+      try {
+        await SafePath.resolveExisting(ProjectPath.ImageFolder, relativeFile);
+        await fs.promises.unlink(fullFilePath);
+      } catch {
+        // Preserve the write error if cleanup fails or the parent is no longer safe.
+      }
+      throw err;
     }
-
-    await fs.promises.writeFile(fullFilePath, file.buffer);
   }
 
   private isSupportedExtension(ext: string): boolean {

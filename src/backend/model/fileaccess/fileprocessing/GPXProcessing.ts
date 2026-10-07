@@ -2,6 +2,7 @@ import * as path from 'path';
 import {constants as fsConstants, promises as fsp} from 'fs';
 import * as xml2js from 'xml2js';
 import {ProjectPath} from '../../../ProjectPath';
+import {SafePath} from '../SafePath';
 import {Config} from '../../../../common/config/private/Config';
 import {SupportedFormats} from '../../../../common/SupportedFormats';
 
@@ -21,9 +22,10 @@ export class GPXProcessing {
   }
 
   public static generateConvertedPath(filePath: string): string {
+    const relDir = ProjectPath.getRelativePathToImages(path.dirname(filePath));
+    const safeRelDir = SafePath.resolve(ProjectPath.TranscodedFolder, relDir);
     return path.join(
-        ProjectPath.TranscodedFolder,
-        ProjectPath.getRelativePathToImages(path.dirname(filePath)),
+        safeRelDir,
         path.basename(filePath)
         + '_' + Config.MetaFile.GPXCompressing.minDistance + 'm' +
         Config.MetaFile.GPXCompressing.minTimeDistance + 'ms' +
@@ -44,6 +46,7 @@ export class GPXProcessing {
 
 
     try {
+      await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, origFilePath));
       await fsp.access(origFilePath, fsConstants.R_OK);
     } catch (e) {
       return false;
@@ -61,6 +64,7 @@ export class GPXProcessing {
 
     // check if file already exist
     try {
+      await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
       await fsp.access(outPath, fsConstants.R_OK);
       return true;
     } catch (e) {
@@ -77,6 +81,7 @@ export class GPXProcessing {
 
     // check if file already exist
     try {
+      await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
       await fsp.access(outPath, fsConstants.R_OK);
       return outPath;
     } catch (e) {
@@ -84,6 +89,8 @@ export class GPXProcessing {
     }
 
 
+    await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, filePath));
+    await SafePath.resolveForWrite(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
     const outDir = path.dirname(outPath);
 
     await fsp.mkdir(outDir, {recursive: true});

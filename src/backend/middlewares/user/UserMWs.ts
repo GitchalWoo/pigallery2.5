@@ -129,6 +129,7 @@ export class UserMWs {
             id: updatedUser.id
           })
         );
+        delete user.password;
         req.session.context = await ObjectManagers.getInstance().SessionManager.buildContext(user);
         //clean up after a change
         await ObjectManagers.getInstance().ProjectedCacheManager.cleanupNonExistingProjections();

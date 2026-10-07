@@ -92,6 +92,8 @@ export class RenderingMWs {
     if (!req.resultPipe) {
       return next();
     }
+    // Protected media should be cached privately
+    res.setHeader('Cache-Control', 'private, max-age=31536000');
     return res.sendFile(req.resultPipe as string, {
       maxAge: 31536000,
       dotfiles: 'allow',
@@ -110,6 +112,8 @@ export class RenderingMWs {
     req: Request,
     res: Response
   ): Promise<void> {
+    // Sensitive configuration responses must never be stored in intermediate caches
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const originalConf = await ExtensionConfigWrapper.original();
     // These are sensitive information, do not send to the client side
     originalConf.Server.sessionSecret = null;

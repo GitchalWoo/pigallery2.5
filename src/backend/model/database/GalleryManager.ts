@@ -5,6 +5,7 @@ import {DirectoryEntity} from './enitites/DirectoryEntity';
 import {SQLConnection} from './SQLConnection';
 import {PhotoEntity} from './enitites/PhotoEntity';
 import {ProjectPath} from '../../ProjectPath';
+import {SafePath} from '../fileaccess/SafePath';
 import {Config} from '../../../common/config/private/Config';
 import {Brackets, Connection} from 'typeorm';
 import {MediaEntity} from './enitites/MediaEntity';
@@ -59,9 +60,11 @@ export class GalleryManager {
         return await this.getParentDirFromId(connection, session, dir.id);
       }
 
-      const stat = fs.statSync(
-        path.join(ProjectPath.ImageFolder, relativeDirectoryName)
+      const statPath = await SafePath.resolveExisting(
+        ProjectPath.ImageFolder,
+        relativeDirectoryName
       );
+      const stat = await fs.promises.stat(statPath);
       const lastModified = DiskManager.calcLastModified(stat);
 
       // If it seems that the content did not change, do not work on it

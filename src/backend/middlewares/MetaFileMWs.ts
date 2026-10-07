@@ -1,5 +1,4 @@
 import {NextFunction, Request, Response} from 'express';
-import * as fs from 'fs';
 import {Config} from '../../common/config/private/Config';
 import {GPXProcessing} from '../model/fileaccess/fileprocessing/GPXProcessing';
 import {Logger} from '../Logger';
@@ -26,7 +25,7 @@ export class MetaFileMWs {
       );
 
       // check if converted photo exist
-      if (fs.existsSync(compressedGPX) === true) {
+      if (await GPXProcessing.compressedGPXExist(fullPath)) {
         req.resultPipe = compressedGPX;
         return next();
       }

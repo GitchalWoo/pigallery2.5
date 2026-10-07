@@ -1011,7 +1011,8 @@ export class SearchManager {
 
       const getLikeExpr = (fieldName: string, paramName: string): string => {
         const op = (query as TextSearch).negate ? 'NOT LIKE' : 'LIKE';
-        return `${fieldName} ${op} :${paramName}${queryId} COLLATE ${SQL_COLLATE}`;
+        const esc = Config.Database.type === DatabaseType.sqlite ? ' ESCAPE \'\\\'' : '';
+        return `${fieldName} ${op} :${paramName}${queryId}${esc} COLLATE ${SQL_COLLATE}`;
       };
 
       // A nullable column needs its NULL rows put back when the expression is

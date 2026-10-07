@@ -3,6 +3,7 @@ import {constants as fsConstants, promises as fsp} from 'fs';
 import * as os from 'os';
 import * as crypto from 'crypto';
 import {ProjectPath} from '../../../ProjectPath';
+import {SafePath} from '../SafePath';
 import {Config} from '../../../../common/config/private/Config';
 import {MediaRendererInput, PhotoWorker, SvgRendererInput, ThumbnailSourceType,} from '../PhotoWorker';
 import {ITaskExecuter, TaskExecuter} from '../TaskExecuter';
@@ -60,11 +61,15 @@ export class PhotoProcessing {
 
     // check if thumbnail already exist
     try {
+      await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, thPath));
       await fsp.access(thPath, fsConstants.R_OK);
       return thPath;
     } catch (e) {
       // ignoring errors
     }
+
+    await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, mediaPath));
+    await SafePath.resolveForWrite(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, thPath));
 
     const margin = {
       x: Math.round(
@@ -115,9 +120,10 @@ export class PhotoProcessing {
   public static generateConvertedPath(mediaPath: string, size: number): string {
     const file = path.basename(mediaPath);
     const animated = Config.Media.Photo.animateGif && path.extname(mediaPath).toLowerCase() == '.gif';
+    const relDir = ProjectPath.getRelativePathToImages(path.dirname(mediaPath));
+    const safeRelDir = SafePath.resolve(ProjectPath.TranscodedFolder, relDir);
     return path.join(
-      ProjectPath.TranscodedFolder,
-      ProjectPath.getRelativePathToImages(path.dirname(mediaPath)),
+      safeRelDir,
       file + '_' + size + 'q' + Config.Media.Photo.quality +
       (animated ? 'anim' : '') +
       (Config.Media.Photo.smartSubsample ? 'cs' : '') +
@@ -231,6 +237,7 @@ export class PhotoProcessing {
 
 
     try {
+      await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, origFilePath));
       await fsp.access(origFilePath, fsConstants.R_OK);
     } catch (e) {
       return false;
@@ -249,6 +256,7 @@ export class PhotoProcessing {
 
     // check if file already exist
     try {
+      await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
       await fsp.access(outPath, fsConstants.R_OK);
       return true;
     } catch (e) {
@@ -269,11 +277,15 @@ export class PhotoProcessing {
 
     // check if file already exist
     try {
+      await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
       await fsp.access(outPath, fsConstants.R_OK);
       return outPath;
     } catch (e) {
       // ignoring errors
     }
+
+    await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, mediaPath));
+    await SafePath.resolveForWrite(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
 
     // run on other thread
     const input = {
@@ -321,11 +333,14 @@ export class PhotoProcessing {
 
     // check if the file already exists
     try {
+      await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, hashedOutPath));
       await fsp.access(hashedOutPath, fsConstants.R_OK);
       return hashedOutPath;
     } catch (e) {
       // ignoring errors
     }
+
+    await SafePath.resolveForWrite(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, hashedOutPath));
 
     const size = 256;
     // run on other thread

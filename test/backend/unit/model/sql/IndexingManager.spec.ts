@@ -714,7 +714,7 @@ describe('IndexingManager', (sqlHelper: DBTestHelper) => {
   });
 
   DBTestHelper.savedDescribe('Test listDirectory', () => {
-    const statSync = fs.statSync;
+    const originalStat = fs.promises.stat;
     let dirTime = 0;
     const indexedTime = {
       lastScanned: 0,
@@ -732,7 +732,7 @@ describe('IndexingManager', (sqlHelper: DBTestHelper) => {
     afterEach(() => {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      fs.statSync = statSync;
+      fs.promises.stat = originalStat;
     });
 
     it('with re indexing severity low', async () => {
@@ -740,7 +740,7 @@ describe('IndexingManager', (sqlHelper: DBTestHelper) => {
 
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      fs.statSync = () => ({ctime: new Date(dirTime), mtime: new Date(dirTime)});
+      fs.promises.stat = async () => ({ctime: new Date(dirTime), mtime: new Date(dirTime)});
       const gm = new GalleryManagerTest();
       const session = DBTestHelper.defaultSession;
       gm.getDirIdAndTime = () => {

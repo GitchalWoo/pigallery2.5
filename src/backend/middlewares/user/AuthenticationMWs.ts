@@ -9,10 +9,58 @@ import {QueryParams} from '../../../common/QueryParams';
 import * as path from 'path';
 import {Logger} from '../../Logger';
 import {ContextUser} from '../../model/SessionContext';
+import {SearchQueryUtils} from '../../../common/SearchQueryUtils';
+import {SafePath} from '../../model/fileaccess/SafePath';
 
 const LOG_TAG = 'AuthenticationMWs';
 
 export class AuthenticationMWs {
+
+  private static async validateExistingSession(req: Request): Promise<boolean> {
+    if (!req.session?.context?.user) {
+      return false;
+    }
+    // Check session expiration
+    if (req.session.expires && req.session.expires < Date.now()) {
+      return false;
+    }
+
+    const sessionUser = req.session.context.user;
+    if (typeof sessionUser === 'object' && sessionUser !== null) {
+      if (sessionUser.id != null && sessionUser.role !== UserRoles.LimitedGuest) {
+        // Validate registered user against database
+        try {
+          const dbUser = await ObjectManagers.getInstance().UserManager.findOne({id: sessionUser.id});
+          if (!dbUser || dbUser.role !== sessionUser.role) {
+            return false;
+          }
+          // Sync any updated restrictions
+          if (SearchQueryUtils.stringifyForComparison(sessionUser.allowQuery) !== SearchQueryUtils.stringifyForComparison(dbUser.allowQuery) ||
+              SearchQueryUtils.stringifyForComparison(sessionUser.blockQuery) !== SearchQueryUtils.stringifyForComparison(dbUser.blockQuery) ||
+              sessionUser.overrideAllowBlockList !== dbUser.overrideAllowBlockList) {
+            sessionUser.allowQuery = dbUser.allowQuery;
+            sessionUser.blockQuery = dbUser.blockQuery;
+            sessionUser.overrideAllowBlockList = dbUser.overrideAllowBlockList;
+            req.session.context = await ObjectManagers.getInstance().SessionManager.buildContext(sessionUser);
+          }
+        } catch {
+          return false;
+        }
+      } else if (sessionUser.role === UserRoles.LimitedGuest && sessionUser.usedSharingKey) {
+        // Validate share link against database
+        try {
+          const sharing = await ObjectManagers.getInstance().SharingManager.findOne(sessionUser.usedSharingKey);
+          if (!sharing || sharing.expires < Date.now()) {
+            return false;
+          }
+        } catch {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
 
   public static async tryAuthenticate(
     req: Request,
@@ -23,6 +71,16 @@ export class AuthenticationMWs {
       const user = ObjectManagers.getInstance().UserManager.getUnAuthenticatedUser();
       req.session.context = await ObjectManagers.getInstance().SessionManager.buildContext(user);
       return next();
+    }
+    if (typeof req.session?.context !== 'undefined') {
+      const isValid = await AuthenticationMWs.validateExistingSession(req);
+      if (!isValid) {
+        delete req.session.context;
+        delete req.session.expires;
+        delete req.session.rememberMe;
+      } else {
+        return next();
+      }
     }
     try {
       const user = await AuthenticationMWs.getSharingUser(req);
@@ -48,8 +106,19 @@ export class AuthenticationMWs {
       return next();
     }
 
-    // if already authenticated, do not try to use sharing authentication
+    // if already authenticated, validate against DB and expiration
     if (typeof req.session.context !== 'undefined') {
+      const isValid = await AuthenticationMWs.validateExistingSession(req);
+      if (!isValid) {
+        delete req.session.context;
+        delete req.session.expires;
+        delete req.session.rememberMe;
+        res.status(401);
+        return next(
+          new ErrorDTO(ErrorCodes.NOT_AUTHENTICATED, 'Session revoked or expired')
+        );
+      }
+
       // fix context. projectionQuery gets lost in the session between calls
       if (req.session?.context && req.session.context?.user?.projectionKey && (!req.session.context?.projectionQuery || Object.keys(req.session.context?.projectionQuery || {}).length === 0)) {
         req.session.context = await ObjectManagers.getInstance().SessionManager.buildContext(req.session.context.user);
@@ -99,6 +168,17 @@ export class AuthenticationMWs {
       let val: any = req.params[paramName];
       if (Array.isArray(val)) {
         val = val.join('/');
+      }
+      if (typeof val === 'string') {
+        if (val.includes('\0')) {
+          return next(new ErrorDTO(ErrorCodes.PATH_ERROR, 'Invalid path'));
+        }
+        // Normalize request syntax only; filesystem checks use the actual resource root.
+        try {
+          SafePath.resolve('/pigallery_root', val);
+        } catch {
+          return next(new ErrorDTO(ErrorCodes.PATH_ERROR, 'Path traversal detected'));
+        }
       }
       req.params[paramName] = path
         .normalize(val || path.sep)
@@ -208,7 +288,7 @@ export class AuthenticationMWs {
         sharing.expires < Date.now() ||
         ((Config.Sharing.passwordRequired === true ||
             sharing.password) &&
-          !PasswordHelper.comparePassword(password, sharing.password))
+          !await PasswordHelper.comparePasswordAsync(password, sharing.password))
       ) {
         Logger.warn(LOG_TAG, 'Failed login from IP `' + req.ip + '` with sharing:' + sharing.sharingKey + ', bad password');
         res.status(401);

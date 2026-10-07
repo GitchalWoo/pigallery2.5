@@ -13,6 +13,8 @@ import {QueryParams} from '../../common/QueryParams';
 import {PhotoProcessing} from '../model/fileaccess/fileprocessing/PhotoProcessing';
 import {Utils} from '../../common/Utils';
 import {ObjectManagers} from '../model/ObjectManagers';
+import {CSRFProtection} from '../middlewares/CSRFProtection';
+import {SafePath} from '../model/fileaccess/SafePath';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -100,7 +102,7 @@ export class PublicRouter {
 
       res.tpl.UIExtensionConfigs = ObjectManagers.getInstance().ExtensionManager.getUIExtensionConfigs();
 
-      return next();
+      return CSRFProtection.issueToken(req, res, next);
     };
 
     app.use(addTPl);
@@ -315,15 +317,14 @@ export class PublicRouter {
     });
 
     const renderFile = (subDir = '') => {
-      return (req: Request, res: Response) => {
-        const file = path.join(
-          ProjectPath.FrontendFolder,
-          req.localePath,
-          subDir,
-          req.params.file as string
-        );
-        if (!fs.existsSync(file)) {
-          return res.sendStatus(404);
+      return async (req: Request, res: Response) => {
+        let file: string;
+        try {
+          const base = path.join(ProjectPath.FrontendFolder, req.localePath, subDir);
+          file = await SafePath.resolveExisting(base, req.params.file as string);
+        } catch (err) {
+          if (err.code === 'ENOENT') return res.sendStatus(404);
+          return res.sendStatus(403);
         }
         res.sendFile(file, {
           maxAge: 31536000,

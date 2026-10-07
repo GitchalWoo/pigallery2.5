@@ -1,4 +1,5 @@
 import {expect} from 'chai';
+import assert from 'assert/strict';
 import * as path from 'path';
 import * as fs from 'fs';
 import {UploadManager} from '../../../../src/backend/model/UploadManager';
@@ -147,5 +148,111 @@ describe('UploadManager', () => {
     expect(errors.length).to.equal(1);
     expect(errors[0].filename).to.equal('exists.jpg');
     expect(errors[0].error).to.contain('already exists');
+  });
+
+  it('should reject path traversal in directory parameter (S5)', async () => {
+    const file: any = {
+      originalname: 'escape.jpg',
+      buffer: Buffer.from('content')
+    };
+    try {
+      await uploadManager.saveFile('../../etc', file);
+      expect.fail('Should have failed path traversal');
+    } catch (e) {
+      expect(e.message).to.contain('Path traversal detected');
+    }
+  });
+
+  it('should reject upload targeting directory symlink pointing outside ImageFolder', async () => {
+    const outsideDir = path.join(testDir, '..', 'tmp_outside_upload');
+    if (!fs.existsSync(outsideDir)) {
+      fs.mkdirSync(outsideDir, {recursive: true});
+    }
+    const symlinkPath = path.join(testDir, 'symlink_outside');
+    if (!fs.existsSync(symlinkPath)) {
+      fs.symlinkSync(outsideDir, symlinkPath);
+    }
+    try {
+      const file: any = {
+        originalname: 'escape.jpg',
+        buffer: Buffer.from('content')
+      };
+      await uploadManager.saveFile('symlink_outside', file);
+      expect.fail('Should have rejected symlink upload');
+    } catch (e) {
+      expect(e.message).to.contain('symlink escapes base directory');
+      expect(fs.existsSync(path.join(outsideDir, 'escape.jpg'))).to.be.false;
+    } finally {
+      if (fs.existsSync(symlinkPath)) {
+        fs.unlinkSync(symlinkPath);
+      }
+      if (fs.existsSync(outsideDir)) {
+        fs.rmSync(outsideDir, {recursive: true, force: true});
+      }
+    }
+  });
+
+  it('does not unlink an existing file when opening the destination fails', async () => {
+    const destination = path.join(testDir, 'untouched.jpg');
+    fs.writeFileSync(destination, 'original');
+    const originalOpen = fs.promises.open;
+    const failure = Object.assign(new Error('permission denied'), {code: 'EACCES'});
+    fs.promises.open = async () => { throw failure; };
+    try {
+      await assert.rejects(uploadManager.saveFile('', {
+        originalname: 'untouched.jpg', buffer: Buffer.from('replacement')
+      } as Express.Multer.File), err => err === failure);
+      expect(fs.readFileSync(destination, 'utf8')).to.equal('original');
+    } finally {
+      fs.promises.open = originalOpen;
+    }
+  });
+
+  it('closes and removes its own partial file after a write failure', async () => {
+    const originalOpen = fs.promises.open;
+    const failure = Object.assign(new Error('disk full'), {code: 'ENOSPC'});
+    let opened: fs.promises.FileHandle;
+    fs.promises.open = async (...args: Parameters<typeof originalOpen>) => {
+      opened = await originalOpen(...args);
+      const originalWrite = opened.writeFile.bind(opened);
+      opened.writeFile = async () => {
+        await originalWrite(Buffer.from('partial'));
+        throw failure;
+      };
+      return opened;
+    };
+    try {
+      await assert.rejects(uploadManager.saveFile('', {
+        originalname: 'partial.jpg', buffer: Buffer.from('full content')
+      } as Express.Multer.File), err => err === failure);
+      expect(opened.fd).to.equal(-1);
+      expect(fs.existsSync(path.join(testDir, 'partial.jpg'))).to.be.false;
+    } finally {
+      fs.promises.open = originalOpen;
+    }
+  });
+
+  it('should prevent overwrite race using wx exclusive flag (AUD10)', async () => {
+    const file1: any = {
+      originalname: 'race.jpg',
+      buffer: Buffer.from('first content')
+    };
+    const file2: any = {
+      originalname: 'race.jpg',
+      buffer: Buffer.from('second content')
+    };
+
+    // Run two simultaneous saveFile calls for the same file
+    const results = await Promise.allSettled([
+      uploadManager.saveFile('race_test', file1),
+      uploadManager.saveFile('race_test', file2)
+    ]);
+
+    const fulfilled = results.filter(r => r.status === 'fulfilled');
+    const rejected = results.filter(r => r.status === 'rejected');
+
+    expect(fulfilled.length).to.equal(1);
+    expect(rejected.length).to.equal(1);
+    expect((rejected[0] as PromiseRejectedResult).reason.message).to.contain('already exists');
   });
 });

@@ -16,6 +16,41 @@ declare global {
  * Adds logging to express
  */
 export class LoggerRouter {
+  public static sanitizeUrl(urlStr: string): string {
+    if (!urlStr) {
+      return urlStr;
+    }
+    try {
+      const parsed = new URL(urlStr, 'http://localhost');
+      const sensitiveParams = [
+        'code',
+        'state',
+        'session_state',
+        'token',
+        'access_token',
+        'id_token',
+        'refresh_token',
+        'password',
+        'secret',
+        'client_secret',
+        'sk',
+        'sharingKey',
+      ];
+      for (const p of sensitiveParams) {
+        if (parsed.searchParams.has(p)) {
+          parsed.searchParams.set(p, '***REDACTED***');
+        }
+      }
+      let pathname = parsed.pathname;
+      const sharePathRegex = /(\/share\/)([^/?#]+)(\/key)?/i;
+      pathname = pathname.replace(sharePathRegex, '$1***REDACTED***$3');
+
+      return pathname + parsed.search + parsed.hash;
+    } catch {
+      return urlStr.replace(/([?&](?:code|state|session_state|token|password|secret|sk|sharingKey)=)[^&#]*/gi, '$1***REDACTED***');
+    }
+  }
+
   public static log(loggerFn: LoggerFunction, req: Request, res: Response): void {
     if (req.logged === true) {
       return;
@@ -27,7 +62,7 @@ export class LoggerRouter {
       res.end(a, b, c);
       loggerFn(
           req.method,
-          req.url,
+          LoggerRouter.sanitizeUrl(req.url),
           res.statusCode,
           Date.now() - req._startTime + 'ms'
       );

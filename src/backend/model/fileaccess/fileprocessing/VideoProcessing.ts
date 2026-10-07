@@ -1,4 +1,5 @@
 import * as path from 'path';
+import {SafePath} from '../SafePath';
 import {constants as fsConstants, promises as fsp} from 'fs';
 import {ITaskExecuter, TaskExecuter} from '../TaskExecuter';
 import {VideoConverterInput, VideoConverterWorker,} from '../VideoConverterWorker';
@@ -43,6 +44,7 @@ export class VideoProcessing {
     }
 
     try {
+      await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, origFilePath));
       await fsp.access(origFilePath, fsConstants.R_OK);
     } catch (e) {
       return false;
@@ -55,6 +57,7 @@ export class VideoProcessing {
     const outPath = this.generateConvertedFilePath(videoPath);
 
     try {
+      await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
       await fsp.access(outPath, fsConstants.R_OK);
       return true;
     } catch (e) {
@@ -68,12 +71,15 @@ export class VideoProcessing {
     const outPath = this.generateConvertedFilePath(videoPath);
 
     try {
+      await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
       await fsp.access(outPath, fsConstants.R_OK);
       return;
     } catch (e) {
       // ignoring errors
     }
 
+    await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, videoPath));
+    await SafePath.resolveForWrite(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
     const metaData = await MetadataLoader.loadVideoMetadata(videoPath);
 
     const renderInput: VideoConverterInput = {

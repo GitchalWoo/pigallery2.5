@@ -7,6 +7,7 @@ import {ParentDirectoryDTO,} from '../../common/entities/DirectoryDTO';
 import {ObjectManagers} from '../model/ObjectManagers';
 import {ContentWrapper, ContentWrapperUtils} from '../../common/entities/ContentWrapper';
 import {ProjectPath} from '../ProjectPath';
+import {SafePath} from '../model/fileaccess/SafePath';
 import {Config} from '../../common/config/private/Config';
 import {MediaDTO, MediaDTOUtils} from '../../common/entities/MediaDTO';
 import {VideoDTO} from '../../common/entities/VideoDTO';
@@ -67,10 +68,16 @@ export class GalleryMWs {
     next: NextFunction
   ): Promise<void> {
     const directoryName = (req.params['directory'] || '/') as string;
-    const absoluteDirectoryName = path.join(
-      ProjectPath.ImageFolder,
-      directoryName
-    );
+    let absoluteDirectoryName: string;
+    try {
+      absoluteDirectoryName = await SafePath.resolveExisting(
+        ProjectPath.ImageFolder,
+        directoryName
+      );
+    } catch (err) {
+      if (err.code === 'ENOENT' || err.code === 'ENOTDIR') return next();
+      return next(new ErrorDTO(ErrorCodes.PATH_ERROR, 'Path traversal detected'));
+    }
     try {
       if ((await fsp.stat(absoluteDirectoryName)).isDirectory() === false) {
         return next();
@@ -144,12 +151,22 @@ export class GalleryMWs {
         store: true, // disable compression
       });
 
-      res.on('close', () => {
-        console.log('zip ' + archive.pointer() + ' bytes');
-      });
+      let clientDisconnected = false;
+      const onClose = () => {
+        clientDisconnected = true;
+        try {
+          archive.abort();
+        } catch {
+          // ignore abort error if already closed
+        }
+      };
+      res.on('close', onClose);
 
       archive.on('error', (err: Error) => {
-        throw err;
+        if (!res.headersSent) {
+          return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error creating zip archive', err));
+        }
+        res.end();
       });
 
       archive.pipe(res);
@@ -159,12 +176,16 @@ export class GalleryMWs {
 
       // Add each media file to the archive with unique names
       for (const media of searchResult.media) {
-        const mediaPath = path.join(
-          ProjectPath.ImageFolder,
-          media.directory.path,
-          media.directory.name,
-          media.name
-        );
+        if (clientDisconnected) {
+          break;
+        }
+        let mediaPath: string;
+        try {
+          const relDir = path.join(media.directory.path || '', media.directory.name || '');
+          mediaPath = await SafePath.resolveExisting(ProjectPath.ImageFolder, path.join(relDir, media.name));
+        } catch {
+          continue; // Skip any file that resolves outside ImageFolder
+        }
 
         // Get file extension and base name
         const ext = path.extname(media.name);
@@ -184,7 +205,9 @@ export class GalleryMWs {
         archive.file(mediaPath, {name: uniqueName});
       }
 
-      await archive.finalize();
+      if (!clientDisconnected) {
+        await archive.finalize();
+      }
       return next();
     } catch (err) {
       return next(
@@ -320,10 +343,15 @@ export class GalleryMWs {
     if (!req.params['mediaPath']) {
       return next();
     }
-    const fullMediaPath = path.join(
-      ProjectPath.ImageFolder,
-      req.params['mediaPath'] as string
-    );
+    let fullMediaPath: string;
+    try {
+      fullMediaPath = await SafePath.resolveExisting(
+        ProjectPath.ImageFolder,
+        req.params['mediaPath'] as string
+      );
+    } catch {
+      return next(new ErrorDTO(ErrorCodes.PATH_ERROR, 'Path traversal detected'));
+    }
 
     // check if file exist
     try {
@@ -359,6 +387,7 @@ export class GalleryMWs {
         VideoProcessing.generateConvertedFilePath(fullMediaPath);
 
       // check if transcoded video exist
+      await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, convertedVideo));
       await fsp.access(convertedVideo);
       req.resultPipe = convertedVideo;
       // eslint-disable-next-line no-empty

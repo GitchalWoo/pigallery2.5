@@ -1,11 +1,13 @@
 import {expect} from 'chai';
 import * as fs from 'fs';
+import * as path from 'path';
 import {Config} from '../../../../../src/common/config/private/Config';
 import {SQLConnection} from '../../../../../src/backend/model/database/SQLConnection';
 import {UserEntity} from '../../../../../src/backend/model/database/enitites/UserEntity';
 import {UserRoles} from '../../../../../src/common/entities/UserDTO';
 import {PasswordHelper} from '../../../../../src/backend/model/PasswordHelper';
 import {DirectoryEntity} from '../../../../../src/backend/model/database/enitites/DirectoryEntity';
+import {SharingEntity} from '../../../../../src/backend/model/database/enitites/SharingEntity';
 import {PhotoEntity, PhotoMetadataEntity} from '../../../../../src/backend/model/database/enitites/PhotoEntity';
 import {
   CameraMetadataEntity,
@@ -111,6 +113,82 @@ describe('Typeorm integration', () => {
     const conn2 = await SQLConnection.getConnection();
     const admins = await conn2.getRepository(UserEntity).findBy({name: 'migrated admin'});
     expect(admins.length).to.be.equal(1);
+  });
+
+  it('AUD4: should preserve shares across schema upgrade without dropping tables', async () => {
+    const conn = await SQLConnection.getConnection();
+    const user = new UserEntity();
+    user.name = 'share creator';
+    user.password = PasswordHelper.cryptPassword('test');
+    user.role = UserRoles.User;
+    const savedUser = await conn.getRepository(UserEntity).save(user);
+
+    const share = new SharingEntity();
+    share.sharingKey = 'preservedShareKey';
+    share.searchQuery = {value: '/', type: 100} as any;
+    share.creator = savedUser;
+    share.expires = Date.now() + 100000;
+    share.timeStamp = Date.now();
+    await conn.getRepository(SharingEntity).save(share);
+
+    // Downgrade version record to trigger schema update
+    const version = (await conn.getRepository(VersionEntity).find())[0];
+    version.version--;
+    await conn.getRepository(VersionEntity).save(version);
+
+    await SQLConnection.close();
+
+    // Reopen connection: triggers safe schemeSync
+    const conn2 = await SQLConnection.getConnection();
+    const shares = await conn2.getRepository(SharingEntity).findBy({sharingKey: 'preservedShareKey'});
+    expect(shares.length).to.equal(1);
+    expect(shares[0].sharingKey).to.equal('preservedShareKey');
+  });
+
+  it('AUD4: tryConnection should be non-destructive and never mutate schema or data', async () => {
+    const conn = await SQLConnection.getConnection();
+    const user = new UserEntity();
+    user.name = 'persistent user';
+    user.password = PasswordHelper.cryptPassword('test');
+    user.role = UserRoles.User;
+    await conn.getRepository(UserEntity).save(user);
+
+    await SQLConnection.close();
+
+    // tryConnection should succeed without dropping or mutating
+    const canConnect = await SQLConnection.tryConnection(Config.Database);
+    expect(canConnect).to.be.true;
+
+    // Verify user is still there
+    const conn2 = await SQLConnection.getConnection();
+    const foundUsers = await conn2.getRepository(UserEntity).findBy({name: 'persistent user'});
+    expect(foundUsers.length).to.equal(1);
+  });
+
+  it('AUD8: should generate random admin bootstrap credentials when not in test mode', async () => {
+    const originalEnv = process.env.NODE_ENV;
+    const originalWarn = Config.Users.suppressDefUserWarn;
+    try {
+      process.env.NODE_ENV = 'production';
+      Config.Users.suppressDefUserWarn = false;
+
+      await SQLConnection.init();
+      const conn = await SQLConnection.getConnection();
+      const admin = await conn.getRepository(UserEntity).findOneBy({name: 'admin'});
+      expect(admin).to.exist;
+      // Should NOT be the default 'admin' password
+      expect(PasswordHelper.comparePassword('admin', admin.password)).to.be.false;
+
+      // Bootstrap file should exist and contain the temporary password
+      const bootstrapFile = path.join(ProjectPath.getAbsolutePath(Config.Database.dbFolder), 'admin-bootstrap.txt');
+      expect(fs.existsSync(bootstrapFile)).to.be.true;
+      const content = fs.readFileSync(bootstrapFile, 'utf8');
+      expect(content).to.include('Username: admin');
+      expect(content).to.include('Password: ');
+    } finally {
+      process.env.NODE_ENV = originalEnv;
+      Config.Users.suppressDefUserWarn = originalWarn;
+    }
   });
 
   it('should open and close connection', async () => {

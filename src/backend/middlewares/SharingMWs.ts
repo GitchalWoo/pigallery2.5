@@ -88,17 +88,23 @@ export class SharingMWs {
         );
       }
 
-      let sharingKey = SharingMWs.generateKey(Config.Sharing.sharingKeyLength);
-
-      // create one not yet used
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        try {
-          await ObjectManagers.getInstance().SharingManager.findOne(sharingKey);
-          sharingKey = this.generateKey(Config.Sharing.sharingKeyLength);
-        } catch (err) {
+      let sharingKey: string = null;
+      const MAX_RETRIES = 10;
+      for (let i = 0; i < MAX_RETRIES; i++) {
+        const candidateKey = SharingMWs.generateKey(Config.Sharing.sharingKeyLength);
+        const existing = await ObjectManagers.getInstance().SharingManager.findOne(candidateKey);
+        if (!existing) {
+          sharingKey = candidateKey;
           break;
         }
+      }
+      if (!sharingKey) {
+        return next(
+          new ErrorDTO(
+            ErrorCodes.GENERAL_ERROR,
+            'Failed to generate unique sharing key after maximum retries'
+          )
+        );
       }
 
       const directoryName = path.normalize((req.params['directory'] as string) || '/');
