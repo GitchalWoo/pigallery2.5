@@ -1,4 +1,4 @@
 /**
- * This version indicates that the sql/entities/*Entity.ts files got changed and the db needs to be recreated
+ * SQL schema version. Entity changes require a migration; existing data must be preserved.
  */
-export const DataStructureVersion = 43;
+export const DataStructureVersion = 44;
