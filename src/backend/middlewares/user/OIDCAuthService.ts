@@ -91,7 +91,9 @@ export class OIDCAuthService {
       throw new ErrorDTO(ErrorCodes.CREDENTIAL_NOT_FOUND, 'User not found');
     }
 
-    req.session.context = await ObjectManagers.getInstance().SessionManager.buildContext(user);
+    const safeUser = Object.assign({}, user);
+    delete (safeUser as any).password;
+    req.session.context = await ObjectManagers.getInstance().SessionManager.buildContext(safeUser as any);
     req.session.rememberMe = true;
     // cleanup
     delete (req.session as any).oidc;

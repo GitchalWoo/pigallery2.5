@@ -46,6 +46,7 @@ export class SessionManager {
   public async buildContext(user: ContextUser): Promise<SessionContext> {
     const context = new SessionContext();
     context.user = user;
+    delete (context.user as any).password;
     context.user.projectionKey = SessionManager.NO_PROJECTION_KEY;
     let finalQuery = this.getQueryForUser(user);
 

@@ -70,7 +70,11 @@ export class Server {
         ).configPath +
         ':'
     );
+    const SENSITIVE_CONFIG_KEY = /(password|secret|token|credential|cookieSecret)/i;
     Logger.verbose(LOG_TAG, () => JSON.stringify(Config.toJSON({attachDescription: false}), (k, v) => {
+      if (typeof k === 'string' && SENSITIVE_CONFIG_KEY.test(k) && typeof v === 'string' && v.length > 0) {
+        return '***REDACTED***';
+      }
       const MAX_LENGTH = 80;
       if (typeof v === 'string' && v.length > MAX_LENGTH) {
         v = v.slice(0, MAX_LENGTH - 3) + '...';

@@ -3,6 +3,8 @@ import {SearchManager} from '../../../../../src/backend/model/database/SearchMan
 import {SearchResultDTO} from '../../../../../src/common/entities/SearchResultDTO';
 import {Utils} from '../../../../../src/common/Utils';
 import {DBTestHelper} from '../../../DBTestHelper';
+import {SQLConnection} from '../../../../../src/backend/model/database/SQLConnection';
+import {PhotoEntity} from '../../../../../src/backend/model/database/enitites/PhotoEntity';
 import {
   ANDSearchQuery,
   DatePatternFrequency,
@@ -1809,6 +1811,57 @@ describe('SearchManager', (sqlHelper: DBTestHelper) => {
           metaFile: [],
           resultOverflow: false
         } as SearchResultDTO));
+      });
+
+      it('B8: should match literal underscore and percent in filename and text search', async () => {
+        const sm = new SearchManager();
+        const conn = await SQLConnection.getConnection();
+        const photoRepo = conn.getRepository(PhotoEntity);
+
+        const photoWithUnderscore = TestHelper.getRandomizedPhotoEntry(dir);
+        photoWithUnderscore.name = 'IMG_5910.jpg';
+        await photoRepo.save(photoWithUnderscore);
+
+        const photoWithPercent = TestHelper.getRandomizedPhotoEntry(dir);
+        photoWithPercent.name = 'IMG%100.jpg';
+        await photoRepo.save(photoWithPercent);
+
+        // Search for exact filename with literal underscore
+        let query: TextSearch = {
+          value: 'IMG_5910.jpg',
+          type: SearchQueryTypes.file_name,
+          matchType: TextSearchQueryMatchTypes.exact_match
+        };
+        let res = await sm.search(DBTestHelper.defaultSession, query);
+        expect(res.media.map(m => m.name)).to.include('IMG_5910.jpg');
+        expect(res.media.map(m => m.name)).to.not.include('IMG%100.jpg');
+
+        // Search for partial/glob with literal underscore
+        query = {
+          value: '*_5910*',
+          type: SearchQueryTypes.file_name,
+          matchType: TextSearchQueryMatchTypes.globMatch
+        };
+        res = await sm.search(DBTestHelper.defaultSession, query);
+        expect(res.media.map(m => m.name)).to.include('IMG_5910.jpg');
+
+        // Search for exact filename with literal percent
+        query = {
+          value: 'IMG%100.jpg',
+          type: SearchQueryTypes.file_name,
+          matchType: TextSearchQueryMatchTypes.exact_match
+        };
+        res = await sm.search(DBTestHelper.defaultSession, query);
+        expect(res.media.map(m => m.name)).to.include('IMG%100.jpg');
+        expect(res.media.map(m => m.name)).to.not.include('IMG_5910.jpg');
+
+        // Search any_text with literal underscore
+        query = {
+          value: 'IMG_5910',
+          type: SearchQueryTypes.any_text
+        };
+        res = await sm.search(DBTestHelper.defaultSession, query);
+        expect(res.media.map(m => m.name)).to.include('IMG_5910.jpg');
       });
 
     });

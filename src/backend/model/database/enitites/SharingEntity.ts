@@ -1,4 +1,4 @@
-import {Column, Entity, ManyToOne, PrimaryGeneratedColumn} from 'typeorm';
+import {Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn} from 'typeorm';
 import {BaseSharingDTO} from '../../../../common/entities/SharingDTO';
 import {UserEntity} from './UserEntity';
 import {SearchQueryDTO} from '../../../../common/entities/SearchQueryDTO';
@@ -8,7 +8,8 @@ export class SharingEntity implements BaseSharingDTO {
   @PrimaryGeneratedColumn({unsigned: true})
   id: number;
 
-  @Column()
+  @Index({unique: true})
+  @Column({unique: true})
   sharingKey: string;
 
   /*

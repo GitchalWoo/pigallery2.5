@@ -124,4 +124,94 @@ describe('SharingManager', (sqlHelper: DBTestHelper) => {
     expect(updated.expires).to.equals(update.expires);
   });
 
+  it('AUD3: should keep defaultSearchView separate from searchQuery', async () => {
+    const sm = new SharingManager();
+
+    const sharing: UpdateSharingDTO = {
+      id: null,
+      sharingKey: 'testKeySeparate',
+      searchQuery: {value: '/photos', type: SearchQueryTypes.directory} as TextSearch,
+      defaultSearchView: {value: '/photos/vacation', type: SearchQueryTypes.directory} as TextSearch,
+      password: null,
+      creator,
+      expires: Date.now() + 1000,
+      timeStamp: Date.now()
+    };
+
+    const saved = await sm.createSharing(sharing);
+    expect(saved.searchQuery).to.deep.equal({value: '/photos', type: SearchQueryTypes.directory});
+    expect(saved.defaultSearchView).to.deep.equal({value: '/photos/vacation', type: SearchQueryTypes.directory});
+
+    const update: UpdateSharingDTO = {
+      id: saved.id,
+      sharingKey: saved.sharingKey,
+      searchQuery: {value: '/photos/2026', type: SearchQueryTypes.directory} as TextSearch,
+      defaultSearchView: {value: '/photos/2026/summer', type: SearchQueryTypes.directory} as TextSearch,
+      password: null,
+      creator,
+      expires: Date.now() + 2000,
+      timeStamp: Date.now()
+    };
+    const updated = await sm.updateSharing(update, false);
+    expect(updated.searchQuery).to.deep.equal({value: '/photos/2026', type: SearchQueryTypes.directory});
+    expect(updated.defaultSearchView).to.deep.equal({value: '/photos/2026/summer', type: SearchQueryTypes.directory});
+  });
+
+  it('AUD13: should preserve query filter when filtering by creator in listAllForQuery', async () => {
+    const sm = new SharingManager();
+    const conn = await SQLConnection.getConnection();
+    const otherUser = await conn.getRepository(UserEntity).save({
+      id: null,
+      name: 'other user',
+      password: '',
+      role: UserRoles.User
+    });
+
+    const q1: TextSearch = {value: '/folder1', type: SearchQueryTypes.directory};
+    const q2: TextSearch = {value: '/folder2', type: SearchQueryTypes.directory};
+
+    // Share 1: creator, q1
+    await sm.createSharing({
+      id: null,
+      sharingKey: 'share1',
+      searchQuery: q1,
+      password: null,
+      creator,
+      expires: Date.now() + 10000,
+      timeStamp: Date.now()
+    });
+
+    // Share 2: creator, q2
+    await sm.createSharing({
+      id: null,
+      sharingKey: 'share2',
+      searchQuery: q2,
+      password: null,
+      creator,
+      expires: Date.now() + 10000,
+      timeStamp: Date.now()
+    });
+
+    // Share 3: otherUser, q1
+    await sm.createSharing({
+      id: null,
+      sharingKey: 'share3',
+      searchQuery: q1,
+      password: null,
+      creator: otherUser,
+      expires: Date.now() + 10000,
+      timeStamp: Date.now()
+    });
+
+    // Filtering by q1 and creator: should ONLY return share1 (not share2 or share3)
+    const results = await sm.listAllForQuery(q1, creator);
+    expect(results.length).to.equal(1);
+    expect(results[0].sharingKey).to.equal('share1');
+
+    // Filtering by q1 without user: should return share1 and share3
+    const allQ1 = await sm.listAllForQuery(q1);
+    expect(allQ1.length).to.equal(2);
+    expect(allQ1.map(s => s.sharingKey).sort()).to.deep.equal(['share1', 'share3']);
+  });
+
 });

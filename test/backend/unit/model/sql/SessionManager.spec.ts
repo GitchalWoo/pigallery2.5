@@ -45,6 +45,21 @@ describe('SessionManager', (sqlHelper: DBTestHelper) => {
       expect(context.projectionQuery).to.be.undefined;
     });
 
+    it('AUD6: should strip password from user in buildContext', async () => {
+      const sm = new SessionManager();
+      const user = new UserEntity();
+      user.id = 99;
+      user.name = 'hasheduser';
+      user.role = UserRoles.User;
+      user.password = '$2b$10$supersecretbcryptpasswordhash';
+
+      const context = await sm.buildContext(user);
+
+      expect(context).to.not.be.null;
+      expect((context.user as any).password).to.be.undefined;
+      expect(user.password).to.be.undefined;
+    });
+
     it('should create a context with allowQuery and set projectionQuery', async () => {
       // Create a basic user with no queries
       const sm = new SessionManager();
