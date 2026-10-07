@@ -8,7 +8,6 @@ export class SharingEntity implements BaseSharingDTO {
   @PrimaryGeneratedColumn({unsigned: true})
   id: number;
 
-  @Index({unique: true})
   @Column({unique: true})
   sharingKey: string;
 

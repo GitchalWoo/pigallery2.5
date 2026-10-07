@@ -152,6 +152,7 @@
   },
   "packageManager": "npm@11.19.0",
   "overrides": {
+    "proxy-addr": "2.0.8",
     "ngx-toastr": {
       "@angular/common": "$@angular/common",
       "@angular/core": "$@angular/core"
