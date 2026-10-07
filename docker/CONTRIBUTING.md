@@ -1,3 +1,4 @@
 # PiGallery2 Docker Contribution guide
 
-For information on how to contribute to the Docker configuration, please see the [documentation](https://bpatrik.github.io/pigallery2/development/docker-contributing/).
+For this fork's Docker build and release workflow, see the
+[Docker contribution guide](../docs/development/docker-contributing.md).

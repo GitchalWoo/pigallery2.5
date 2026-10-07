@@ -31,6 +31,28 @@ To keep development organized, please follow our feature workflow and rule of th
    * Note: you can skip this test if you use and IDE that supports typescript (e.g.: webstorm, vscode)
 5. Run the server `npm start`
 
+For a one-off production build, use `npm run build-en` for English only or
+`npm run build` for all locales. The backend serves the frontend from `dist/`.
+
+### Build and release tooling
+
+Build tasks use native Node scripts in `scripts/`.
+
+- `npm run create-release` builds all locales and the CommonJS backend into
+  `release/`, then writes `pigallery2.zip`. It replaces previous generated release
+  output. Limit locales with `-- --languages=en,pl`.
+- Docker uses `npm run create-release -- --skip-opt-packages=ffmpeg-static,ffprobe-static --force-opt-packages`
+  to omit bundled FFmpeg binaries and require the remaining optional packages.
+- `npm run extract-locale` extracts `locale.source.xlf`;
+  `npm run merge-new-translation` adds missing messages to existing translations.
+  Both merge and update accept `-- --languages=pl,de`.
+- `npm run update-translation` uses the existing Google translation tool;
+  `npm run add-translation -- fi` creates a new translation file. Register a new
+  locale in `angular.json` before building it.
+- `npm run generate-man` rebuilds the backend and regenerates
+  `docs/user-guide/configuration.md`.
+- `npm run test-tooling` checks localized bundles and release manifest options.
+
 ## Developer docs
 
 ### Project structure
@@ -118,37 +140,62 @@ Client side:
 ## Running the tests locally
 You can run tests in various ways. If you use VS Code, the built-in test explorer is a good way to visualize and run the tests. You can also run tests from the command line.
 
-- Run all tests:
+`npm run test-backend` compiles and runs backend tests. Its Mocha root hook closes
+shared managers and database connections at the end. Keep
+`--require ./test/root-hooks.cjs` when running with `--no-config`.
+`npm run test-backend-coverage` also collects V8 coverage with c8;
+`npm run coverage` regenerates `coverage/lcov.info` from that data.
+Coverage maps back to backend/common TypeScript sources and includes untested files.
 
-  `npx mocha`
-- Run all tests in parallel and report with very verbose output (to debug tests that don't run):
-  
-  `npx mocha --reporter spec --parallel`
-- Run a specific test (here the SettingsRouter in the backend):
+`npm run test-frontend` runs Karma once. Set `CHROME_BIN` to a browser executable
+if Chrome is not installed. Further Karma work is deferred to its replacement;
+local shutdown notes are recorded under M2 in
+[Techdebt.md](../fork-features/Techdebt.md#tooling-build--test-modernization).
 
-  `npx mocha ./test/backend/integration/routers/admin/SettingsRouter.js`
+- Run tooling, frontend, and backend tests with backend coverage:
+
+  `npm test`
+- Run backend tests only (compiles TypeScript first):
+
+  `npm run test-backend`
+- Run a specific backend suite:
+
+  `npm run test-backend -- --grep 'Settings middleware'`
+
+Run backend suites serially: they share configuration, database fixtures, and
+application managers.
 
 ### MySQL / MariaDB tests
-  The MySQL / MariaDB tests needs a separate database to be running during the test. If you have docker, you can start one with the required test-settings, using the command below:
 
-  `docker run --name pigallery_test -e MYSQL_ROOT_PASSWORD=password -e MYSQL_DATABASE=pigallery_test -e MYSQL_USER=user -e MYSQL_PASSWORD=password -p3306:3306 -d mariadb:10.3 --log-bin --binlog-format=MIXED`
+The MySQL/MariaDB tests use the `mysql2` driver and require a running database.
+The cleanup was validated against MariaDB 11.4. For a local test container:
 
-  Start this betfore running the tests in text explorer or the command line, if you want to include the MySQL tests.
+```bash
+docker run --name pigallery_test -e MARIADB_ROOT_PASSWORD=password -p3306:3306 -d mariadb:11.4
+```
 
-  Once you're finished with the testing, you can shut down the container again:
+Wait until the database is ready, then run `npm run test-backend`. Inspect
+`test/setup-local.js` first: its connection settings override `MYSQL_*`
+environment variables. Tests drop and recreate **`pigallery2_test`**; use a
+dedicated test database server. Remove a leftover `test/tmp/config.json` before
+another run if it still selects the MySQL engine.
 
-  `docker stop pigallery_test`
+For SQLite-only tests, use `TEST_MYSQL=false npm run test-backend`.
 
-  or you can shut it down AND remove it:
+Once finished, stop the container:
 
-  `docker stop pigallery_test && docker rm pigallery_test`
+```bash
+docker stop pigallery_test
+```
+
+Optionally remove the stopped test container with `docker rm pigallery_test`.
 
 ### OpenID Connect (OIDC) tests
 
 PiGallery includes automated unit/router tests and a local development IdP setup:
 
 1. **Automated unit and router tests**:
-   Runs 18 automated tests covering discovery, PKCE parameters, login redirect, callback code exchange, claims mapping, domain allowlists, and user auto-provisioning using an in-process mock server:
+   Runs 19 automated tests covering discovery, PKCE parameters, login redirect, callback code exchange, claims mapping, domain allowlists, and user auto-provisioning using an in-process mock server:
    ```bash
    npm run test-backend -- --grep OIDC
    ```

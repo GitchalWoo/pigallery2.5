@@ -1,8 +1,16 @@
 # Platform upgrade plan
 
-Status: Steps 0–3 completed and merged. Step 4 is completed and validated on
-`upgrade/node-24`, based on the Angular 22 merge (`master` at `de0ce1c4`),
-awaiting merge.
+Status: Steps 0–7 are completed; the upgrade branches through Express 5 are
+merged into this fork (`b8312f9d`, PR #9). The step notes below preserve the
+tooling, test results, and issues observed during each upgrade.
+
+Post-upgrade update (2026-10-07): dependency and tooling cleanup is implemented
+locally on `cleanup/dependencies-and-tooling`. Native Node scripts replace
+Gulp/ts-node, `build-en` builds only English, `mysql2` replaces `mysql`, and c8
+replaces nyc. The Mocha root hook fixes backend test shutdown; further Karma work
+is deferred to its replacement. See the
+[completed cleanup and validation](Techdebt.md#completed-dependency-and-tooling-cleanup-2026-10-07)
+and the [current tooling commands](../development/contributing.md#build-and-release-tooling).
 
 ## Goal
 
@@ -45,11 +53,11 @@ Hard constraints:
 1. `npx tsc -p src/frontend/tsconfig.app.json --noEmit` and
    `npx tsc -p src/frontend/tsconfig.spec.json --noEmit`
 2. `npm run build-backend`
-3. `npm run build-en`, then a build of every locale (catches i18n/XLF issues)
+3. `npm run build-en`, then `npm run build` for every locale (catches i18n/XLF issues)
 4. `npm run lint`
 5. Backend Mocha on SQLite and MySQL (`pigallery-db` container), logged to a
    file
-6. Karma via Brave (`CHROME_BIN=/usr/bin/brave-browser-stable`)
+6. Karma via Brave (use the local executable and workaround recorded in AGENTS.md)
 7. Cypress e2e (`start-e2e-server` + `cypress:run`)
 8. Browser smoke test on port 8081: login, Folders, Timeline (including Back
    restore), lightbox (swipe/keys/animation), map, search, upload, share link,
