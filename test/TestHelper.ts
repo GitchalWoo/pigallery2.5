@@ -450,13 +450,40 @@ export class TestHelper {
             return d.cache.cover;
           });
 
-    // Sort cover candidates by configured method
-    const sortBy = Config.AlbumCover.Sorting[0].method;
-    mediaForCover.sort((a, b): number =>
-      sortBy == SortByTypes.Rating
-        ? (b.metadata.rating || 0) - (a.metadata.rating || 0)
-        : b.metadata.creationDate - a.metadata.creationDate
-    );
+    // Sort cover candidates by configured method(s) with deterministic tie-breakers
+    const sortings = Config.AlbumCover.Sorting || [];
+    mediaForCover.sort((a, b): number => {
+      for (const sort of sortings) {
+        let diff = 0;
+        switch (sort.method) {
+          case SortByTypes.Rating:
+            diff = (a.metadata.rating || 0) - (b.metadata.rating || 0);
+            break;
+          case SortByTypes.Date:
+            diff = a.metadata.creationDate - b.metadata.creationDate;
+            break;
+          case SortByTypes.Name:
+            diff = a.name.localeCompare(b.name);
+            break;
+          case SortByTypes.PersonCount:
+            diff = ((a.metadata as any).personsLength || (a.metadata as any).faces?.length || 0) -
+              ((b.metadata as any).personsLength || (b.metadata as any).faces?.length || 0);
+            break;
+          case SortByTypes.FileSize:
+            diff = (a.metadata.fileSize || 0) - (b.metadata.fileSize || 0);
+            break;
+        }
+        if (diff !== 0) {
+          return sort.ascending ? diff : -diff;
+        }
+      }
+      // Deterministic fallback tie-breakers when primary sort criteria tie
+      const dateDiff = b.metadata.creationDate - a.metadata.creationDate;
+      if (dateDiff !== 0) {
+        return dateDiff;
+      }
+      return a.name.localeCompare(b.name);
+    });
     const cover = mediaForCover?.[0] || null;
 
     // Update directory cache
