@@ -105,7 +105,7 @@
             "tsConfig": "src/frontend/tsconfig.app.json",
             "polyfills": [
               "zone.js",
-              "src/frontend/polyfills.ts"
+              "@angular/localize/init"
             ],
             "allowedCommonJsDependencies": [
               "typeconfig",
