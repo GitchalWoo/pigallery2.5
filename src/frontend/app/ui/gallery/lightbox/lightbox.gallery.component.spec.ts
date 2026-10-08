@@ -1,4 +1,4 @@
-import {ComponentFixture, fakeAsync, TestBed, tick} from '@angular/core/testing';
+import {ComponentFixture, TestBed} from '@angular/core/testing';
 import {ChangeDetectorRef, QueryList} from '@angular/core';
 import {ActivatedRoute, Router} from '@angular/router';
 import {BehaviorSubject, of, Subject} from 'rxjs';
@@ -209,21 +209,21 @@ describe('GalleryLightboxComponent - Slideshow Tests', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should start slideshow when playback button is clicked', fakeAsync(() => {
+  it('should start slideshow when playback button is clicked', async () => {
     // Arrange
     component.status = LightboxStates.Open;
     (component as any).navigateToPhoto(0);
 
     // Act
     lightboxService.playback = true;
-    tick();
+    await Promise.resolve();
 
     // Assert
     expect(component.status).toBe(LightboxStates.Open);
     expect(component.slideShowRunning).toBe(true);
-  }));
+  });
 
-  it('should cycle through images during slideshow', fakeAsync(() => {
+  it('should cycle through images during slideshow', async () => {
     expect(lightboxService).toBeTruthy();
     // Arrange
     vi.spyOn(mockRouter, 'navigate').mockResolvedValue(true);
@@ -233,13 +233,13 @@ describe('GalleryLightboxComponent - Slideshow Tests', () => {
 
     // Act - simulate next image calls during slideshow
     component.nextImage();
-    tick();
+    await Promise.resolve();
 
     // Assert
     expect(mockRouter.navigate).toHaveBeenCalled();
-  }));
+  });
 
-  it('should stop slideshow at last image when loopSlideshow is disabled', fakeAsync(() => {
+  it('should stop slideshow at last image when loopSlideshow is disabled', async () => {
     component.status = LightboxStates.Open;
     (component as any).navigateToPhoto(2);
     // Arrange
@@ -248,62 +248,62 @@ describe('GalleryLightboxComponent - Slideshow Tests', () => {
 
     // Act - try to go to next image from last photo
     component.nextImage();
-    tick();
+    await Promise.resolve();
 
     // Assert - should wrap to first photo but slideshow should stop in real scenario
     // The nextImage method always wraps, but slideshow logic in controls should stop
     expect(component.NexGridMedia).toBeNull(); // No next media when not looping
-  }));
+  });
 
-  it('should continue slideshow from first image when loopSlideshow is enabled', fakeAsync(() => {
+  it('should continue slideshow from first image when loopSlideshow is enabled', async () => {
     // Arrange
     component.status = LightboxStates.Open;
     (component as any).navigateToPhoto(2); // Navigate to last photo
     lightboxService.loopSlideshow = true;
     component.slideShowRunning = true;
 
-    expect(component.NexGridMedia).toBe(photoComponents[0].gridMedia) // Should return first media when looping
+    expect(component.NexGridMedia).toBe(photoComponents[0].gridMedia); // Should return first media when looping
     // Act - go to next image from last photo
     component.nextImage();
-    tick();
+    await Promise.resolve();
 
     // Assert - should wrap to first photo and continue slideshow
     expect(component.NexGridMedia).toBe(photoComponents[1].gridMedia); // Should return first media when looping
-  }));
+  });
 
-  it('should stop slideshow when pause button is clicked', fakeAsync(() => {
+  it('should stop slideshow when pause button is clicked', async () => {
     // Arrange
     component.slideShowRunning = true;
     (component as any).navigateToPhoto(0);
 
     // Act
     lightboxService.playback = false;
-    tick();
+    await Promise.resolve();
 
     // Assert
     expect(component.slideShowRunning).toBe(false);
-  }));
+  });
 
-  it('should handle slideshow with route params', fakeAsync(() => {
+  it('should handle slideshow with route params', async () => {
     // Arrange - spy on public property instead
     const initialSlideShowState = component.slideShowRunning;
 
     // Act - simulate playback param in route
     mockActivatedRoute.queryParams.next({[QueryParams.gallery.lightbox.playback]: 'true'});
-    tick();
+    await Promise.resolve();
 
     // Assert
     expect(component.slideShowRunning).toBe(true);
 
     // Act - simulate removing playback param
     mockActivatedRoute.queryParams.next({});
-    tick();
+    await Promise.resolve();
 
     // Assert
     expect(component.slideShowRunning).toBe(false);
-  }));
+  });
 
-  it('should navigate to specific photo and start slideshow', fakeAsync(() => {
+  it('should navigate to specific photo and start slideshow', async () => {
     // Arrange
     component.status = LightboxStates.Open;
 
@@ -312,11 +312,11 @@ describe('GalleryLightboxComponent - Slideshow Tests', () => {
       [QueryParams.gallery.photo]: 'photo2.jpg',
       [QueryParams.gallery.lightbox.playback]: 'true'
     });
-    tick();
+    await Promise.resolve();
 
     // Assert
     expect(component.slideShowRunning).toBe(true);
-  }));
+  });
 
   it('should not advance to next photo when no more photos and loopSlideshow disabled', () => {
     // Arrange
@@ -373,7 +373,7 @@ describe('GalleryLightboxComponent - paged source', () => {
     fixture.detectChanges();
   });
 
-  it('loads the next page at the end of loaded media and opens the next item without a rendered thumbnail', fakeAsync(() => {
+  it('loads the next page at the end of loaded media and opens the next item without a rendered thumbnail', async () => {
     const items = ['a.jpg', 'b.jpg'].map((n, i) => new GridMedia(createMockPhoto(n, i), 1, 1, 0));
     const changes = new Subject<void>();
     let more = true;
@@ -410,7 +410,7 @@ describe('GalleryLightboxComponent - paged source', () => {
     component.setSource(source);
     component.status = LightboxStates.Open;
     mockActivatedRoute.queryParams.next({[QueryParams.gallery.photo]: 'b.jpg'});
-    tick();
+    await Promise.resolve();
 
     expect(component.activePhoto.gridMedia.media.name).toBe('b.jpg');
     expect(component.navigation.hasNext).toBe(true);
@@ -422,12 +422,12 @@ describe('GalleryLightboxComponent - paged source', () => {
     expect(component.IsAtLoadedEnd).toBe(true);
 
     finishLoad();
-    tick();
+    await Promise.resolve();
 
     expect(mockActivatedRoute.queryParams.value).toEqual({[QueryParams.gallery.photo]: 'c.jpg'});
     expect(component.activePhoto.gridMedia.media.name).toBe('c.jpg');
     expect(component.navigation.hasNext).toBe(false);
-  }));
+  });
 
   // Pages are queued per loadMore() call; each call appends that page's names once resolved.
   function pagedSource(initial: string[], pages: string[][]) {
@@ -466,53 +466,53 @@ describe('GalleryLightboxComponent - paged source', () => {
     return {source, loadMore, finishNext: () => resolvers.shift()()};
   }
 
-  it('does not navigate when the viewer closes while a page is loading', fakeAsync(() => {
+  it('does not navigate when the viewer closes while a page is loading', async () => {
     const {source, finishNext} = pagedSource(['a.jpg', 'b.jpg'], [['c.jpg']]);
     component.setSource(source);
     component.status = LightboxStates.Open;
     mockActivatedRoute.queryParams.next({[QueryParams.gallery.photo]: 'b.jpg'});
-    tick();
+    await Promise.resolve();
 
     component.nextImage();
     component.status = LightboxStates.Closing;
     finishNext();
-    tick();
+    await Promise.resolve();
 
     expect(mockActivatedRoute.queryParams.value).toEqual({[QueryParams.gallery.photo]: 'b.jpg'});
-  }));
+  });
 
-  it('stops loading and does not navigate after the viewer is destroyed mid-load', fakeAsync(() => {
+  it('stops loading and does not navigate after the viewer is destroyed mid-load', async () => {
     const {source, loadMore, finishNext} = pagedSource(['a.jpg', 'b.jpg'], [[], ['c.jpg']]);
     component.setSource(source);
     component.status = LightboxStates.Open;
     mockActivatedRoute.queryParams.next({[QueryParams.gallery.photo]: 'b.jpg'});
-    tick();
+    await Promise.resolve();
 
     component.nextImage();
     component.ngOnDestroy();
     finishNext();
-    tick();
+    await Promise.resolve();
 
     expect(loadMore).toHaveBeenCalledTimes(1);
     expect(mockActivatedRoute.queryParams.value).toEqual({[QueryParams.gallery.photo]: 'b.jpg'});
-  }));
+  });
 
-  it('keeps loading through pages that add nothing until a new item appears', fakeAsync(() => {
+  it('keeps loading through pages that add nothing until a new item appears', async () => {
     const {source, loadMore, finishNext} = pagedSource(['a.jpg', 'b.jpg'], [[], [], ['c.jpg']]);
     component.setSource(source);
     component.status = LightboxStates.Open;
     mockActivatedRoute.queryParams.next({[QueryParams.gallery.photo]: 'b.jpg'});
-    tick();
+    await Promise.resolve();
 
     component.nextImage();
     finishNext();
-    tick();
+    await Promise.resolve();
     finishNext();
-    tick();
+    await Promise.resolve();
     finishNext();
-    tick();
+    await Promise.resolve();
 
     expect(loadMore).toHaveBeenCalledTimes(3);
     expect(mockActivatedRoute.queryParams.value).toEqual({[QueryParams.gallery.photo]: 'c.jpg'});
-  }));
+  });
 });

@@ -1,4 +1,4 @@
-import {Injectable} from '@angular/core';
+import {Injectable, signal} from '@angular/core';
 import {HttpEventType} from '@angular/common/http';
 import {NetworkService} from '../../../model/network/network.service';
 import {SupportedFormats} from '../../../../../common/SupportedFormats';
@@ -29,7 +29,11 @@ interface QueuedUpload {
   providedIn: 'root'
 })
 export class UploaderService {
-  public uploadProgress: UploadProgress[] = [];
+  public readonly uploadProgressSignal = signal<UploadProgress[]>([]);
+
+  get uploadProgress(): UploadProgress[] {
+    return this.uploadProgressSignal();
+  }
   private uploadQueue: QueuedUpload[] = [];
   private activeUploads = 0;
   private MAX_CONCURRENT_UPLOADS = 1;
@@ -132,7 +136,7 @@ export class UploaderService {
         error: $localize`File already exists`,
         count: existingFiles.length
       };
-      this.uploadProgress.push(existingItem);
+      this.uploadProgressSignal.update(list => [...list, existingItem]);
       this._cleanupProgress([existingItem]);
     }
 
@@ -140,7 +144,7 @@ export class UploaderService {
       return;
     }
 
-    this.uploadProgress.push(...progressItems);
+    this.uploadProgressSignal.update(list => [...list, ...progressItems]);
     this.startSpeedTracking();
     this.processQueue();
   }
@@ -194,6 +198,7 @@ export class UploaderService {
   private _uploadFile(upload: QueuedUpload): void {
     const {file, directory, progressItem} = upload;
     progressItem.status = 'uploading';
+    this.notifyProgressChanged();
 
     const formData = new FormData();
     formData.append('files', file);
@@ -205,6 +210,7 @@ export class UploaderService {
         if (event.type === HttpEventType.UploadProgress) {
           progressItem.progress = Math.round((100 * event.loaded) / event.total);
           progressItem.lastUpdate = Date.now();
+          this.notifyProgressChanged();
         } else if (event.type === HttpEventType.Response) {
           const response = event.body as any;
           const serverErrors = (response && response.result) ? response.result : [];
@@ -219,6 +225,7 @@ export class UploaderService {
             progressItem.status = 'done';
           }
           progressItem.done = true;
+          this.notifyProgressChanged();
 
           this.activeUploads--;
           this.processQueue();
@@ -236,6 +243,7 @@ export class UploaderService {
         progressItem.done = true;
         progressItem.status = 'error';
         progressItem.lastUpdate = Date.now();
+        this.notifyProgressChanged();
 
         this.activeUploads--;
         this.processQueue();
@@ -249,6 +257,10 @@ export class UploaderService {
     });
   }
 
+  private notifyProgressChanged(): void {
+    this.uploadProgressSignal.update(list => [...list]);
+  }
+
   private _cleanupProgress(items: UploadProgress[]): void {
     // Remove from list after some time
     items.forEach(item => {
@@ -258,10 +270,7 @@ export class UploaderService {
           this._cleanupProgress([item]);
           return;
         }
-        const idx = this.uploadProgress.indexOf(item);
-        if (idx !== -1) {
-          this.uploadProgress.splice(idx, 1);
-        }
+        this.uploadProgressSignal.update(list => list.filter(i => i !== item));
       }, 5000);
     });
   }

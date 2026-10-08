@@ -1,4 +1,4 @@
-import {ANIMATION_MODULE_TYPE, enableProdMode, importProvidersFrom, provideZoneChangeDetection} from '@angular/core';
+import {ANIMATION_MODULE_TYPE, enableProdMode, importProvidersFrom, provideZonelessChangeDetection} from '@angular/core';
 import {environment} from './environments/environment';
 import {HTTP_INTERCEPTORS, HttpClient, provideHttpClient, withInterceptorsFromDi, withXhr} from '@angular/common/http';
 import {ErrorInterceptor} from './app/model/network/helper/error.interceptor';
@@ -160,7 +160,7 @@ export class CustomUrlSerializer implements UrlSerializer {
 
 bootstrapApplication(AppComponent, {
   providers: [
-    provideZoneChangeDetection(),
+    provideZonelessChangeDetection(),
     importProvidersFrom(BrowserModule, FormsModule, AppRoutingModule, NgIconsModule.withIcons({
         ionDownloadOutline, ionFunnelOutline,
         ionGitBranchOutline, ionArrowDownOutline, ionArrowUpOutline,

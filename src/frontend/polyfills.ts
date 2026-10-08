@@ -53,10 +53,7 @@
  *  (window as any).__Zone_enable_cross_context_check = true;
  *
  */
-/***************************************************************************************************
- * Required while main.ts explicitly opts into zone-based change detection.
- */
-import 'zone.js'; // Included with Angular CLI.
+
 
 /***************************************************************************************************
  * APPLICATION IMPORTS

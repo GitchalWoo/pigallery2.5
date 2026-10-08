@@ -1,4 +1,4 @@
-import {Component, HostListener, type OnDestroy, type OnInit, ViewChild, ChangeDetectionStrategy} from '@angular/core';
+import {Component, HostListener, type OnDestroy, type OnInit, ViewChild, ChangeDetectionStrategy, signal} from '@angular/core';
 import {AuthenticationService} from '../../model/network/authentication.service';
 import {ActivatedRoute, type Params, Router} from '@angular/router';
 import {ContentService} from './content.service';
@@ -69,12 +69,21 @@ export class GalleryComponent implements OnInit, OnDestroy {
 
   config = Config;
   public isPhotoWithLocation = false;
-  public countDown: {
+  public readonly countDownSignal = signal<{
     day: number;
     hour: number;
     minute: number;
     second: number;
-  } = null;
+  } | null>(null);
+
+  get countDown(): {
+    day: number;
+    hour: number;
+    minute: number;
+    second: number;
+  } | null {
+    return this.countDownSignal();
+  }
   public readonly mapEnabled: boolean;
   public directoryContent: GroupedDirectoryContent;
   public isUploadOver = false;
@@ -151,14 +160,14 @@ export class GalleryComponent implements OnInit, OnDestroy {
     t = Math.floor(
       (this.shareService.sharingSubject.value.expires - Date.now()) / 1000
     );
-    this.countDown = {} as any;
-    this.countDown.day = Math.floor(t / 86400);
-    t -= this.countDown.day * 86400;
-    this.countDown.hour = Math.floor(t / 3600) % 24;
-    t -= this.countDown.hour * 3600;
-    this.countDown.minute = Math.floor(t / 60) % 60;
-    t -= this.countDown.minute * 60;
-    this.countDown.second = t % 60;
+    const day = Math.floor(t / 86400);
+    t -= day * 86400;
+    const hour = Math.floor(t / 3600) % 24;
+    t -= hour * 3600;
+    const minute = Math.floor(t / 60) % 60;
+    t -= minute * 60;
+    const second = t % 60;
+    this.countDownSignal.set({day, hour, minute, second});
   }
 
   ngOnDestroy(): void {

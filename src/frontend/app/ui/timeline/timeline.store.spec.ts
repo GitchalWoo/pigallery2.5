@@ -1,4 +1,3 @@
-import {fakeAsync, flushMicrotasks} from '@angular/core/testing';
 import {BehaviorSubject, Subject} from 'rxjs';
 import {TimelineStore} from './timeline.store';
 import {MediaDTO} from '../../../../common/entities/MediaDTO';
@@ -29,6 +28,12 @@ function deferred<T>(): Deferred<T> {
   });
   return d;
 }
+
+const flushMicrotasks = async () => {
+  for (let i = 0; i < 5; i++) {
+    await Promise.resolve();
+  }
+};
 
 function media(id: number, creationDate: number): MediaDTO {
   return {
@@ -70,7 +75,7 @@ describe('TimelineStore', () => {
     store = new TimelineStore(network as never, {version} as never, {user} as never);
   });
 
-  it('coalesces concurrent loads into one request', fakeAsync(() => {
+  it('coalesces concurrent loads into one request', async () => {
     const first = store.loadNextPage();
     const second = store.loadNextPage();
     expect(second).toBe(first);
@@ -78,66 +83,66 @@ describe('TimelineStore', () => {
     expect(requests[0].query).toEqual({limit: TimelineStore.PAGE_SIZE});
 
     requests[0].response.resolve(page([media(2, 20), media(1, 10)], {from: 10, after: 1}));
-    flushMicrotasks();
+    await flushMicrotasks();
     expect(store.items.map(m => m.id)).toEqual([2, 1]);
     expect(store.loading).toBe(false);
 
     store.loadNextPage();
     expect(requests[1].query).toEqual({limit: TimelineStore.PAGE_SIZE, from: 10, after: 1});
-  }));
+  });
 
-  it('dedupes by media id and still advances the cursor', fakeAsync(() => {
+  it('dedupes by media id and still advances the cursor', async () => {
     store.loadNextPage();
     requests[0].response.resolve(page([media(2, 20), media(1, 10)], {from: 10, after: 1}));
-    flushMicrotasks();
+    await flushMicrotasks();
 
     store.loadNextPage();
     requests[1].response.resolve(page([media(1, 10)], {from: 5, after: 9}));
-    flushMicrotasks();
+    await flushMicrotasks();
     expect(store.items.map(m => m.id)).toEqual([2, 1]);
 
     store.loadNextPage();
     expect(requests[2].query).toEqual({limit: TimelineStore.PAGE_SIZE, from: 5, after: 9});
     requests[2].response.resolve(page([], null));
-    flushMicrotasks();
+    await flushMicrotasks();
     expect(store.hasMore).toBe(false);
-  }));
+  });
 
-  it('drops responses that arrive after cancel or reset', fakeAsync(() => {
+  it('drops responses that arrive after cancel or reset', async () => {
     store.loadNextPage();
     store.cancel();
     expect(store.loading).toBe(false);
     requests[0].response.resolve(page([media(1, 10)], null));
-    flushMicrotasks();
+    await flushMicrotasks();
     expect(store.items).toEqual([]);
     expect(store.hasMore).toBe(true);
 
     store.loadNextPage();
     store.reset();
     requests[1].response.reject('boom');
-    flushMicrotasks();
+    await flushMicrotasks();
     expect(store.error).toBeNull();
 
     store.loadNextPage();
     expect(requests.length).toBe(3);
-  }));
+  });
 
-  it('keeps errors until an explicit retry', fakeAsync(() => {
+  it('keeps errors until an explicit retry', async () => {
     store.loadNextPage();
     requests[0].response.reject('Server down');
-    flushMicrotasks();
+    await flushMicrotasks();
     expect(store.error).toBe('Server down');
     expect(store.loading).toBe(false);
 
     store.loadNextPage();
     expect(store.error).toBeNull();
     expect(requests.length).toBe(2);
-  }));
+  });
 
-  it('clears state on logout and on projection change', fakeAsync(() => {
+  it('clears state on logout and on projection change', async () => {
     store.loadNextPage();
     requests[0].response.resolve(page([media(1, 10)], {from: 10, after: 1}));
-    flushMicrotasks();
+    await flushMicrotasks();
     store.scrollAnchor = {mediaId: '/dir/1.jpg', offset: 0};
 
     user.next({id: 1, name: 'u', role: UserRoles.User, projectionKey: 'other'} as UserDTO);
@@ -146,20 +151,20 @@ describe('TimelineStore', () => {
 
     store.loadNextPage();
     requests[1].response.resolve(page([media(1, 10)], null));
-    flushMicrotasks();
+    await flushMicrotasks();
     user.next(null);
     expect(store.items).toEqual([]);
-  }));
+  });
 
-  it('flags new data on gallery version change but keeps the list', fakeAsync(() => {
+  it('flags new data on gallery version change but keeps the list', async () => {
     store.loadNextPage();
     requests[0].response.resolve(page([media(1, 10)], null));
-    flushMicrotasks();
+    await flushMicrotasks();
 
     version.next('v2');
     expect(store.newDataAvailable).toBe(true);
     expect(store.items.length).toBe(1);
-  }));
+  });
 
   it('starts at an exclusive before boundary after reset', () => {
     store.reset(12345);
@@ -167,13 +172,13 @@ describe('TimelineStore', () => {
     expect(requests[0].query).toEqual({limit: TimelineStore.PAGE_SIZE, before: 12345});
   });
 
-  it('loads the summary once and drops it on user change', fakeAsync(() => {
+  it('loads the summary once and drops it on user change', async () => {
     const summary = {years: [{year: 2015, months: [{month: 6, count: 3}]}]};
     store.loadSummary();
     store.loadSummary();
     expect(summaryRequests.length).toBe(1);
     summaryRequests[0].resolve(summary);
-    flushMicrotasks();
+    await flushMicrotasks();
     expect(store.summary).toEqual(summary);
 
     store.loadSummary();
@@ -184,14 +189,14 @@ describe('TimelineStore', () => {
     expect(store.summary).toBeNull();
     store.loadSummary();
     expect(summaryRequests.length).toBe(2);
-  }));
+  });
 
-  it('refreshes a summary made stale by a version change, even after a month jump', fakeAsync(() => {
+  it('refreshes a summary made stale by a version change, even after a month jump', async () => {
     const oldSummary = {years: [{year: 2015, months: [{month: 6, count: 3}]}]};
     const newSummary = {years: [{year: 2016, months: [{month: 1, count: 1}]}, ...oldSummary.years]};
     store.loadSummary();
     summaryRequests[0].resolve(oldSummary);
-    flushMicrotasks();
+    await flushMicrotasks();
 
     version.next('v2');
     store.reset(12345);
@@ -202,26 +207,26 @@ describe('TimelineStore', () => {
     expect(summaryRequests.length).toBe(2);
     expect(store.summary).toEqual(oldSummary);
     summaryRequests[1].resolve(newSummary);
-    flushMicrotasks();
+    await flushMicrotasks();
     expect(store.summary).toEqual(newSummary);
     expect(store.summaryStale).toBe(false);
 
     store.loadSummary();
     expect(summaryRequests.length).toBe(2);
-  }));
+  });
 
-  it('keeps a failed summary refresh stale without retrying automatically', fakeAsync(() => {
+  it('keeps a failed summary refresh stale without retrying automatically', async () => {
     const oldSummary = {years: [{year: 2015, months: [{month: 6, count: 3}]}]};
     const newSummary = {years: [{year: 2016, months: [{month: 1, count: 1}]}]};
     store.loadSummary();
     summaryRequests[0].resolve(oldSummary);
-    flushMicrotasks();
+    await flushMicrotasks();
 
     version.next('v2');
     expect(store.shouldRefreshSummary).toBe(true);
     store.loadSummary();
     summaryRequests[1].reject('down');
-    flushMicrotasks();
+    await flushMicrotasks();
     expect(store.summary).toEqual(oldSummary);
     expect(store.summaryStale).toBe(true);
     expect(store.shouldRefreshSummary).toBe(false);
@@ -229,19 +234,19 @@ describe('TimelineStore', () => {
     store.loadSummary();
     expect(summaryRequests.length).toBe(3);
     summaryRequests[2].resolve(newSummary);
-    flushMicrotasks();
+    await flushMicrotasks();
     expect(store.summary).toEqual(newSummary);
     expect(store.summaryStale).toBe(false);
     expect(store.summaryFailed).toBe(false);
-  }));
+  });
 
-  it('ignores a summary that arrives after the user changed', fakeAsync(() => {
+  it('ignores a summary that arrives after the user changed', async () => {
     store.loadSummary();
     user.next({id: 2, name: 'v', role: UserRoles.Guest} as UserDTO);
     summaryRequests[0].resolve({years: [{year: 2015, months: [{month: 6, count: 3}]}]});
-    flushMicrotasks();
+    await flushMicrotasks();
     expect(store.summary).toBeNull();
-  }));
+  });
 });
 
 describe('Timeline months', () => {
