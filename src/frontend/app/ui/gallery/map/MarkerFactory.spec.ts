@@ -19,3 +19,4 @@ describe('MarkerFactory', () => {
     expect(typeof clusterGroup.clearLayers).toBe('function');
   });
 });
+
