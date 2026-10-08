@@ -148,7 +148,9 @@ export class GalleryLightboxMediaComponent implements OnChanges {
 
   ngOnChanges(): void {
     // media changed
-    if (this.prevGirdPhoto !== this.gridMedia) {
+    const mediaChanged = !this.prevGirdPhoto || !this.gridMedia ||
+      !MediaDTOUtils.equals(this.prevGirdPhoto.media, this.gridMedia.media);
+    if (mediaChanged) {
       this.prevGirdPhoto = this.gridMedia;
       this.thumbnailSrc = null;
       this.liveVideoSrc = null;
@@ -162,6 +164,8 @@ export class GalleryLightboxMediaComponent implements OnChanges {
         this: false,
         next: false
       };
+    } else {
+      this.prevGirdPhoto = this.gridMedia;
     }
     this.setImageSize();
     if (

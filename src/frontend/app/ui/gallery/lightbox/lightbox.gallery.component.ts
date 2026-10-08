@@ -9,7 +9,7 @@ import {Subscription} from 'rxjs';
 import {ActivatedRoute, type Params, Router} from '@angular/router';
 import {PageHelper} from '../../../model/page.helper';
 import {QueryService} from '../../../model/query.service';
-import {type MediaDTO} from '../../../../../common/entities/MediaDTO';
+import {type MediaDTO, MediaDTOUtils} from '../../../../../common/entities/MediaDTO';
 import {QueryParams} from '../../../../../common/QueryParams';
 import {type PhotoDTO} from '../../../../../common/entities/PhotoDTO';
 import {ControlsLightboxComponent} from './controls/controls.lightbox.gallery.component';
@@ -281,6 +281,7 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     ).onDone((): void => {
       this.animating = false;
       this.status = LightboxStates.Open;
+      this.changeDetector.markForCheck();
     });
     this.animateLightbox(lightboxDimension, {
       top: 0,
@@ -328,10 +329,14 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
       if (doneCb) {
         doneCb();
       }
+      this.changeDetector.markForCheck();
     };
 
     if (target && typeof target.animate === 'function') {
       try {
+        if (typeof target.getAnimations === 'function') {
+          target.getAnimations().forEach((a) => a.cancel());
+        }
         const anim = target.animate([fromStyles, toStyles], {
           duration: 200,
           easing: 'ease-in-out',
@@ -346,13 +351,19 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     }
 
     const player: LightboxAnimationPlayer = {
-      onDone(callback: () => void) {
+      onDone: (callback: () => void) => {
         if (finished) {
           callback();
+          this.changeDetector.markForCheck();
         } else {
-          doneCb = callback;
+          const prevCb = doneCb;
+          doneCb = () => {
+            if (prevCb) prevCb();
+            callback();
+            this.changeDetector.markForCheck();
+          };
         }
-        return this;
+        return player;
       },
     };
 
@@ -599,9 +610,8 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
   }
 
   private showPhoto(photoIndex: number, resize = true): void {
-    this.activePhoto = null;
-    this.changeDetector.detectChanges();
     this.updateActivePhoto(photoIndex, resize);
+    this.changeDetector.markForCheck();
   }
 
   private hideLightbox(): void {
@@ -636,6 +646,7 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
       this.activePhoto = null;
       this.activePhotoId = null;
       this.overlayService.hideOverlay('lightbox');
+      this.changeDetector.markForCheck();
     });
 
     this.hideInfoPanel(false);
@@ -648,8 +659,10 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     this.videoSourceError = false;
     this.activePhotoId = photoIndex;
     const gridMedia = this.source.get(photoIndex);
-    if (this.activePhoto?.gridMedia !== gridMedia) {
+    if (!this.activePhoto || !MediaDTOUtils.equals(this.activePhoto.gridMedia.media, gridMedia.media)) {
       this.activePhoto = {gridMedia};
+    } else if (this.activePhoto.gridMedia !== gridMedia) {
+      this.activePhoto.gridMedia = gridMedia;
     }
 
     if (resize) {
