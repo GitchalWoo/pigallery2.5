@@ -1,4 +1,4 @@
-import {Component, ElementRef, Input, type OnDestroy, type OnInit, ViewChild, ChangeDetectionStrategy} from '@angular/core';
+import {Component, ElementRef, Input, type OnDestroy, type OnInit, type AfterViewInit, ViewChild, ChangeDetectionStrategy, ChangeDetectorRef} from '@angular/core';
 import {type Dimension, type IRenderable} from '../../../../model/IRenderable';
 import {GridMedia} from '../GridMedia';
 import {RouterLink} from '@angular/router';
@@ -35,7 +35,7 @@ export interface IClientMediaButtonConfigWithBaseApiPath extends IClientMediaBut
     SafeHtmlPipe,
   ]
 })
-export class GalleryPhotoComponent implements IRenderable, OnInit, OnDestroy {
+export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit, OnDestroy {
   @Input() gridMedia: GridMedia;
   @ViewChild('img', {static: false}) imageRef: ElementRef;
   @ViewChild('photoContainer', {static: true}) container: ElementRef;
@@ -56,7 +56,8 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, OnDestroy {
     private thumbnailService: ThumbnailManagerService,
     private authService: AuthenticationService,
     private extensionService: ExtensionService,
-    private modalService: MediaButtonModalService
+    private modalService: MediaButtonModalService,
+    private changeDetector: ChangeDetectorRef
   ) {
     this.searchEnabled = this.authService.canSearch();
   }
@@ -155,6 +156,9 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.thumbnail = this.thumbnailService.getThumbnail(this.gridMedia);
+    this.thumbnail.OnLoad = () => {
+      this.changeDetector.markForCheck();
+    };
     const metadata = this.gridMedia.media.metadata as PhotoMetadata;
     if (
       (metadata.keywords && metadata.keywords.length > 0) ||
@@ -183,6 +187,27 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, OnDestroy {
     }
 
     this.updateMediaButtons();
+  }
+
+  ngAfterViewInit(): void {
+    const img = this.imageRef?.nativeElement;
+    if (img?.complete && img.naturalWidth > 0) {
+      this.loaded = true;
+      this.changeDetector.markForCheck();
+    }
+  }
+
+  onImageLoad(): void {
+    const img = this.imageRef?.nativeElement;
+    if (img && typeof img.decode === 'function') {
+      img.decode().catch(() => {}).finally(() => {
+        this.loaded = true;
+        this.changeDetector.markForCheck();
+      });
+    } else {
+      this.loaded = true;
+      this.changeDetector.markForCheck();
+    }
   }
 
   ngOnDestroy(): void {

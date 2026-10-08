@@ -1,10 +1,9 @@
-@if (animate == false) {
+@if (error) {
   <div class="static">
-    <ng-icon [name]="error ? 'ionWarningOutline' : 'ionImageOutline'"></ng-icon>
+    <ng-icon name="ionWarningOutline"></ng-icon>
   </div>
-}
-@if (animate == true) {
-  <div class="sk-cube-grid animate">
+} @else {
+  <div class="sk-cube-grid" [class.animate]="animate">
     <div class="sk-cube sk-cube1"></div>
     <div class="sk-cube sk-cube2"></div>
     <div class="sk-cube sk-cube3"></div>
