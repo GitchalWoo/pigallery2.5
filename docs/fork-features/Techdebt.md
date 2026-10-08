@@ -14,7 +14,7 @@ later, **L** = cleanup.
 
 | # | Item | Where | Priority | Notes |
 |---|---|---|---|---|
-| F7 | Full zoneless change detection | `main.ts`, `polyfills.ts` | M | Completed in `refactor/zoneless-change-detection`: Migrated UI state to Angular Signals (`uploader.service`, `uploader.gallery`, `gallery.component`), configured `provideZonelessChangeDetection()`, migrated all Vitest tests from `fakeAsync`/`tick` to native `async/await`, completely removed `zone.js` dependency. |
+| F7 | Full zoneless change detection | `main.ts`, `polyfills.ts` | L | Retaining `provideZoneChangeDetection()` and `zone.js` for runtime stability. PiGallery2 relies on plain RxJS subscriptions, media `onload` handlers, and router/window events without manual `markForCheck()`. Unit tests were modernized to native `async/await` in Vitest. |
 
 ## Security follow-ups
 
@@ -196,21 +196,20 @@ Validation:
 - Frontend compilation: `npm run build-en` builds production bundle with **0 warnings**; initial bundle **1.52 MB** (well under 2.0 MB budget).
 - Backend tests: **591 passing SQLite tests** via Mocha (all failures in full run are environmental MariaDB `ECONNREFUSED` without local MySQL container running).
 
-## Completed Full Zoneless Change Detection and Zone.js Elimination (2026-10-08)
+## Evaluated Zoneless Change Detection and Completed Vitest Async Modernization (2026-10-08)
 
-Implemented on `refactor/zoneless-change-detection`. Migrated application change detection to pure Angular zoneless architecture, modernized asynchronous state with Angular Signals, migrated all unit tests away from `fakeAsync`/`tick`, and completely purged `zone.js` as an application and testing dependency.
+Evaluated zoneless change detection on `refactor/zoneless-change-detection`. Retained `provideZoneChangeDetection()` and `zone.js` for production runtime stability, while modernizing asynchronous unit tests to native `async/await` under Vitest.
 
 | Item | Area / Package | Resolution & Implementation | Impact & Result |
 |---|---|---|---|
-| **F7** | Application Zoneless Change Detection | Adopted `provideZonelessChangeDetection()` in `src/frontend/main.ts`, removing `provideZoneChangeDetection()`. Dropped `zone.js` import from `src/frontend/polyfills.ts` and `polyfills` array in `angular.json`. | Eliminates `zone.js` monkey-patching of browser APIs; shrinks initial polyfills bundle to 88 bytes and total initial bundle to **1.48 MB** (down from 1.52 MB). |
-| **State Modernization** | `uploader.service`, `uploader.gallery`, `gallery.component` | Replaced interval-based polling (`setInterval(() => cdr.detectChanges(), 500)`) in `UploaderComponent` with reactive `computed()` derived from `uploadProgressSignal` in `UploaderService`. Replaced manual `countDown` timer mutations in `GalleryComponent` with `countDownSignal`. Preserved RxJS for streaming/cancellation operations. | Zoneless-safe, push-based reactive state updates without manual dirty-checking hacks. |
-| **Unit Test Suite Modernization** | Vitest 5.0.3 + JSDOM | Migrated all unit tests relying on Zone-based `fakeAsync`, `tick()`, and `flushMicrotasks()` (`timeline.store.spec.ts`, `lightbox.gallery.component.spec.ts`) to native `async/await` and microtask draining. Removed `ProxyZoneSpec` global patching and `zone.js` testing imports from `src/frontend/test-setup.ts`. | Tests run 100% natively in Vitest JSDOM without any Zone.js runtime overhead. |
-| **Dependency Elimination** | `zone.js` | Removed `"zone.js": "0.16.3"` from `devDependencies` in `package.json` and regenerated `package-lock.json`. | Zero trace of `zone.js` in production or dev dependencies. |
+| **F7 Evaluation** | Runtime Change Detection Architecture | Evaluated `provideZonelessChangeDetection()`. PiGallery2's architecture relies on plain property mutations inside RxJS subscriptions (Content, Navigation, Lightbox), image `onload` events, and popstate/router events without explicit `markForCheck()`. In zoneless mode, views do not redraw until an interactive template click occurs. Restored `provideZoneChangeDetection()` and `zone.js` in polyfills for rock-solid runtime stability. Zone.js remains officially supported by the Angular team without scheduled deprecation. | Ensures initial library load, thumbnail loading, lightbox navigation, and browser Back button work predictably without missing renders. |
+| **State Modernization** | `uploader.service`, `uploader.gallery`, `gallery.component` | Replaced interval-based polling (`setInterval(() => cdr.detectChanges(), 500)`) in `UploaderComponent` with reactive `computed()` derived from `uploadProgressSignal` in `UploaderService`. Replaced manual `countDown` timer mutations in `GalleryComponent` with `countDownSignal`. | Eliminates interval dirty-checking while keeping compatibility with both Zone and zoneless paradigms. |
+| **Unit Test Modernization** | Vitest 5.0.3 + JSDOM | Migrated all unit tests relying on Zone-based `fakeAsync`, `tick()`, and `flushMicrotasks()` (`timeline.store.spec.ts`, `lightbox.gallery.component.spec.ts`) to native `async/await` and microtask draining. | Modernized test suite to native Vitest patterns. |
 
 Validation:
-- Unit test suite: **18/18 test files passed (100%)**, **152/152 tests passed (100%)** via `npm run test-frontend` with Vitest in 5.31s without Zone.js.
+- Unit test suite: **18/18 test files passed (100%)**, **152/152 tests passed (100%)** via `npm run test-frontend` with Vitest in 5.45s.
 - Spec type safety: `npx tsc -p src/frontend/tsconfig.spec.json --noEmit` exits with 0 errors.
-- Frontend build: `npm run build-en` completes cleanly with 0 warnings (initial bundle **1.48 MB**, polyfills chunk **88 bytes**).
+- Frontend build: `npm run build-en` completes cleanly with 0 warnings (initial bundle **1.52 MB**).
 - Tooling tests: `npm run test-tooling` passes **8/8 tests**.
 - Security audit: `npm audit` reports **0 vulnerabilities**.
 

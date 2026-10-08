@@ -104,6 +104,7 @@
             "progress": true,
             "tsConfig": "src/frontend/tsconfig.app.json",
             "polyfills": [
+              "zone.js",
               "@angular/localize/init"
             ],
             "allowedCommonJsDependencies": [

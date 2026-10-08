@@ -70,9 +70,9 @@
   - The backend remains CommonJS, so bundler resolution must not be applied to the root config. Since Step 3 it uses `"module": "NodeNext"` / `"moduleResolution": "NodeNext"`; absence of a package ESM `type` preserves CommonJS output. Do not restore deprecated `node` resolution or `downlevelIteration` under TS 6.
   - Shared options are in `tsconfig.base.json`. Frontend app/spec configs inherit that base independently of backend settings and use `bundler`/`ES2022`. Keep strict Angular template checking in the frontend config and frontend sources excluded from the backend compile.
   - TS 6 defaults differ: retain explicit `rootDir`, `types`, and `strict: false` alongside the existing `noImplicitAny: true`. Callable CommonJS modules need default imports; mocks must mutate the module itself, rather than the read-only namespace wrapper. `tslib` is a direct runtime dependency for emitted helpers.
-- **Angular 22 & Zoneless Architecture / ngx-bootstrap**:
-  - The application uses `provideZonelessChangeDetection()` and explicit `ChangeDetectionStrategy.Eager` with zero Zone.js runtime dependency. Keep `withXhr()` for upload progress; Angular 22 otherwise defaults to fetch.
-  - ngx-bootstrap **22.0.0** uses signal inputs and direct module imports (no `forRoot()`). It works seamlessly without Zone.js.
+- **Angular 22 & Zone.js / ngx-bootstrap**:
+  - Keep `provideZoneChangeDetection()` and explicit `ChangeDetectionStrategy.Eager` to preserve the app's rendering behavior across async RxJS subscriptions, media load events, and router navigation. Keep `withXhr()` for upload progress; Angular 22 otherwise defaults to fetch.
+  - ngx-bootstrap **22.0.0** uses signal inputs and direct module imports (no `forRoot()`). It works seamlessly with Zone.js.
   - Do not revert to ngx-bootstrap 21.0.1 on Angular 22: its `ComponentFactoryResolver` dependency was removed. ngx-toastr **20.0.5** still needs a scoped Angular common/core peer override; verify a visible toast and remove the override when a compatible release exists.
 - **Angular Tooling Dependency Pins**:
   - Keep `@angular-devkit/schematics` and `@schematics/angular` aligned with the CLI (currently `22.2.1`). ng-icons has unbounded peer ranges; inspect `npm ls` after updates.
