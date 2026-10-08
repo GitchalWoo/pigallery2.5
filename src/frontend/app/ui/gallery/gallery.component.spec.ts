@@ -32,6 +32,7 @@ import {type SortingMethod} from '../../../../common/entities/SortingMethods';
 import {SearchQueryParserService} from './search/search-query-parser.service';
 import {BlogService, GroupedMarkdown} from './blog/blog.service';
 import {UploaderService, UploadProgress} from './uploader/uploader.service';
+import {UserRoles} from '../../../../common/entities/UserDTO';
 
 
 // Mock services
@@ -52,11 +53,11 @@ class MockContentService {
 }
 
 class MockAuthenticationService {
-  user = new BehaviorSubject(null); // Add this line
+  user = new BehaviorSubject({role: UserRoles.Admin} as any);
   isAuthenticated = vi.fn().mockReturnValue(true);
   canSearch = vi.fn().mockReturnValue(true);
   isAuthorized = vi.fn().mockReturnValue(true);
-  logout = vi.fn(); // Also add logout method if needed
+  logout = vi.fn();
 }
 
 class MockShareService {
