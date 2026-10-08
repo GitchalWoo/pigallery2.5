@@ -14,14 +14,13 @@ later, **L** = cleanup.
 
 | # | Item | Where | Priority | Notes |
 |---|---|---|---|---|
-| F6 | Karma + Jasmine → Vitest | `karma.conf.js`, frontend specs | M | Karma is deprecated upstream by Angular. Local Brave runner workaround (`CHROME_BIN=/opt/brave.com/brave/brave`) is in place until Vitest migration |
 | F7 | Full zoneless change detection | `main.ts`, `polyfills.ts` | M | Migrate async state across Gallery, Timeline, and Upload services to Angular Signals; adopt `provideExperimentalZonelessChangeDetection()`; drop `zone.js` |
 
 ## Security follow-ups
 
 | # | Item | Priority | Notes |
 |---|---|---|---|
-| S4 | Tooling / devDependency advisories | M | `--omit=dev` has 0 vulnerabilities. Upgraded `fast-xml-parser` (5.11.2) and overrides for `katex` (0.19.0), `diff` (8.0.3), `serialize-javascript` (7.1.2), `braces` (3.0.3), and scoped `glob` (13.0.6). 6 dev advisories remain (Karma transitive chokidar 3/braces until F6) |
+| S4 | Tooling / devDependency advisories | M | Both `npm audit` and `npm audit --omit=dev` report 0 vulnerabilities. All 6 transitive dev advisories eliminated with Karma removal in F6. |
 
 ## Tooling / repo hygiene
 
@@ -141,8 +140,8 @@ Validation:
   media; the integrated browser was unavailable.
 
 All-locale builds retain the `pt-br` → `pt` locale-data fallback warning;
-English builds have no warnings. F4 is now completed; F6 (Vitest) and F7
-(zoneless) remain separate follow-ups.
+English builds have no warnings. F4 and F6 (Vitest) are now completed; F7
+(zoneless) remains a separate follow-up.
 
 ## Completed Build Deprecation Elimination and Dependency Hardening (2026-10-08)
 
@@ -152,9 +151,9 @@ Implemented on `chore/build-cleanups`. Eliminated all build-time deprecations du
 |---|---|---|---|
 | **F4** | `@angular/animations` (`AnimationBuilder`, `provideAnimations`) | Replaced `AnimationBuilder` in `GalleryLightboxComponent` with standard native **Web Animations API** (`element.animate`), keeping smooth 200ms `ease-in-out` transitions and `onDone` callback support without `@angular/animations`. Replaced `provideAnimations()` in `main.ts` with `{provide: ANIMATION_MODULE_TYPE, useValue: 'NoopAnimations'}` from `@angular/core`. Removed `@angular/animations` from `package.json`. | Eliminated `npm warn deprecated @angular/animations@22.2.1`. Initial chunk size dropped from **1.58 MB to 1.52 MB** (initial `main.js` chunk reduced from 80.24 kB to 19.90 kB). |
 | **Tooling** | `@angular/platform-browser-dynamic` (22.2.1) | Removed deprecated, unused package from `devDependencies`. The application boots through standalone `bootstrapApplication` from `@angular/platform-browser`. | Eliminated `npm warn deprecated @angular/platform-browser-dynamic@22.2.1`. |
-| **Tooling** | `glob` (10.5.0) | Upstream deprecated `glob <13`. Configured scoped npm overrides in `package.json` for `typeorm`, `archiver-utils`, and `mocha` to use `glob@13.0.6` (which preserves `glob.sync` / `hasMagic`), while retaining compatible `glob@7` for Karma. | Eliminated `npm warn deprecated glob@10.5.0` completely from the dependency tree. |
+| **Tooling** | `glob` (10.5.0) | Upstream deprecated `glob <13`. Configured scoped npm overrides in `package.json` for `typeorm`, `archiver-utils`, and `mocha` to use `glob@13.0.6` (which preserves `glob.sync` / `hasMagic`), while retaining compatible `glob@7` for Karma (subsequently removed in F6). | Eliminated `npm warn deprecated glob@10.5.0` completely from the dependency tree. |
 | **T7** | npm 12 install-script execution policy | Added `allowScripts` in `package.json` explicitly approving the 8 verified native addon and tool installer packages (`@parcel/watcher`, `bcrypt`, `better-sqlite3`, `cypress`, `esbuild`, `ffmpeg-static`, `lmdb`, `msgpackr-extract`). | Eliminated all 8 `npm warn install-scripts` warnings; ensures smooth transition when lifting engine cap to npm 12. |
-| **S4** | Dependency vulnerability remediation | Upgraded `fast-xml-parser` from 4.5.7 to 5.11.2 (moderate GHSA-gh4j-gqv2-49f6); upgraded `marked-katex-extension` to 5.1.13 and added override for `katex: 0.19.0` (GHSA-238p-pmpm-9mq7); added overrides for `diff: 8.0.3` (GHSA-73rr-hh4g-fpgx), `serialize-javascript: 7.1.2` (GHSA-5c6j-r48x-rmvq, GHSA-qj8w-gfj5-8c6v), and `braces: 3.0.3` (GHSA-vfj7-8cjw-p6xm). | Production audit (`npm audit --omit=dev`) reports **0 vulnerabilities**. Total audit advisories reduced from 13 to 6 (the only remaining one being Karma's transitive chokidar 3/braces issue, tracked until F6). |
+| **S4** | Dependency vulnerability remediation | Upgraded `fast-xml-parser` from 4.5.7 to 5.11.2 (moderate GHSA-gh4j-gqv2-49f6); upgraded `marked-katex-extension` to 5.1.13 and added override for `katex: 0.19.0` (GHSA-238p-pmpm-9mq7); added overrides for `diff: 8.0.3` (GHSA-73rr-hh4g-fpgx), `serialize-javascript: 7.1.2` (GHSA-5c6j-r48x-rmvq, GHSA-qj8w-gfj5-8c6v), and `braces: 3.0.3` (GHSA-vfj7-8cjw-p6xm). | Production audit (`npm audit --omit=dev`) reports **0 vulnerabilities**. Total audit advisories reduced from 13 to 6 (the only remaining one being Karma's transitive chokidar 3/braces issue, eliminated in F6). |
 
 Validation:
 - `npm ci`: completes cleanly with **0 deprecation warnings** and **0 install-script warnings**.
@@ -163,4 +162,20 @@ Validation:
 - Frontend type safety: `npx tsc -p src/frontend/tsconfig.spec.json --noEmit` exits with 0 errors.
 - Backend test suite: 591 passing SQLite tests.
 - Release pipeline: `npm run create-release -- --languages=en` produces release package and valid `pigallery2.zip`.
+
+## Completed Frontend Unit Testing Migration to Vitest (2026-10-08)
+
+Implemented on `refactor/frontend-vitest`. Replaced deprecated Karma and Jasmine test runners with Angular 22's native `@angular/build:unit-test` builder powered by **Vitest 5** and **JSDOM** (F6). Eliminated the local browser runner workaround (`CHROME_BIN=/opt/brave.com/brave/brave`) and the remaining 6 transitive dev advisories (S4).
+
+| Item | Area / Package | Resolution & Implementation | Impact & Result |
+|---|---|---|---|
+| **F6** | `@angular/build:unit-test` + Vitest 5.0.3 + JSDOM | Replaced `@angular/build:karma` with `@angular/build:unit-test` in `angular.json`. Configured `vitest/globals` and `@angular/localize` in `tsconfig.spec.json`. Added global test setup harness `src/frontend/test-setup.ts` providing JSDOM polyfills (`window.matchMedia`, `HTMLCanvasElement.getContext('2d')`) and automatic Zone.js `ProxyZone` lifecycle wrapping for `fakeAsync` specs. Refactored all 18 test spec files to Vitest conventions (`vi.spyOn`, `vi.fn()`, standard matchers, and modern injection). Fixed `theme.service.ts` listener cleanup and guarded slider canvas rendering in `controls.lightbox.gallery.component.ts`. | Replaced slow browser-based Karma tests with headless, fast Vitest execution in JSDOM. Execution duration dropped from ~25s to **5.4s** (4.6× speedup). |
+| **Tooling & Cleanups** | Removed Karma & Jasmine packages | Removed `karma`, `karma-chrome-launcher`, `karma-coverage`, `karma-jasmine`, `karma-jasmine-html-reporter`, `jasmine-core`, `@types/jasmine`, and deleted `karma.conf.js`. | Removed 47 packages. Cleaned all references to Karma in build tooling. |
+| **S4** | devDependencies vulnerability elimination | Removing Karma and its nested dependencies eliminated the last remaining transitive `chokidar 3` / `braces` security advisories. | Both `npm audit` and `npm audit --omit=dev` now report **0 vulnerabilities**. |
+
+Validation:
+- Unit test suite: **18/18 test files passed (100%)**, **152/152 tests passed (100%)** via `npm run test-frontend` in 5.39s.
+- Spec type safety: `npx tsc -p src/frontend/tsconfig.spec.json --noEmit` exits with 0 errors.
+- Frontend build: `npm run build-en` completes in 6.1s with 0 warnings (1.52 MB initial bundle).
+- Tooling tests: `npm run test-tooling` passes 8/8 tests.
 

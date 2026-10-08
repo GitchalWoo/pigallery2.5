@@ -29,19 +29,26 @@ export class ThemeService {
     );
   }
 
+  private modeListener?: (event: MediaQueryListEvent) => void;
+
   listenToModePreference() {
     if (this.mode !== ThemeModes.auto) {
       return;
     }
     this.darkMode.next(window.matchMedia('(prefers-color-scheme: dark)').matches);
 
-    this.matcher.addEventListener('change', event => {
+    this.stopListening();
+    this.modeListener = (event: MediaQueryListEvent) => {
       this.darkMode.next(event.matches);
-    });
+    };
+    this.matcher.addEventListener('change', this.modeListener);
   }
 
   stopListening() {
-    this.matcher.removeAllListeners();
+    if (this.modeListener) {
+      this.matcher.removeEventListener('change', this.modeListener);
+      this.modeListener = undefined;
+    }
   }
 
   applyMode(darkMode: boolean) {

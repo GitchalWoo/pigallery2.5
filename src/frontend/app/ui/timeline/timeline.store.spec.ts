@@ -80,7 +80,7 @@ describe('TimelineStore', () => {
     requests[0].response.resolve(page([media(2, 20), media(1, 10)], {from: 10, after: 1}));
     flushMicrotasks();
     expect(store.items.map(m => m.id)).toEqual([2, 1]);
-    expect(store.loading).toBeFalse();
+    expect(store.loading).toBe(false);
 
     store.loadNextPage();
     expect(requests[1].query).toEqual({limit: TimelineStore.PAGE_SIZE, from: 10, after: 1});
@@ -100,17 +100,17 @@ describe('TimelineStore', () => {
     expect(requests[2].query).toEqual({limit: TimelineStore.PAGE_SIZE, from: 5, after: 9});
     requests[2].response.resolve(page([], null));
     flushMicrotasks();
-    expect(store.hasMore).toBeFalse();
+    expect(store.hasMore).toBe(false);
   }));
 
   it('drops responses that arrive after cancel or reset', fakeAsync(() => {
     store.loadNextPage();
     store.cancel();
-    expect(store.loading).toBeFalse();
+    expect(store.loading).toBe(false);
     requests[0].response.resolve(page([media(1, 10)], null));
     flushMicrotasks();
     expect(store.items).toEqual([]);
-    expect(store.hasMore).toBeTrue();
+    expect(store.hasMore).toBe(true);
 
     store.loadNextPage();
     store.reset();
@@ -127,7 +127,7 @@ describe('TimelineStore', () => {
     requests[0].response.reject('Server down');
     flushMicrotasks();
     expect(store.error).toBe('Server down');
-    expect(store.loading).toBeFalse();
+    expect(store.loading).toBe(false);
 
     store.loadNextPage();
     expect(store.error).toBeNull();
@@ -157,7 +157,7 @@ describe('TimelineStore', () => {
     flushMicrotasks();
 
     version.next('v2');
-    expect(store.newDataAvailable).toBeTrue();
+    expect(store.newDataAvailable).toBe(true);
     expect(store.items.length).toBe(1);
   }));
 
@@ -195,7 +195,7 @@ describe('TimelineStore', () => {
 
     version.next('v2');
     store.reset(12345);
-    expect(store.summaryStale).toBeTrue();
+    expect(store.summaryStale).toBe(true);
     expect(store.summary).toEqual(oldSummary);
 
     store.loadSummary();
@@ -204,7 +204,7 @@ describe('TimelineStore', () => {
     summaryRequests[1].resolve(newSummary);
     flushMicrotasks();
     expect(store.summary).toEqual(newSummary);
-    expect(store.summaryStale).toBeFalse();
+    expect(store.summaryStale).toBe(false);
 
     store.loadSummary();
     expect(summaryRequests.length).toBe(2);
@@ -218,21 +218,21 @@ describe('TimelineStore', () => {
     flushMicrotasks();
 
     version.next('v2');
-    expect(store.shouldRefreshSummary).toBeTrue();
+    expect(store.shouldRefreshSummary).toBe(true);
     store.loadSummary();
     summaryRequests[1].reject('down');
     flushMicrotasks();
     expect(store.summary).toEqual(oldSummary);
-    expect(store.summaryStale).toBeTrue();
-    expect(store.shouldRefreshSummary).toBeFalse();
+    expect(store.summaryStale).toBe(true);
+    expect(store.shouldRefreshSummary).toBe(false);
 
     store.loadSummary();
     expect(summaryRequests.length).toBe(3);
     summaryRequests[2].resolve(newSummary);
     flushMicrotasks();
     expect(store.summary).toEqual(newSummary);
-    expect(store.summaryStale).toBeFalse();
-    expect(store.summaryFailed).toBeFalse();
+    expect(store.summaryStale).toBe(false);
+    expect(store.summaryFailed).toBe(false);
   }));
 
   it('ignores a summary that arrives after the user changed', fakeAsync(() => {
@@ -249,7 +249,7 @@ describe('Timeline months', () => {
     expect(parseTimelineMonth('2015-06')).toEqual({year: 2015, month: 6});
     expect(parseTimelineMonth('1969-12')).toEqual({year: 1969, month: 12});
     for (const bad of ['2015-6', '2015-13', '2015-00', '15-06', '2015-06-01', '', undefined, ['2015-06']]) {
-      expect(parseTimelineMonth(bad)).withContext(String(bad)).toBeNull();
+      expect(parseTimelineMonth(bad), String(bad)).toBeNull();
     }
     expect(formatTimelineMonth({year: 812, month: 3})).toBe('0812-03');
   });

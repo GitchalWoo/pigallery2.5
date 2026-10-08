@@ -7,11 +7,12 @@
     "module": "ES2022",
     "moduleResolution": "bundler",
     "types": [
-      "jasmine"
+      "vitest/globals",
+      "@angular/localize"
     ]
   },
   "files": [
-    "polyfills.ts"
+    "./polyfills.ts"
   ],
   "include": [
     "**/*.spec.ts",

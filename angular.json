@@ -104,7 +104,8 @@
             "progress": true,
             "tsConfig": "src/frontend/tsconfig.app.json",
             "polyfills": [
-              "src/frontend/polyfills.ts"
+              "zone.js",
+              "@angular/localize/init"
             ],
             "allowedCommonJsDependencies": [
               "typeconfig",
@@ -204,38 +205,12 @@
           }
         },
         "test": {
-          "builder": "@angular/build:karma",
+          "builder": "@angular/build:unit-test",
           "options": {
-            "karmaConfig": "./karma.conf.js",
-            "polyfills": [
-              "@angular/localize/init",
-              "zone.js",
-              "zone.js/testing"
-            ],
+            "buildTarget": "pigallery2:build",
             "tsConfig": "src/frontend/tsconfig.spec.json",
-            "scripts": [],
-            "styles": [
-              "node_modules/bootstrap/dist/css/bootstrap.min.css",
-              "node_modules/ngx-toastr/toastr.css",
-              "node_modules/bootstrap/dist/css/bootstrap.css",
-              "node_modules/ngx-bootstrap/datepicker/bs-datepicker.css",
-              "node_modules/leaflet/dist/leaflet.css",
-              "node_modules/leaflet.markercluster/dist/MarkerCluster.css",
-              "node_modules/leaflet.markercluster/dist/MarkerCluster.Default.css",
-              "src/frontend/styles.css"
-            ],
-            "assets": [
-              {
-                "glob": "**/*",
-                "input": "node_modules/leaflet/dist/images/",
-                "output": "./assets/"
-              }
-            ],
-            "fileReplacements": [
-              {
-                "replace": "src/common/config/private/Config.ts",
-                "with": "src/common/config/public/Config.ts"
-              }
+            "setupFiles": [
+              "src/frontend/test-setup.ts"
             ]
           }
         },

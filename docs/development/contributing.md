@@ -147,10 +147,10 @@ shared managers and database connections at the end. Keep
 `npm run coverage` regenerates `coverage/lcov.info` from that data.
 Coverage maps back to backend/common TypeScript sources and includes untested files.
 
-`npm run test-frontend` runs Karma once. Set `CHROME_BIN` to a browser executable
-if Chrome is not installed. Further Karma work is deferred to its replacement;
-local shutdown notes are recorded under M2 in
-[Techdebt.md](../fork-features/Techdebt.md#tooling-build--test-modernization).
+`npm run test-frontend` runs the frontend unit test suite via `@angular/build:unit-test`
+using Vitest and JSDOM. It runs headlessly without requiring a Chromium/Brave
+installation or an X11/Xvfb display. You can narrow tests by path pattern, for example:
+`npm run test-frontend -- --include='src/frontend/app/ui/timeline/**/*.spec.ts'`.
 
 - Run tooling, frontend, and backend tests with backend coverage:
 

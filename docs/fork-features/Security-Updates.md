@@ -10,10 +10,10 @@ This document tracks security findings, automated scanner alerts (e.g. CodeQL, D
 
 | Category | Closed | Open / In Progress |
 |---|---|---|
-| **Perimeter & Resources (S1–S5)** | 4 closed (S1, S2, S3, S5) | 1 ongoing tracking (S4: tooling/devDependencies audit) |
+| **Perimeter & Resources (S1–S5)** | 5 closed (S1, S2, S3, S4, S5) | 0 open |
 | **Audit Findings (AUD1–AUD14)** | 14 closed (AUD1 through AUD14) | 0 open |
 | **Search Integrity (B8)** | 1 closed (B8) | 0 open |
-| **Dependabot Alerts** | Alert #5 (`proxy-addr`) resolved via override | Alerts #2, #3, #6 audited (devDependencies only) |
+| **Dependabot Alerts** | Alert #5 (`proxy-addr`) resolved via override | Alerts #2, #3, #6 eliminated with Karma removal in F6 |
 
 ---
 
@@ -24,7 +24,7 @@ This document tracks security findings, automated scanner alerts (e.g. CodeQL, D
 | **S1** | Implicit cookie policy & missing CSRF protection (CodeQL #112) | High | **Closed** | Enforced `SameSite=lax`, `httpOnly`, `signed` session cookies in `server.ts`. Added double-submit CSRF protection (`CSRFProtection.ts`) issuing `pigallery2-csrf-token` cookie and validating `PI-GALLERY2-CSRF-TOKEN` / `X-CSRF-TOKEN` header on mutating API endpoints (`POST`, `PUT`, `DELETE`). CodeQL #112 is a false positive under OWASP double-submit cookie architecture. | `CSRFProtection.spec.ts` (8 tests) |
 | **S2** | Missing rate limiting on authentication endpoints | High | **Closed** | Added sliding-window in-memory IP rate limiter (`RateLimiter.ts`) guarding `/user/login`, `/share/:key/login`, and `/auth/oidc/callback` (10 req/min limit, returning HTTP 429 with `Retry-After`). | `RateLimiter.spec.ts` (2 tests) |
 | **S3** | Unbounded upload concurrency in memory | Medium | **Closed** | Added upload concurrency semaphore (`MAX_CONCURRENT_UPLOADS = 5`) returning HTTP 429 when saturated in `UploadMWs.ts`. Preserved 50 MiB/file and 10 parts/request limits. | `UploadMWs.ts`, `UploadRouter.spec.ts` |
-| **S4** | Tooling / devDependencies advisories | Medium | **Tracking** | Production audit reports 0 vulnerabilities (`npm audit --omit=dev`). Overrides for `proxy-addr` (2.0.8), `katex` (0.19.0), `diff` (8.0.3), `serialize-javascript` (7.1.2), `braces` (3.0.3), and scoped `glob` (13.0.6); upgraded `fast-xml-parser` (5.11.2) and `marked-katex-extension` (5.1.13). Dev advisories dropped to 6 (transitive Karma `chokidar 3` / `braces` until F6). Configured `allowScripts` for npm 12. | Clean `npm ci` (0 warnings), 0 production vulnerabilities, `Techdebt.md` |
+| **S4** | Tooling / devDependencies advisories | Medium | **Closed** | Both production audit (`npm audit --omit=dev`) and full audit (`npm audit`) report 0 vulnerabilities. Eliminated remaining 6 transitive dev advisories (Karma's `chokidar 3` / `braces`) by replacing Karma with Vitest (F6). Configured `allowScripts` for npm 12. | Clean `npm ci` (0 warnings), 0 audit vulnerabilities, `Techdebt.md` |
 | **S5** | Path traversal and symlink containment (CodeQL CWE-22) | High | **Implemented; CodeQL recheck pending** | Lexical validation plus asynchronous filesystem checks at media, upload, cache and static-asset boundaries. External and unresolved symlinks are rejected. | `PathTraversal.spec.ts`, `FileContainment.spec.ts`, `UploadManager.spec.ts` |
 | **AUD1** | Sessions survive user demotion, deletion, or share expiry | High | **Closed** | Implemented `validateExistingSession` in `AuthenticationMWs.ts` rechecking database user existence, role, restrictions, expiry, and sharing record status on every authenticated request. | `AuthenticationMWs.spec.ts` (4 tests) |
 | **AUD2** | OIDC account binding by mutable username / missing email verification | High | **Closed** | Bound OIDC identities to `(oidcIssuer, oidcSubject)`, blocked auto-binding to privileged accounts (`Admin`, `Developer`), and enforced `email_verified` when domain allowlist is set. | `OIDCAuthService.spec.ts`, `OIDCRouter.spec.ts` |
@@ -94,14 +94,18 @@ This document tracks security findings, automated scanner alerts (e.g. CodeQL, D
 ### 3.6 Dependency Overrides & Tooling (Dependabot #5, S4)
 
 - **Dependabot Alert #5 (`proxy-addr`)**: Pinned `"proxy-addr": "2.0.8"` via `package.json` overrides to eliminate IPv4-mapped IPv6 trust spoofing vulnerability. Confirmed via `npm ls proxy-addr`.
-- **Audit Status**: Production audit (`npm audit --omit=dev`) reports **0 vulnerabilities**. Overrides and package upgrades eliminated 7 advisories; only 6 dev advisories remain (Karma transitive `chokidar 3` → `braces`, tracked under F6 until Karma is replaced with Vitest).
+- **Audit Status**: Both production audit (`npm audit --omit=dev`) and full audit (`npm audit`) report **0 vulnerabilities**. Overrides and package upgrades eliminated 7 advisories; replacing Karma with Vitest (F6) eliminated the remaining 6 dev advisories (transitive `chokidar 3` → `braces`).
 - **Build Tooling Follow-up (F5, 2026-10-08)**: `refactor/application-builder` replaces custom-webpack with `@angular/build` 22.2.1 and removes webpack package entries from the lockfile. Browser build/test file replacements preserve the private-config exclusion; browser dependency inspection found no backend module inputs. Build and release verification is recorded in [Techdebt.md](Techdebt.md#completed-application-builder-migration-2026-10-08).
 - **Build Deprecation Elimination & Dependency Hardening (2026-10-08)**:
   - Upgraded `fast-xml-parser` to `5.11.2` in `dependencies`, resolving moderate XML comment/CDATA injection vulnerability (GHSA-gh4j-gqv2-49f6).
   - Upgraded `marked-katex-extension` to `5.1.13` and added override for `katex: 0.19.0`, resolving KaTeX prototype pollution advisory (GHSA-238p-pmpm-9mq7).
   - Added npm overrides for `diff: 8.0.3` (GHSA-73rr-hh4g-fpgx) and `serialize-javascript: 7.1.2` (GHSA-5c6j-r48x-rmvq, GHSA-qj8w-gfj5-8c6v).
   - Added npm override for `braces: 3.0.3` (GHSA-vfj7-8cjw-p6xm).
-  - Added scoped npm overrides for `glob: 13.0.6` on `typeorm`, `archiver-utils`, and `mocha` to eliminate the upstream glob 10 deprecation warning while keeping Karma on its compatible `glob 7`.
+  - Added scoped npm overrides for `glob: 13.0.6` on `typeorm`, `archiver-utils`, and `mocha` to eliminate the upstream glob 10 deprecation warning.
   - Configured `allowScripts` in `package.json` covering all 8 verified native addon and installer packages (`@parcel/watcher`, `bcrypt`, `better-sqlite3`, `cypress`, `esbuild`, `ffmpeg-static`, `lmdb`, `msgpackr-extract`) to ensure clean execution under npm 11 and prepare for npm 12 execution policies (T7).
   - Eliminated `@angular/animations` by migrating lightbox transitions to native Web Animations API (`element.animate`), removing both `@angular/animations` and obsolete `@angular/platform-browser-dynamic` (F4). `npm ci` now completes with 0 deprecation and 0 install-script warnings.
+- **Frontend Unit Testing Migration to Vitest (F6, 2026-10-08)**:
+  - Replaced Karma and Jasmine with `@angular/build:unit-test` powered by Vitest 5 and JSDOM.
+  - Removed deprecated `karma`, `karma-*`, `jasmine-core`, and `@types/jasmine`, completely eliminating the legacy `chokidar 3` / `braces` tree.
+  - All 152 unit tests pass headlessly in 5.4s without browser binaries. Both production and development vulnerability audits report 0 vulnerabilities.
 
