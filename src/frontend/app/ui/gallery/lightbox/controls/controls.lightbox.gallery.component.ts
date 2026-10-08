@@ -499,6 +499,9 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
     if (!this.ctx) {
       this.ctx = this.canvas.nativeElement.getContext('2d');
     }
+    if (!this.ctx) {
+      return;
+    }
 
     this.ctx.lineWidth = 5;
     this.ctx.strokeStyle = 'white';

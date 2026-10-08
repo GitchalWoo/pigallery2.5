@@ -32,13 +32,13 @@ function makeGridMedia(overrides: Partial<PhotoDTO> = {}): GridMedia {
 
 function createMockVideoElement(): {
   currentTime: number;
-  play: jasmine.Spy;
-  pause: jasmine.Spy;
+  play: any;
+  pause: any;
 } {
   return {
     currentTime: 12,
-    play: jasmine.createSpy('play').and.returnValue(Promise.resolve()),
-    pause: jasmine.createSpy('pause'),
+    play: vi.fn().mockResolvedValue(undefined),
+    pause: vi.fn(),
   };
 }
 
@@ -80,14 +80,14 @@ describe('GalleryLightboxMediaComponent - Live Photo interactions', () => {
     badge.dispatchEvent(new Event('mouseenter'));
     fixture.detectChanges();
 
-    expect(component.liveVideoPlaying).toBeTrue();
+    expect(component.liveVideoPlaying).toBe(true);
     expect(video.currentTime).toBe(0);
     expect(video.play).toHaveBeenCalled();
 
     badge.dispatchEvent(new Event('mouseleave'));
     fixture.detectChanges();
 
-    expect(component.liveVideoPlaying).toBeFalse();
+    expect(component.liveVideoPlaying).toBe(false);
     expect(video.pause).toHaveBeenCalled();
   });
 
@@ -99,14 +99,14 @@ describe('GalleryLightboxMediaComponent - Live Photo interactions', () => {
     badge.dispatchEvent(new Event('touchstart'));
     fixture.detectChanges();
 
-    expect(component.liveVideoPlaying).toBeTrue();
+    expect(component.liveVideoPlaying).toBe(true);
     expect(video.currentTime).toBe(0);
     expect(video.play).toHaveBeenCalled();
 
     badge.dispatchEvent(new Event('touchend'));
     fixture.detectChanges();
 
-    expect(component.liveVideoPlaying).toBeFalse();
+    expect(component.liveVideoPlaying).toBe(false);
     expect(video.pause).toHaveBeenCalled();
   });
 });

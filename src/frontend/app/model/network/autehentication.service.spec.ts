@@ -59,7 +59,7 @@ describe('AuthenticationService', () => {
   it('should call UserDTO service login', inject(
       [AuthenticationService, UserService],
       async (authService: AuthenticationService, userService: UserService) => {
-        spyOn(userService, 'login').and.callThrough();
+        vi.spyOn(userService, 'login');
 
         expect(userService.login).not.toHaveBeenCalled();
         await authService.login(null);
@@ -75,18 +75,20 @@ describe('AuthenticationService', () => {
       }
   ));
 
-  it('should have Authenticated use', (done) =>
-      inject([AuthenticationService], (authService: AuthenticationService) => {
-        spyOn(authService.user, 'next').and.callThrough();
-        authService.user.subscribe((user) => {
-          if (user == null) {
-            return;
-          }
-          expect(authService.user.next).toHaveBeenCalled();
-          expect(authService.user.value).not.toBe(null);
-          expect(authService.isAuthenticated()).toBe(true);
-          done();
-        });
-        authService.login({} as any);
-      })());
+  it('should have Authenticated use', async () => {
+    const authService = TestBed.inject(AuthenticationService);
+    vi.spyOn(authService.user, 'next');
+    await new Promise<void>((resolve) => {
+      authService.user.subscribe((user) => {
+        if (user == null) {
+          return;
+        }
+        expect(authService.user.next).toHaveBeenCalled();
+        expect(authService.user.value).not.toBe(null);
+        expect(authService.isAuthenticated()).toBe(true);
+        resolve();
+      });
+      authService.login({} as any);
+    });
+  });
 });

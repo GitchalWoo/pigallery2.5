@@ -197,9 +197,9 @@ describe('GalleryLightboxComponent - Slideshow Tests', () => {
 
     // Mock controls component
     component.controls = {
-      resetZoom: jasmine.createSpy('resetZoom'),
-      runSlideShow: jasmine.createSpy('runSlideShow'),
-      stopSlideShow: jasmine.createSpy('stopSlideShow')
+      resetZoom: vi.fn(),
+      runSlideShow: vi.fn(),
+      stopSlideShow: vi.fn()
     } as any;
 
     fixture.detectChanges();
@@ -226,7 +226,7 @@ describe('GalleryLightboxComponent - Slideshow Tests', () => {
   it('should cycle through images during slideshow', fakeAsync(() => {
     expect(lightboxService).toBeTruthy();
     // Arrange
-    spyOn(mockRouter, 'navigate').and.returnValue(Promise.resolve(true));
+    vi.spyOn(mockRouter, 'navigate').mockResolvedValue(true);
     component.status = LightboxStates.Open;
     (component as any).navigateToPhoto(0);
     component.slideShowRunning = true;
@@ -366,9 +366,9 @@ describe('GalleryLightboxComponent - paged source', () => {
     const fixture = TestBed.createComponent(GalleryLightboxComponent);
     component = fixture.componentInstance;
     component.controls = {
-      resetZoom: jasmine.createSpy('resetZoom'),
-      runSlideShow: jasmine.createSpy('runSlideShow'),
-      stopSlideShow: jasmine.createSpy('stopSlideShow')
+      resetZoom: vi.fn(),
+      runSlideShow: vi.fn(),
+      stopSlideShow: vi.fn()
     } as any;
     fixture.detectChanges();
   });
@@ -379,7 +379,7 @@ describe('GalleryLightboxComponent - paged source', () => {
     let more = true;
     let pending: Promise<void> = null;
     let finishLoad: () => void;
-    const loadMore = jasmine.createSpy('loadMore').and.callFake(() => {
+    const loadMore = vi.fn().mockImplementation(() => {
       pending = pending || new Promise<void>(resolve => {
         finishLoad = () => {
           items.push(new GridMedia(createMockPhoto('c.jpg', 2), 1, 1, 0));
@@ -413,20 +413,20 @@ describe('GalleryLightboxComponent - paged source', () => {
     tick();
 
     expect(component.activePhoto.gridMedia.media.name).toBe('b.jpg');
-    expect(component.navigation.hasNext).toBeTrue();
+    expect(component.navigation.hasNext).toBe(true);
     expect(component.NexGridMedia).toBeNull();
 
     component.nextImage();
     component.nextImage();
     expect(loadMore).toHaveBeenCalled();
-    expect(component.IsAtLoadedEnd).toBeTrue();
+    expect(component.IsAtLoadedEnd).toBe(true);
 
     finishLoad();
     tick();
 
     expect(mockActivatedRoute.queryParams.value).toEqual({[QueryParams.gallery.photo]: 'c.jpg'});
     expect(component.activePhoto.gridMedia.media.name).toBe('c.jpg');
-    expect(component.navigation.hasNext).toBeFalse();
+    expect(component.navigation.hasNext).toBe(false);
   }));
 
   // Pages are queued per loadMore() call; each call appends that page's names once resolved.
@@ -435,7 +435,7 @@ describe('GalleryLightboxComponent - paged source', () => {
     const changes = new Subject<void>();
     const resolvers: (() => void)[] = [];
     let pending: Promise<void> = null;
-    const loadMore = jasmine.createSpy('loadMore').and.callFake(() => {
+    const loadMore = vi.fn().mockImplementation(() => {
       pending = pending || new Promise<void>(resolve => {
         resolvers.push(() => {
           const page = pages.shift() || [];
