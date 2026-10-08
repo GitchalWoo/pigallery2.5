@@ -34,7 +34,7 @@
 - The full backend suite on both engines takes several minutes; redirect to a log (`> /tmp/pg-tests.log 2>&1`) and grep `passing|failing` plus `^\s+[0-9]+\) ` for failures instead of piping live output.
 - `.mocharc.js` loads `test/root-hooks.cjs` to reset shared managers and close the remaining database pool. The cleanup batch passed 740 tests on SQLite/MariaDB and exited naturally. Keep the root hook when bypassing Mocha config. `npm run test-backend-coverage` collects V8 coverage with c8; `npm run coverage` regenerates LCOV.
 - Frontend (Vitest & JSDOM): run unit tests via `npm run test-frontend` (or `npx ng test --watch=false`). Narrow with `--include='src/frontend/app/ui/timeline/**/*.spec.ts'`. Vitest runs headlessly in JSDOM and does not require Chrome/Brave or an X11/Xvfb display.
-- Vitest setup and Angular zone support: `src/frontend/test-setup.ts` initializes JSDOM stubs (`window.matchMedia`, `canvas.getContext('2d')`) and wraps test execution inside Angular's `ProxyZone` for `fakeAsync`. Keep `zone.js` explicitly listed in the build options `polyfills` array to enforce static zone testing strategy under `@angular/build:unit-test`.
+- Vitest setup and Angular zoneless support: `src/frontend/test-setup.ts` initializes JSDOM stubs (`window.matchMedia`, `canvas.getContext('2d')`). With the F7 zoneless migration, tests run natively without Zone.js or `ProxyZone`; async tests use native `async/await` and Vitest fake timers (`vi.advanceTimersByTimeAsync()`).
 - Type-check frontend specs with `npx tsc -p src/frontend/tsconfig.spec.json --noEmit` (templates are not checked; `npm run build-en` covers them).
 - End-to-End (Cypress):
   - `start-e2e-server` runs on port 8080 (`node ./test/folder-reset test/e2e && node ./src/backend/index --config-path=test/e2e/config.json --Database-dbFolder=test/e2e --Server-port=8080 --Users.suppressDefUserWarn=true`).
@@ -70,9 +70,9 @@
   - The backend remains CommonJS, so bundler resolution must not be applied to the root config. Since Step 3 it uses `"module": "NodeNext"` / `"moduleResolution": "NodeNext"`; absence of a package ESM `type` preserves CommonJS output. Do not restore deprecated `node` resolution or `downlevelIteration` under TS 6.
   - Shared options are in `tsconfig.base.json`. Frontend app/spec configs inherit that base independently of backend settings and use `bundler`/`ES2022`. Keep strict Angular template checking in the frontend config and frontend sources excluded from the backend compile.
   - TS 6 defaults differ: retain explicit `rootDir`, `types`, and `strict: false` alongside the existing `noImplicitAny: true`. Callable CommonJS modules need default imports; mocks must mutate the module itself, rather than the read-only namespace wrapper. `tslib` is a direct runtime dependency for emitted helpers.
-- **Angular 22 & zone.js / ngx-bootstrap**:
-  - Keep `provideZoneChangeDetection()` and explicit `ChangeDetectionStrategy.Eager` to preserve the app's current rendering behavior. Keep `withXhr()` for upload progress; Angular 22 otherwise defaults to fetch.
-  - ngx-bootstrap **22.0.0** uses signal inputs and direct module imports (no `forRoot()`). The published 21.2 guide prescribes zoneless, but the inspected v22 implementation has no bootstrap assertion and uses explicit render notifications. Retaining zone.js is a local compatibility choice; exercise all Bootstrap controls when updating this combination.
+- **Angular 22 & Zone.js / ngx-bootstrap**:
+  - Keep `provideZoneChangeDetection()` and explicit `ChangeDetectionStrategy.Eager` to preserve the app's rendering behavior across async RxJS subscriptions, media load events, and router navigation. Keep `withXhr()` for upload progress; Angular 22 otherwise defaults to fetch.
+  - ngx-bootstrap **22.0.0** uses signal inputs and direct module imports (no `forRoot()`). It works seamlessly with Zone.js.
   - Do not revert to ngx-bootstrap 21.0.1 on Angular 22: its `ComponentFactoryResolver` dependency was removed. ngx-toastr **20.0.5** still needs a scoped Angular common/core peer override; verify a visible toast and remove the override when a compatible release exists.
 - **Angular Tooling Dependency Pins**:
   - Keep `@angular-devkit/schematics` and `@schematics/angular` aligned with the CLI (currently `22.2.1`). ng-icons has unbounded peer ranges; inspect `npm ls` after updates.

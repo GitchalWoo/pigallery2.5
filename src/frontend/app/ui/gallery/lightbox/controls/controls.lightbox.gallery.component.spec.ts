@@ -73,7 +73,6 @@ describe('ControlsLightboxComponent - cursor visibility', () => {
 
     fixture = TestBed.createComponent(ControlsLightboxComponent);
     component = fixture.componentInstance;
-    fixture.detectChanges();
   });
 
   it('should hide the cursor while the controls are dimmed', () => {

@@ -1,4 +1,4 @@
-import {ChangeDetectorRef, Component, Input, type OnDestroy, type OnInit, ChangeDetectionStrategy} from '@angular/core';
+import {Component, Input, computed, ChangeDetectionStrategy} from '@angular/core';
 import { NgStyle } from '@angular/common';
 import {NgIconComponent} from '@ng-icons/core';
 import {UploaderService} from './uploader.service';
@@ -17,22 +17,17 @@ export class UploaderComponent {
   public readonly Date = Date;
   @Input() isUploadOver: boolean;
   public showDetails = false;
-  private timer: any;
 
-  constructor(public uploaderService: UploaderService,
-              private cdr: ChangeDetectorRef) {
-  }
-
-  ngOnInit(): void {
-    this.timer = setInterval(() => {
-      this.cdr.detectChanges();
-    }, 500);
-  }
-
-  ngOnDestroy(): void {
-    if (this.timer) {
-      clearInterval(this.timer);
+  public readonly overallProgress = computed(() => {
+    const list = this.uploaderService.uploadProgressSignal();
+    if (list.length === 0) {
+      return 0;
     }
+    const sum = list.reduce((a, b) => a + b.progress, 0);
+    return Math.round(sum / list.length);
+  });
+
+  constructor(public uploaderService: UploaderService) {
   }
 
   public toggleDetails(): void {
@@ -40,11 +35,7 @@ export class UploaderComponent {
   }
 
   public getOverallProgress(): number {
-    if (this.uploaderService.uploadProgress.length === 0) {
-      return 0;
-    }
-    const sum = this.uploaderService.uploadProgress.reduce((a, b) => a + b.progress, 0);
-    return Math.round(sum / this.uploaderService.uploadProgress.length);
+    return this.overallProgress();
   }
 
 }
