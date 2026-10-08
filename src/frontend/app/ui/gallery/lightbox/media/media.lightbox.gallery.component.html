@@ -1,6 +1,7 @@
 <div class="imgContainer" #imgContainer>
   @if (showThumbnail()) {
     <img
+      decoding="sync"
       [style.width.%]="imageSize.width"
       [style.height.%]="imageSize.height"
       [style.transform]="ImageTransform"
@@ -9,6 +10,7 @@
 
   @if (gridMedia !== null && gridMedia.isPhoto() && photo.src) {
     <img
+      decoding="async"
       [style.width.%]="imageSize.width"
       [style.height.%]="imageSize.height"
       [style.transform]="ImageTransform"

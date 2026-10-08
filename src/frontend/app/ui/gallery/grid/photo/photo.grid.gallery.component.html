@@ -1,14 +1,17 @@
 <div #photoContainer class="photo-container rounded" (mouseover)="mouseOver()" (mouseout)="mouseOut()">
 
-  @if (thumbnail.Available) {
-    <img alt="{{gridMedia.media.name}}" #img [src]="thumbnail.Src"
-         (load)="loaded=true"
-         [class.loading]="!loaded">
-  } @else {
+  @if (!loaded) {
     <app-gallery-grid-photo-loading
       [error]="thumbnail.Error"
       [animate]="thumbnail.loading">
     </app-gallery-grid-photo-loading>
+  }
+
+  @if (thumbnail.Available) {
+    <img alt="{{gridMedia.media.name}}" #img [src]="thumbnail.Src"
+         decoding="sync"
+         (load)="onImageLoad()"
+         [class.loaded]="loaded">
   }
 
   @if (gridMedia.isVideo()) {

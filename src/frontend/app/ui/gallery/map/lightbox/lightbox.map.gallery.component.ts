@@ -25,9 +25,8 @@ import {
   type MapOptions,
   Marker,
   marker,
-  MarkerCluster,
-  markerClusterGroup,
-  MarkerClusterGroup,
+  type MarkerCluster,
+  type MarkerClusterGroup,
   Point,
   polyline,
   tileLayer,
@@ -104,7 +103,7 @@ export class GalleryMapLightboxComponent implements OnChanges, OnDestroy {
   } = {
     baseLayers: {},
     overlays: {
-      Photos: markerClusterGroup({
+      Photos: MarkerFactory.createMarkerClusterGroup({
         maxClusterRadius: 20,
         iconCreateFunction: (cluster: MarkerCluster) => {
           const childCount = cluster.getChildCount();

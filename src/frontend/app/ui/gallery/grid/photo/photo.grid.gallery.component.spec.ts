@@ -93,4 +93,39 @@ describe('GalleryPhotoComponent - Live Photo badge', () => {
       fixture.nativeElement.querySelector('.live-photo-indicator')
     ).toBeNull();
   });
+
+  it('should display loading component while loaded is false', () => {
+    component.gridMedia = makeGridMedia();
+    component.loaded = false;
+    fixture.detectChanges();
+
+    const loadingComp = fixture.nativeElement.querySelector('app-gallery-grid-photo-loading');
+    expect(loadingComp).not.toBeNull();
+
+    const img = fixture.nativeElement.querySelector('img');
+    expect(img).not.toBeNull();
+    expect(img.classList.contains('loaded')).toBe(false);
+  });
+
+  it('should remove loading component and add loaded class when loaded is true', () => {
+    component.gridMedia = makeGridMedia();
+    component.loaded = true;
+    fixture.detectChanges();
+
+    const loadingComp = fixture.nativeElement.querySelector('app-gallery-grid-photo-loading');
+    expect(loadingComp).toBeNull();
+
+    const img = fixture.nativeElement.querySelector('img');
+    expect(img).not.toBeNull();
+    expect(img.classList.contains('loaded')).toBe(true);
+  });
+
+  it('should mark loaded as true on onImageLoad()', () => {
+    component.gridMedia = makeGridMedia();
+    component.loaded = false;
+    fixture.detectChanges();
+
+    component.onImageLoad();
+    expect(component.loaded).toBe(true);
+  });
 });

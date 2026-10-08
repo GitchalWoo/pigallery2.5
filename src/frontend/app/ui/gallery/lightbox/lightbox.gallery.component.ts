@@ -9,7 +9,7 @@ import {Subscription} from 'rxjs';
 import {ActivatedRoute, type Params, Router} from '@angular/router';
 import {PageHelper} from '../../../model/page.helper';
 import {QueryService} from '../../../model/query.service';
-import {type MediaDTO} from '../../../../../common/entities/MediaDTO';
+import {type MediaDTO, MediaDTOUtils} from '../../../../../common/entities/MediaDTO';
 import {QueryParams} from '../../../../../common/QueryParams';
 import {type PhotoDTO} from '../../../../../common/entities/PhotoDTO';
 import {ControlsLightboxComponent} from './controls/controls.lightbox.gallery.component';
@@ -275,12 +275,18 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     const lightboxDimension = this.getGridDimension(index);
     lightboxDimension.top -= PageHelper.ScrollY;
     this.animating = true;
+
+    // Set activePhoto first so mediaElement has active media inputs and thumbnail ready
+    this.showPhoto(index, false);
+    this.piTitleService.setMediaTitle(gridMedia);
+
     this.animatePhoto(
-      this.getGridDimension(index),
+      lightboxDimension,
       this.calcLightBoxPhotoDimension(gridMedia.media)
     ).onDone((): void => {
       this.animating = false;
       this.status = LightboxStates.Open;
+      this.changeDetector.markForCheck();
     });
     this.animateLightbox(lightboxDimension, {
       top: 0,
@@ -293,9 +299,16 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     this.startPhotoDimension = this.getGridDimension(index);
     // disable scroll
     this.overlayService.showOverlay('lightbox');
-    this.blackCanvasOpacity = 1.0;
-    this.showPhoto(index, false);
-    this.piTitleService.setMediaTitle(gridMedia);
+
+    // Fade in black canvas on next frame to prevent instant black flash on initial open in Firefox
+    if (typeof requestAnimationFrame !== 'undefined') {
+      requestAnimationFrame(() => {
+        this.blackCanvasOpacity = 1.0;
+        this.changeDetector.markForCheck();
+      });
+    } else {
+      this.blackCanvasOpacity = 1.0;
+    }
   }
 
   public hide(): void {
@@ -319,20 +332,39 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     const fromStyles = DimensionUtils.toString(from);
     const toStyles = DimensionUtils.toString(to);
 
+    // Apply starting styles immediately to DOM to prevent browsers (like Firefox)
+    // from rendering unstyled/default stylesheet properties on the initial frame before the animation starts
+    if (target?.style) {
+      Object.assign(target.style, fromStyles);
+    }
+
+    let anim: Animation | null = null;
+
     const finish = () => {
       if (finished) return;
       finished = true;
       if (target?.style) {
         Object.assign(target.style, toStyles);
       }
+      try {
+        if (anim && typeof anim.cancel === 'function') {
+          anim.cancel();
+        }
+      } catch (e) {
+        // ignore
+      }
       if (doneCb) {
         doneCb();
       }
+      this.changeDetector.markForCheck();
     };
 
     if (target && typeof target.animate === 'function') {
       try {
-        const anim = target.animate([fromStyles, toStyles], {
+        if (typeof target.getAnimations === 'function') {
+          target.getAnimations().forEach((a) => a.cancel());
+        }
+        anim = target.animate([fromStyles, toStyles], {
           duration: 200,
           easing: 'ease-in-out',
           fill: 'forwards',
@@ -346,13 +378,19 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     }
 
     const player: LightboxAnimationPlayer = {
-      onDone(callback: () => void) {
+      onDone: (callback: () => void) => {
         if (finished) {
           callback();
+          this.changeDetector.markForCheck();
         } else {
-          doneCb = callback;
+          const prevCb = doneCb;
+          doneCb = () => {
+            if (prevCb) prevCb();
+            callback();
+            this.changeDetector.markForCheck();
+          };
         }
-        return this;
+        return player;
       },
     };
 
@@ -599,9 +637,8 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
   }
 
   private showPhoto(photoIndex: number, resize = true): void {
-    this.activePhoto = null;
-    this.changeDetector.detectChanges();
     this.updateActivePhoto(photoIndex, resize);
+    this.changeDetector.markForCheck();
   }
 
   private hideLightbox(): void {
@@ -621,7 +658,7 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
 
     this.animatePhoto(
       this.calcLightBoxPhotoDimension(this.activePhoto.gridMedia.media),
-      this.getGridDimension(this.activePhotoId)
+      lightboxDimension
     );
     this.animateLightbox(
       {
@@ -636,6 +673,7 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
       this.activePhoto = null;
       this.activePhotoId = null;
       this.overlayService.hideOverlay('lightbox');
+      this.changeDetector.markForCheck();
     });
 
     this.hideInfoPanel(false);
@@ -648,8 +686,10 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     this.videoSourceError = false;
     this.activePhotoId = photoIndex;
     const gridMedia = this.source.get(photoIndex);
-    if (this.activePhoto?.gridMedia !== gridMedia) {
+    if (!this.activePhoto || !MediaDTOUtils.equals(this.activePhoto.gridMedia.media, gridMedia.media)) {
       this.activePhoto = {gridMedia};
+    } else if (this.activePhoto.gridMedia !== gridMedia) {
+      this.activePhoto.gridMedia = gridMedia;
     }
 
     if (resize) {

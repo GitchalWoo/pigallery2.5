@@ -515,4 +515,44 @@ describe('GalleryLightboxComponent - paged source', () => {
     expect(loadMore).toHaveBeenCalledTimes(3);
     expect(mockActivatedRoute.queryParams.value).toEqual({[QueryParams.gallery.photo]: 'c.jpg'});
   });
+
+  it('should immediately apply starting styles to target element in runAnimation', () => {
+    const el = document.createElement('div');
+    const from = {top: 100, left: 50, width: 200, height: 150};
+    const to = {top: 0, left: 0, width: 800, height: 600};
+
+    (component as any).runAnimation(el, from, to);
+
+    expect(el.style.top).toBe('100px');
+    expect(el.style.left).toBe('50px');
+    expect(el.style.width).toBe('200px');
+    expect(el.style.height).toBe('150px');
+  });
+
+  it('should initialize blackCanvasOpacity to 0 and set activePhoto when opening lightbox', () => {
+    const photos = [
+      createMockPhoto('photo1.jpg', 0),
+      createMockPhoto('photo2.jpg', 1),
+    ];
+    const items = photos.map((p, i) => new GridMedia(p, 1, 1, i));
+    const source: LightboxSource = {
+      changes: of(),
+      length: items.length,
+      loadState: 'idle',
+      get: (i: number) => items[i],
+      getMediaId: (m: MediaDTO) => m.name,
+      indexOfId: (id: string) => items.findIndex(g => g.media.name === id),
+      animationTarget: () => ({top: 100, left: 50, width: 200, height: 150}),
+      queryParams: () => ({}),
+      hasMore: () => false,
+      loadMore: () => Promise.resolve(),
+    };
+    component.setSource(source);
+    component.showLightbox(0);
+
+    expect(component.status).toBe(LightboxStates.Opening);
+    expect(component.activePhoto).toBeTruthy();
+    expect(component.activePhoto.gridMedia.media.name).toBe('photo1.jpg');
+    expect(component.blackCanvasOpacity).toBe(0);
+  });
 });
