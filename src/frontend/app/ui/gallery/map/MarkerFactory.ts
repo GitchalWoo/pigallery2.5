@@ -1,4 +1,13 @@
-import {DivIcon, Marker, setOptions} from 'leaflet';
+import * as L from 'leaflet';
+import {DivIcon, Marker, setOptions, type MarkerClusterGroup, type MarkerClusterGroupOptions} from 'leaflet';
+import 'leaflet.markercluster';
+
+if (typeof window !== 'undefined') {
+  (window as any).L = (window as any).L || L;
+}
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).L = (globalThis as any).L || (typeof window !== 'undefined' ? (window as any).L : L);
+}
 
 export interface SvgIconOptions {
   color?: string;
@@ -32,6 +41,21 @@ export class MarkerFactory {
 
   static getSvgIcon(options?: SvgIconOptions) {
     return new SvgIcon(options);
+  }
+
+  static createMarkerClusterGroup(options?: MarkerClusterGroupOptions): MarkerClusterGroup {
+    const leafletAny = (typeof window !== 'undefined' && (window as any).L)
+      ? (window as any).L
+      : (typeof globalThis !== 'undefined' && (globalThis as any).L)
+        ? (globalThis as any).L
+        : (L as any);
+    if (typeof leafletAny?.markerClusterGroup === 'function') {
+      return leafletAny.markerClusterGroup(options);
+    }
+    if (typeof leafletAny?.MarkerClusterGroup === 'function') {
+      return new leafletAny.MarkerClusterGroup(options);
+    }
+    throw new Error('leaflet.markercluster is not available: markerClusterGroup is undefined on L');
   }
 
 }
