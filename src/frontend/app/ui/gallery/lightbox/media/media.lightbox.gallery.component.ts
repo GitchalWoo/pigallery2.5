@@ -1,4 +1,4 @@
-import {Component, ElementRef, EventEmitter, Input, type OnChanges, Output, ViewChild, ChangeDetectionStrategy} from '@angular/core';
+import {Component, ElementRef, EventEmitter, Input, type OnChanges, Output, ViewChild, ChangeDetectionStrategy, ChangeDetectorRef} from '@angular/core';
 import {GridMedia} from '../../grid/GridMedia';
 import {MediaDTOUtils} from '../../../../../../common/entities/MediaDTO';
 import {DomSanitizer, type SafeStyle} from '@angular/platform-browser';
@@ -52,7 +52,8 @@ export class GalleryLightboxMediaComponent implements OnChanges {
 
   constructor(public elementRef: ElementRef,
               public lightboxService: LightboxService,
-              private sanitizer: DomSanitizer) {
+              private sanitizer: DomSanitizer,
+              private changeDetector: ChangeDetectorRef) {
   }
 
   get ImageTransform(): SafeStyle {
@@ -156,9 +157,15 @@ export class GalleryLightboxMediaComponent implements OnChanges {
       this.liveVideoSrc = null;
       this.liveVideoClickLocked = false;
       this.photo.src = null;
-      this.nextImage.src = '';
-      this.nextImage.onload = null;
-      this.nextImage.onerror = null;
+      if (this.nextImage.src) {
+        this.nextImage.onload = null;
+        this.nextImage.onerror = null;
+        try {
+          this.nextImage.removeAttribute('src');
+        } catch (e) {
+          this.nextImage.src = '';
+        }
+      }
       this.mediaLoaded = false;
       this.imageLoadFinished = {
         this: false,
@@ -261,7 +268,16 @@ export class GalleryLightboxMediaComponent implements OnChanges {
 
   onImageLoad(): void {
     this.imageLoadFinished.this = true;
-    this.mediaLoaded = true;
+    const img = this.imageElement?.nativeElement;
+    if (img && typeof img.decode === 'function') {
+      img.decode().catch(() => {}).finally(() => {
+        this.mediaLoaded = true;
+        this.changeDetector.markForCheck();
+      });
+    } else {
+      this.mediaLoaded = true;
+      this.changeDetector.markForCheck();
+    }
     this.loadNextPhoto();
   }
 

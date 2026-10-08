@@ -275,8 +275,13 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     const lightboxDimension = this.getGridDimension(index);
     lightboxDimension.top -= PageHelper.ScrollY;
     this.animating = true;
+
+    // Set activePhoto first so mediaElement has active media inputs and thumbnail ready
+    this.showPhoto(index, false);
+    this.piTitleService.setMediaTitle(gridMedia);
+
     this.animatePhoto(
-      this.getGridDimension(index),
+      lightboxDimension,
       this.calcLightBoxPhotoDimension(gridMedia.media)
     ).onDone((): void => {
       this.animating = false;
@@ -294,9 +299,16 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     this.startPhotoDimension = this.getGridDimension(index);
     // disable scroll
     this.overlayService.showOverlay('lightbox');
-    this.blackCanvasOpacity = 1.0;
-    this.showPhoto(index, false);
-    this.piTitleService.setMediaTitle(gridMedia);
+
+    // Fade in black canvas on next frame to prevent instant black flash on initial open in Firefox
+    if (typeof requestAnimationFrame !== 'undefined') {
+      requestAnimationFrame(() => {
+        this.blackCanvasOpacity = 1.0;
+        this.changeDetector.markForCheck();
+      });
+    } else {
+      this.blackCanvasOpacity = 1.0;
+    }
   }
 
   public hide(): void {
@@ -320,11 +332,26 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     const fromStyles = DimensionUtils.toString(from);
     const toStyles = DimensionUtils.toString(to);
 
+    // Apply starting styles immediately to DOM to prevent browsers (like Firefox)
+    // from rendering unstyled/default stylesheet properties on the initial frame before the animation starts
+    if (target?.style) {
+      Object.assign(target.style, fromStyles);
+    }
+
+    let anim: Animation | null = null;
+
     const finish = () => {
       if (finished) return;
       finished = true;
       if (target?.style) {
         Object.assign(target.style, toStyles);
+      }
+      try {
+        if (anim && typeof anim.cancel === 'function') {
+          anim.cancel();
+        }
+      } catch (e) {
+        // ignore
       }
       if (doneCb) {
         doneCb();
@@ -337,7 +364,7 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
         if (typeof target.getAnimations === 'function') {
           target.getAnimations().forEach((a) => a.cancel());
         }
-        const anim = target.animate([fromStyles, toStyles], {
+        anim = target.animate([fromStyles, toStyles], {
           duration: 200,
           easing: 'ease-in-out',
           fill: 'forwards',
@@ -631,7 +658,7 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
 
     this.animatePhoto(
       this.calcLightBoxPhotoDimension(this.activePhoto.gridMedia.media),
-      this.getGridDimension(this.activePhotoId)
+      lightboxDimension
     );
     this.animateLightbox(
       {

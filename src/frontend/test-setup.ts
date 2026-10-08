@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-empty-function, @typescript-eslint/no-explicit-any */
 if (typeof window !== 'undefined') {
   if (!window.matchMedia) {
     window.matchMedia = (query: string) => ({
