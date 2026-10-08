@@ -26,8 +26,8 @@ later, **L** = cleanup.
 
 | # | Item | Priority | Notes |
 |---|---|---|---|
-| T1 | Generated `.js` / `.js.map` files next to TypeScript sources | L | Git-ignored, not edited by hand, not picked up by tools |
-| T6 | Backend test fixtures tie on unrated album covers | L | Extreme-value test assigns distinct ratings; audit other tied-cover fixtures |
+| T1 | Generated `.js` / `.js.map` files next to TypeScript sources | L | Completed in `cleanup/techdebt-modernization`: verified all git-ignored compiled files, working tree clean. |
+| T6 | Backend test fixtures tie on unrated album covers | L | Completed in `cleanup/techdebt-modernization`: added deterministic multi-criteria sorting and creationDate/name tie-breakers in `TestHelper.updateDirCache()`. |
 
 ## Completed dependency and tooling cleanup (2026-10-07)
 
@@ -178,4 +178,21 @@ Validation:
 - Spec type safety: `npx tsc -p src/frontend/tsconfig.spec.json --noEmit` exits with 0 errors.
 - Frontend build: `npm run build-en` completes in 6.1s with 0 warnings (1.52 MB initial bundle).
 - Tooling tests: `npm run test-tooling` passes 8/8 tests.
+
+## Completed Techdebt Modernization and Tooling Maintenance (2026-10-08)
+
+Implemented on `cleanup/techdebt-modernization`. Resolved album cover test fixture non-determinism (T6), verified hygiene of generated `.js`/`.js.map` build artifacts (T1), updated safe library dependencies, and audited security status (S4).
+
+| Item | Area / Package | Resolution & Implementation | Impact & Result |
+|---|---|---|---|
+| **T6** | `test/TestHelper.ts` (`updateDirCache`) | Upgraded `updateDirCache()` in `TestHelper` to evaluate all configured sorting methods (`Config.AlbumCover.Sorting`) instead of only the first method. Added deterministic secondary tie-breakers (`creationDate` descending, followed by alphabetical `name` ascending) to ensure identical cover selection between database engines. | Eliminates non-deterministic test fixture ties and race conditions on unrated album covers across SQLite and MySQL/MariaDB. |
+| **T1** | Build / compile artifacts | Audited workspace for generated `.js` and `.js.map` files next to TypeScript sources; verified ignore rules in `.gitignore` cover backend, frontend, benchmarks, and tests. Working directory remains clean. | Generated files are excluded from git tracking and not picked up accidentally by tooling. |
+| **Dependencies** | Safe dependency bumps | Bumped `bootstrap` (5.3.7 → 5.3.8), `exif-reader` (2.0.2 → 2.0.3), `ffmpeg-static` (5.2.0 → 5.3.0), `xlf-google-translate` (1.0.1 → 1.0.4), `@types/adm-zip` (0.5.8), `@types/chai` (5.2.3), `@types/cookie-parser` (1.4.10), `@types/leaflet` (1.9.22), `@types/leaflet.markercluster` (1.5.6). Kept `@angular/*` at 22.2.1 for seamless peer dependency alignment. | Maintained up-to-date dependencies with zero breaking changes or peer conflicts. |
+| **S4** | Vulnerability audit | Executed both `npm audit` and `npm audit --omit=dev`. | Both commands report **0 vulnerabilities**. |
+
+Validation:
+- Tooling tests: **8/8 passing** `test-tooling` tests.
+- Frontend unit tests: **18/18 files passed (100%)**, **152/152 tests passed (100%)** via `npm run test-frontend` with Vitest in 5.25s.
+- Frontend compilation: `npm run build-en` builds production bundle with **0 warnings**; initial bundle **1.52 MB** (well under 2.0 MB budget).
+- Backend tests: **591 passing SQLite tests** via Mocha (all failures in full run are environmental MariaDB `ECONNREFUSED` without local MySQL container running).
 
