@@ -96,6 +96,8 @@ errors, duplicate requests and all sizes. See the profiling protocol below.
 
 ### B2 — P1: completion and cache identity are too weak
 
+Implementation plan: [Derivative Cache Freshness and Regeneration](Derivative-Cache-Freshness-and-Regeneration-Plan.md), covering upstream #1178 and scoped regeneration of thumbnails, RAW-derived viewer pictures and face crops. Status: planned, not resolved.
+
 Sources: `PhotoProcessing.ts` (`generateConvertedPath:120`,
 `generatePersonThumbnailPath:134`, `isValidConvertedPath:164`,
 `convertedPhotoExist`, `generateThumbnail:269`), `PhotoWorker.ts`
@@ -779,4 +781,3 @@ A total of **10 deprecated function/method calls** were identified across `SQLCo
 2. **Step 2 (Medium Term / DataSource Migration):**
    * Refactor `SQLConnection.ts` from returning/storing `Connection` to `DataSource`.
    * Update helper connection tests (such as SQLite memory test resets and schema synchronization in `test/backend/TestHelper.ts`) to manage `DataSource` lifecycles directly without `getConnection()`.
-
