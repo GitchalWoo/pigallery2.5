@@ -274,6 +274,9 @@ describe('GalleryLightboxMediaComponent - Photo Loading & Lifecycle', () => {
     expect(initialSrc).toBeTruthy();
     expect(component.photo.isBestFit).toBe(true);
     expect(loadingBarService.isLoading()).toBe(true);
+    expect(component.mediaLoaded).toBe(false);
+    expect(component.imageLoadFinished.this).toBe(false);
+    expect(component.showThumbnail()).toBe(true);
 
     // 2. User zooms in BEFORE preview finishes loading
     component.zoom = 2;
@@ -281,6 +284,9 @@ describe('GalleryLightboxMediaComponent - Photo Loading & Lifecycle', () => {
 
     // Upgrade request to original is now in-flight alongside base preview
     expect(loadingBarService.isLoading()).toBe(true);
+    expect(component.mediaLoaded).toBe(false);
+    expect(component.imageLoadFinished.this).toBe(false);
+    expect(component.showThumbnail()).toBe(true);
 
     // 3. Preview completes loading and decodes
     const previewImg = {
@@ -294,6 +300,9 @@ describe('GalleryLightboxMediaComponent - Photo Loading & Lifecycle', () => {
 
     // Base preview completed, but upgrade request is STILL in-flight!
     expect(loadingBarService.isLoading()).toBe(true);
+    expect(component.mediaLoaded).toBe(true);
+    expect(component.imageLoadFinished.this).toBe(true);
+    expect(component.showThumbnail()).toBe(false);
     // Preview is still displayed while upgrade is pending
     expect(component.photo.src).toBe(initialSrc);
     expect(component.photo.isBestFit).toBe(true);
@@ -306,6 +315,59 @@ describe('GalleryLightboxMediaComponent - Photo Loading & Lifecycle', () => {
     expect(loadingBarService.isLoading()).toBe(false);
     expect(component.photo.src).toContain(component.gridMedia.getOriginalMediaPath());
     expect(component.photo.isBestFit).toBe(false);
+    expect(component.mediaLoaded).toBe(true);
+    expect(component.imageLoadFinished.this).toBe(true);
+    expect(component.showThumbnail()).toBe(false);
+  });
+
+  it('should mark photo ready and remove thumbnail when zoom upgrade finishes before preview loads', async () => {
+    // 1. Initial load for preview (best-fit)
+    component.gridMedia = makeGridMedia({name: 'photo1.jpg'});
+    component.loadMedia = true;
+    component.ngOnChanges();
+
+    expect(component.photo.src).toBeTruthy();
+    expect(component.photo.isBestFit).toBe(true);
+    expect(loadingBarService.isLoading()).toBe(true);
+    expect(component.mediaLoaded).toBe(false);
+    expect(component.imageLoadFinished.this).toBe(false);
+    expect(component.showThumbnail()).toBe(true);
+
+    // 2. User zooms in BEFORE preview finishes loading
+    component.zoom = 2;
+    component.ngOnChanges();
+
+    expect(loadingBarService.isLoading()).toBe(true);
+    expect(component.mediaLoaded).toBe(false);
+    expect(component.imageLoadFinished.this).toBe(false);
+    expect(component.showThumbnail()).toBe(true);
+
+    // 3. Upgrade finishes loading and decodes BEFORE preview loads
+    component.onUpgradeImageLoad();
+    await Promise.resolve();
+
+    // Original is promoted, photo marked ready, thumbnail removed, loading bar completed
+    expect(loadingBarService.isLoading()).toBe(false);
+    expect(component.photo.src).toContain(component.gridMedia.getOriginalMediaPath());
+    expect(component.photo.isBestFit).toBe(false);
+    expect(component.mediaLoaded).toBe(true);
+    expect(component.imageLoadFinished.this).toBe(true);
+    expect(component.showThumbnail()).toBe(false);
+
+    // 4. Stale/delayed preview load event later is safely ignored and doesn't alter state
+    const previewImg = {
+      decode: vi.fn().mockResolvedValue(undefined),
+      complete: true,
+      naturalWidth: 800,
+    } as any;
+    component.imageElement = {nativeElement: previewImg} as any;
+    component.onImageLoad();
+    await Promise.resolve();
+
+    expect(loadingBarService.isLoading()).toBe(false);
+    expect(component.photo.isBestFit).toBe(false);
+    expect(component.mediaLoaded).toBe(true);
+    expect(component.showThumbnail()).toBe(false);
   });
 
   it('should not fail a new photo request when an old upgrade decode rejects after navigation', async () => {
@@ -455,12 +517,24 @@ describe('GalleryLightboxMediaComponent - Photo Loading & Lifecycle', () => {
     expect(component.photo.src).toContain(component.gridMedia.getOriginalMediaPath());
   });
 
-  it('should handle zoom upgrade failure by keeping preview visible and completing token', () => {
+  it('should handle zoom upgrade failure by keeping preview visible and completing token', async () => {
     component.gridMedia = makeGridMedia({name: 'photo1.jpg'});
     component.loadMedia = true;
     component.ngOnChanges();
 
+    // Complete initial preview load
+    const imgEl = {
+      decode: vi.fn().mockResolvedValue(undefined),
+      complete: true,
+      naturalWidth: 800,
+    } as any;
+    component.imageElement = {nativeElement: imgEl} as any;
+    component.onImageLoad();
+    await Promise.resolve();
+
     const initialSrc = component.photo.src;
+    expect(loadingBarService.isLoading()).toBe(false);
+
     component.zoom = 2;
     component.ngOnChanges();
 

@@ -391,6 +391,16 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
       this.photo.src = req.src;
       this.photo.isBestFit = false;
       this.highResError = false;
+      if (!this.mediaLoaded) {
+        this.mediaLoaded = true;
+        this.imageLoadFinished.this = true;
+        this.loadNextPhoto();
+      }
+      if (this.baseRequest && !this.baseRequest.completed) {
+        this.baseRequest.completed = true;
+        this.baseRequest.doneLoading();
+      }
+      this.baseRequest = null;
       this.upgradeRequest.completed = true;
       this.upgradeRequest.doneLoading();
       this.upgradeRequest = null;
@@ -563,7 +573,7 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
         return;
       }
 
-      this.cancelActiveRequest();
+      this.cancelUpgradeRequest();
       const requestId = ++this.currentRequestId;
       const doneLoading = this.loadingBarService.begin();
       this.upgradeRequest = {

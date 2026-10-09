@@ -147,5 +147,19 @@ This feature provides immediate and continuous visual feedback in the lightbox w
 - **Verification**:
   - Full frontend unit test suite passing (23 test suites, 220 tests passing, 0 failures).
   - English frontend build (`npm run build-en`) completed successfully.
-
-
+### Phase 7: Early-Zoom Request Preservation & Readiness Updates
+- **Root Cause Analysis (PR Review Findings)**:
+  1. *Premature `baseRequest` cancellation*: In `MediaLightboxGalleryComponent.loadPhoto()`, zooming before the preview loaded previously called `this.cancelActiveRequest()`. This cancelled `baseRequest` prematurely, causing subsequent `onImageLoad()` callbacks on `<img #image>` to be ignored as already completed.
+  2. *Missing readiness update in upgrade `promote()`*: In `onUpgradeImageLoad()`, `promote()` only updated `photo.src`, `photo.isBestFit = false`, and completed `upgradeRequest`. It never touched `mediaLoaded` or `imageLoadFinished.this`. If the user zoomed before the best-fit preview finished loading and the original image loaded first, the original image was promoted while `mediaLoaded` remained `false`. As a result, `showThumbnail()` remained `true` and the low-resolution thumbnail placeholder stayed mounted and visible over the high-resolution original!
+- **Resolution**:
+  1. **Preserve `baseRequest` during zoom upgrade**: In `loadPhoto()`, replaced `this.cancelActiveRequest()` with `this.cancelUpgradeRequest()` in the `wantOriginal && this.photo.isBestFit === true` branch. Any existing upgrade request is replaced, but the active preview load (`baseRequest`) is preserved in parallel.
+  2. **Readiness updates and base cleanup on upgrade promotion**: In `onUpgradeImageLoad()`'s `promote()` function:
+     - If `!this.mediaLoaded`, marks `mediaLoaded = true`, `imageLoadFinished.this = true`, and calls `loadNextPhoto()`.
+     - Checks if `baseRequest` is still pending and cleanly marks it completed, invoking `baseRequest.doneLoading()` and clearing `baseRequest = null`.
+     - When `mediaLoaded` becomes `true`, `showThumbnail()` returns `false`, immediately unmounting the thumbnail placeholder.
+  3. **Regression Tests**:
+     - Extended the concurrent zoom test in `media.lightbox.gallery.component.spec.ts` to assert that `mediaLoaded`, `imageLoadFinished.this`, and `showThumbnail()` transition correctly at every step.
+     - Added a unit test (`should mark photo ready and remove thumbnail when zoom upgrade finishes before preview loads`) ensuring that when an upgrade completes before the preview, readiness flags are set, thumbnail is unmounted, and any subsequent delayed preview load event is safely ignored.
+- **Verification**:
+  - Full frontend unit test suite passing (23 test suites, 221 tests passing, 0 failures).
+  - English frontend build (`npm run build-en`) completed successfully.
