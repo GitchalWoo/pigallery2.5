@@ -240,11 +240,27 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
     fixture.detectChanges();
 
     const imgEl = component.imageRef.nativeElement;
+    Object.defineProperty(imgEl, 'complete', {value: true, configurable: true});
+    Object.defineProperty(imgEl, 'naturalWidth', {value: 100, configurable: true});
     imgEl.decode = () => Promise.reject(new Error('decode failed'));
 
     component.onImageLoad();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(component.loaded).toBe(true);
+  });
+
+  it('should not mark loaded=true when decode rejects on an invalid image with naturalWidth 0', async () => {
+    component.gridMedia = makeGridMedia();
+    fixture.detectChanges();
+
+    const imgEl = component.imageRef.nativeElement;
+    Object.defineProperty(imgEl, 'complete', {value: false, configurable: true});
+    Object.defineProperty(imgEl, 'naturalWidth', {value: 0, configurable: true});
+    imgEl.decode = () => Promise.reject(new Error('decode failed'));
+
+    component.onImageLoad();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(component.loaded).toBe(false);
   });
 
   it('should not mark loaded=true if component was destroyed during decode', async () => {
@@ -261,6 +277,30 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
 
     component.onImageLoad();
     component.ngOnDestroy();
+
+    resolveDecode();
+    await decodePromise;
+    expect(component.loaded).toBe(false);
+  });
+
+  it('should not mark loaded=true if image element identity changed during decode', async () => {
+    component.gridMedia = makeGridMedia();
+    fixture.detectChanges();
+
+    let resolveDecode: () => void = () => {};
+    const decodePromise = new Promise<void>((resolve) => {
+      resolveDecode = resolve;
+    });
+
+    const imgEl = component.imageRef.nativeElement;
+    imgEl.decode = () => decodePromise;
+
+    component.onImageLoad();
+
+    // Image element replaced in ViewChild
+    component.imageRef = {
+      nativeElement: document.createElement('img'),
+    };
 
     resolveDecode();
     await decodePromise;
@@ -286,6 +326,46 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
 
     resolveDecode();
     await decodePromise;
+    expect(component.loaded).toBe(false);
+  });
+
+  it('should not mark loaded=true when old decode resolves after src changed but currentSrc is still old URL', async () => {
+    component.gridMedia = makeGridMedia();
+    mockThumbnailService.mockThumbnail.Available = true;
+    mockThumbnailService.mockThumbnail.Src = 'http://example.com/thumb-old.jpg';
+    fixture.detectChanges();
+
+    let resolveDecode: () => void = () => {};
+    const decodePromise = new Promise<void>((resolve) => {
+      resolveDecode = resolve;
+    });
+
+    const imgEl = component.imageRef.nativeElement;
+    imgEl.src = 'http://example.com/thumb-old.jpg';
+    Object.defineProperty(imgEl, 'currentSrc', {
+      value: 'http://example.com/thumb-old.jpg',
+      writable: true,
+      configurable: true,
+    });
+    imgEl.decode = () => decodePromise;
+
+    component.onImageLoad();
+
+    // New thumbnail requested: src changes, but per WHATWG processing model,
+    // currentSrc remains the old image URL while the new image request is pending
+    mockThumbnailService.mockThumbnail.Src = 'http://example.com/thumb-new.jpg';
+    mockThumbnailService.mockThumbnail.OnLoad();
+    imgEl.src = 'http://example.com/thumb-new.jpg';
+    imgEl.setAttribute('src', 'http://example.com/thumb-new.jpg');
+    // Verify that currentSrc reflects old image while src reflects new request
+    expect(imgEl.currentSrc).toBe('http://example.com/thumb-old.jpg');
+    expect(imgEl.src).toBe('http://example.com/thumb-new.jpg');
+
+    // Old decode finishes
+    resolveDecode();
+    await decodePromise;
+
+    // Must NOT mark loaded=true for the pending tile
     expect(component.loaded).toBe(false);
   });
 

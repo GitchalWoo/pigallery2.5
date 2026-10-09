@@ -52,7 +52,8 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
   loaded = false;
   imageError = false;
   private destroyed = false;
-  private currentImageSrc: string | null = null;
+  private requestedSrc: string | null = null;
+  private loadVersion = 0;
   public mediaButtons: IClientMediaButtonConfigWithBaseApiPath[];
 
   get hasError(): boolean {
@@ -163,8 +164,12 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
 
   ngOnInit(): void {
     this.thumbnail = this.thumbnailService.getThumbnail(this.gridMedia);
+    this.requestedSrc = this.thumbnail?.Src ?? null;
+    this.loadVersion = 0;
     this.thumbnail.OnLoad = () => {
-      if (this.currentImageSrc !== this.thumbnail.Src) {
+      if (this.requestedSrc !== this.thumbnail.Src) {
+        this.requestedSrc = this.thumbnail.Src;
+        this.loadVersion++;
         this.imageError = false;
       }
       this.changeDetector.markForCheck();
@@ -202,7 +207,7 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
   ngAfterViewInit(): void {
     const img = this.imageRef?.nativeElement;
     if (img?.complete && img.naturalWidth > 0) {
-      this.currentImageSrc = img.currentSrc || img.src;
+      this.requestedSrc = this.thumbnail?.Src ?? img.src;
       this.imageError = false;
       this.loaded = true;
       this.changeDetector.markForCheck();
@@ -223,27 +228,54 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
     if (!img) {
       return;
     }
-    const attemptedSrc = img.currentSrc || img.src;
-    this.currentImageSrc = attemptedSrc;
+    const targetImg = img;
+    const version = ++this.loadVersion;
+    const targetSrc = this.thumbnail?.Src ?? targetImg.getAttribute('src') ?? targetImg.src;
+    this.requestedSrc = targetSrc;
 
-    const markLoadedIfValid = () => {
+    const isCurrent = (): boolean => {
       if (this.destroyed) {
-        return;
+        return false;
       }
-      const currentSrc = img.currentSrc || img.src;
-      if (currentSrc === attemptedSrc && !this.imageError) {
+      if (this.imageRef?.nativeElement !== targetImg) {
+        return false;
+      }
+      if (this.loadVersion !== version) {
+        return false;
+      }
+      if (this.requestedSrc !== targetSrc) {
+        return false;
+      }
+      const currentAttr = targetImg.getAttribute('src');
+      if (currentAttr && currentAttr !== targetSrc && !targetImg.src.endsWith(targetSrc)) {
+        return false;
+      }
+      return !this.imageError;
+    };
+
+    if (typeof targetImg.decode === 'function') {
+      targetImg.decode()
+        .then(() => {
+          if (isCurrent()) {
+            this.imageError = false;
+            this.loaded = true;
+            this.changeDetector.markForCheck();
+          }
+        })
+        .catch(() => {
+          // Require a usable image for the decode rejection fallback
+          if (isCurrent() && targetImg.complete && targetImg.naturalWidth > 0) {
+            this.imageError = false;
+            this.loaded = true;
+            this.changeDetector.markForCheck();
+          }
+        });
+    } else {
+      if (isCurrent()) {
         this.imageError = false;
         this.loaded = true;
         this.changeDetector.markForCheck();
       }
-    };
-
-    if (typeof img.decode === 'function') {
-      img.decode()
-        .then(markLoadedIfValid)
-        .catch(markLoadedIfValid);
-    } else {
-      markLoadedIfValid();
     }
   }
 
