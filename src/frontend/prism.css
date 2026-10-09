@@ -43,45 +43,25 @@ html[data-gallery-design="prism"] app-album .info { font-weight: 650; letter-spa
 
 
 /* app-albums */
-html[data-gallery-design="prism"] app-albums .container-fluid { padding-inline: clamp(.5rem, 1.5vw, 1.5rem); }
+html[data-gallery-design="prism"] app-albums .container-fluid[body] { padding: 1.5rem clamp(.5rem, 1.5vw, 1.5rem) 2rem; }
 html[data-gallery-design="prism"] app-albums .no-item-msg, html[data-gallery-design="prism"] app-albums .no-face-msg { height: auto; padding-block: 5rem; color: var(--bs-secondary-color); }
 html[data-gallery-design="prism"] app-albums .add-saved-search { border-radius: 1.25rem; background: var(--pg-soft); color: var(--pg-accent); border: 1px dashed var(--pg-accent); }
 
 
-/* app-face */
-html[data-gallery-design="prism"] app-face {
-  transition: transform .25s ease-out;
+/* People cards use the shared portrait/caption layout in every theme. */
+html[data-gallery-design="prism"] app-face a {
+  border-color: var(--pg-stroke);
+  border-radius: 1.25rem;
+  background: var(--pg-surface);
+  box-shadow: 0 4px 18px rgb(0 0 0 / 6%);
 }
-
-html[data-gallery-design="prism"] app-face:hover {
-  transform: translateY(-4px);
-}
-
-html[data-gallery-design="prism"] app-face .photo-container {
-  border: 1px solid var(--pg-stroke);
-}
-
-html[data-gallery-design="prism"] app-face .info {
-  background: linear-gradient(transparent, rgb(0 0 0 / 85%));
-  padding: 2rem 1rem 1rem;
-}
-
-html[data-gallery-design="prism"] app-face a:hover .info {
-  background: linear-gradient(transparent, rgb(0 0 0 / 90%));
-}
-
-html[data-gallery-design="prism"] app-face a:hover .photo-container {
-  border-color: var(--pg-accent);
-}
-
-
-html[data-gallery-design="prism"] app-face a { border-radius: 1.25rem; overflow: hidden; box-shadow: var(--pg-shadow); }
-html[data-gallery-design="prism"] app-face .photo-container.rounded { border-radius: 1.25rem !important; }
-html[data-gallery-design="prism"] app-face .info { font-weight: 650; letter-spacing: -.02em; }
-
+html[data-gallery-design="prism"] app-face .photo-container { background: var(--pg-soft); }
+html[data-gallery-design="prism"] app-face .info { background: var(--pg-surface); }
+html[data-gallery-design="prism"] app-face .star.favourite,
+html[data-gallery-design="prism"] app-face .star.clickable:hover { color: var(--pg-accent); }
 
 /* app-faces */
-html[data-gallery-design="prism"] app-faces .container-fluid { padding-inline: clamp(.5rem, 1.5vw, 1.5rem); }
+html[data-gallery-design="prism"] app-faces .container-fluid[body] { padding-inline: clamp(.5rem, 1.5vw, 1.5rem); }
 html[data-gallery-design="prism"] app-faces .no-item-msg, html[data-gallery-design="prism"] app-faces .no-face-msg { height: auto; padding-block: 5rem; color: var(--bs-secondary-color); }
 
 
@@ -514,3 +494,13 @@ html[data-gallery-design="prism"] app-album:hover,
 html[data-gallery-design="prism"] app-face:hover,
 html[data-gallery-design="prism"] app-gallery-grid-photo:hover { scale: 1; }
 html[data-gallery-design="prism"] app-login .card { min-width: 0; }
+
+/* Match the Faces toolbar to the gallery toolbar. */
+html[data-gallery-design="prism"] app-faces-navbar { display: block; }
+html[data-gallery-design="prism"] app-faces-navbar .container-fluid.bg-body-secondary {
+  background: transparent !important;
+  padding: .75rem .5rem !important;
+}
+html[data-gallery-design="prism"] app-faces-navbar nav { align-items: center; }
+html[data-gallery-design="prism"] app-faces-navbar .breadcrumb { font-size: .85rem; }
+html[data-gallery-design="prism"] app-faces-navbar .btn-navigator { min-height: 2.5rem; min-width: 2.5rem; border-radius: .75rem; }

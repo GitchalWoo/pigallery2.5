@@ -36,3 +36,7 @@ app-album {
   display: inline-block;
   width: 100%;
 }
+
+/* Match the breathing room on other collection pages. */
+.container-fluid { padding-top: 1.25rem; padding-bottom: 2rem; }
+.add-saved-search { position: relative; vertical-align: top; }

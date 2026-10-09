@@ -15,9 +15,15 @@ npm start -- --Server-port=8081 --Gallery-Themes-selectedTheme=prism
 
 Open http://localhost:8081. Use 8082 if another server owns 8081. For a persistent choice, select **prism** in the Gallery theme settings and save. The main menu still cycles Light → Dark → Auto.
 
-Prism is an opt-in design: its layout and controls apply only when **prism** is selected and themes are enabled. Default, Classic, and existing custom themes retain the original component styles and original login layout. Collection mastheads have been removed. Light/Dark/Auto remains independent of the selected design. Existing saved theme lists offer Prism without changing their entries; selecting Prism adds its editable CSS only when missing. Existing custom CSS named `prism`, even an empty definition, takes precedence over the built-in palette.
+Prism is an opt-in design: its layout and controls apply only when **prism** is selected and themes are enabled. Default, Classic, and existing custom themes retain the legacy design and original login layout. Shared Faces readability and collection spacing improvements apply to all themes. Collection mastheads have been removed. Light/Dark/Auto remains independent of the selected design. Existing saved theme lists offer Prism without changing their entries; selecting Prism adds its editable CSS only when missing. Existing custom CSS named `prism`, even an empty definition, takes precedence over the built-in palette.
 
 Palette source: [PrismTheme.ts](../../src/common/config/public/PrismTheme.ts). The scoped skin and surface/accent tokens live in [prism.css](../../src/frontend/prism.css), derived from Bootstrap variables. The server marks Prism pages with `data-gallery-design="prism"` before rendering, so the selected design also applies to login without a layout flash. Custom palettes can override `--pg-accent`, `--pg-accent-rgb`, `--pg-surface`, `--pg-soft`, `--pg-stroke`, and `--pg-shadow`.
+
+## Shared collection improvements
+
+Faces uses compact circular portraits with separate, wrapping captions instead of name overlays. Favourite stars remain visible on both pale and dark thumbnails. The shared component styles use Bootstrap colors; Prism adds its surfaces and a gallery-style transparent toolbar.
+
+Albums has consistent spacing below navigation, and its add-search tile stays in document flow. Faces and Albums recalculate card widths on window resize using the actual page padding, so desktop and mobile layouts fit the container.
 
 ## Theme-owned page templates
 

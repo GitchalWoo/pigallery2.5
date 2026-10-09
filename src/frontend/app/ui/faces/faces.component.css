@@ -16,3 +16,7 @@ app-face {
 .no-face-msg h2 {
     color: #6c757d;
 }
+
+.container-fluid { padding-top: .75rem; padding-bottom: 2rem; }
+app-face { margin: 4px; }
+hr { border-color: var(--bs-border-color); margin-block: .75rem; }
