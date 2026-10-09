@@ -82,10 +82,40 @@ html[data-gallery-design="prism"] app-frame .navbar {
   background-color: var(--pg-surface);
 }
 html[data-gallery-design="prism"] app-frame .navbar-brand {
-  display: flex;
   align-items: center;
+  gap: .625rem;
+  min-height: 2.5rem;
+  padding: .125rem .5rem;
+  margin-right: 1rem;
+  border: 1px solid transparent;
+  border-radius: .75rem;
+  color: var(--bs-emphasis-color);
   font-size: 1.05rem;
-  margin-right: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: -.025em;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+/* Bootstrap's d-sm-block would otherwise defeat the brand's alignment. */
+@media (min-width: 576px) {
+  html[data-gallery-design="prism"] app-frame .navbar-brand { display: inline-flex !important; }
+}
+html[data-gallery-design="prism"] app-frame .navbar-brand app-icon {
+  display: grid !important;
+  place-items: center;
+  flex: 0 0 2rem;
+  width: 2rem;
+  height: 2rem;
+  margin: 0 !important;
+  border-radius: .6rem;
+  background: var(--pg-soft);
+  color: var(--pg-accent);
+}
+html[data-gallery-design="prism"] app-frame .navbar-brand app-icon svg { width: 1.625rem; height: 1.625rem; }
+html[data-gallery-design="prism"] app-frame .navbar-brand strong { font-weight: 650; }
+html[data-gallery-design="prism"] app-frame .navbar-brand:hover { background: var(--pg-soft); border-color: var(--pg-stroke); }
+html[data-gallery-design="prism"] app-frame .navbar-brand:focus-visible {
+  outline: 2px solid var(--pg-accent);
+  outline-offset: 2px;
 }
 html[data-gallery-design="prism"] app-frame .navbar-nav { align-items: center; gap: .2rem; }
 html[data-gallery-design="prism"] app-frame .navbar .nav-link {
