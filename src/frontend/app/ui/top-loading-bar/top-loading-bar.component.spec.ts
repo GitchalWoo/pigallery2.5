@@ -75,3 +75,4 @@ describe('TopLoadingBarComponent', () => {
     expect(el.style.zIndex).toBe('10000');
   });
 });
+

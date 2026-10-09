@@ -25,3 +25,4 @@ export class TopLoadingBarComponent {
     return this.loadingBarService.isLoading();
   }
 }
+

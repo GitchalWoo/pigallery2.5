@@ -60,3 +60,4 @@ describe('FullScreenService', () => {
     expect(firedWith).toBe(false);
   });
 });
+
