@@ -152,6 +152,13 @@ fully or reject it. Validate preview dimensions/format before treating it as
 usable. Preserve fallback and error context. This is a RAW-specific defect, not
 evidence of a HEIC descriptor leak.
 
+**Status:** Resolved in `src/backend/model/fileaccess/PhotoWorker.ts` and `src/backend/model/fileaccess/fileprocessing/PhotoProcessing.ts` (tested in `test/backend/unit/model/fileaccess/PhotoWorkerRawPreview.spec.ts`):
+- Exception-safe descriptor lifecycle: `readByteRange` wraps all operations following `fsp.open` in `try/finally`, guaranteeing `handle.close` execution on success, stat failure, bounds error, allocation failure, or read error, preserving primary errors if cleanup encounters issues.
+- Bounded allocations & bounds validation: `MAX_COMPRESSED_PREVIEW_BYTES` (32 MiB) is validated before handle opening or allocation; `parseSafeRange` ensures safe integer offsets and lengths; range bounds are verified against file size via subtraction (`offset <= fileSize && length <= fileSize - offset`).
+- Exact read loop: advances position and offset by `bytesRead`, rejects premature 0-byte reads, preventing incomplete/zero-padded buffer return.
+- Candidate validation & fallback: `validatePreviewCandidate` verifies JPEG headers and exercises actual pixel decoding via `sharp.resize(1,1).raw().toBuffer()` (~5ms) to catch truncated/corrupt streams before selection. Fallback bounded sequence evaluates strip -> thumbnail offset -> `exifr.thumbnail` -> original file Sharp decode.
+- Orientation & geometry: parses numeric orientation with `translateValues: false`, implements full 1–8 EXIF orientation transforms with precedence (preview JPEG > container > 1), corrects non-square short-side resizing in oriented coordinates, and scales face crops (`cutOriginalSize`) when preview dimensions differ from RAW metadata.
+
 **Validation/measurement:** truncated/malformed RAW, injected allocation/read
 failure, short reads, absent preview and normal CR2/ARW. Compare `/proc/<pid>/fd`
 counts over repeated failures, bytes allocated and extraction time. Preserve
