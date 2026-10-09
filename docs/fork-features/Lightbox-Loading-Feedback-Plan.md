@@ -123,3 +123,16 @@ This feature provides immediate and continuous visual feedback in the lightbox w
 - **Verification**:
   - Full test suite passed (23 test suites, 220 tests passing, 0 failures).
   - English build completed successfully with initial chunks within budget (1.52 MB).
+
+### Phase 5: i18n Localization & Multi-Language Build Verification
+- **Issue**:
+  - Multi-language production builds (`npm run build`) produced warnings across all 15 non-English locales for missing translations:
+    - `No translation found for "5358156663374754143"` (`Higher-resolution image could not be loaded.`)
+    - `No translation found for "7619560701830330401"` (`Loading`)
+- **Resolution**:
+  - Extracted updated messages from source templates (`node scripts/translations.mjs extract`).
+  - Merged new translation units into all 16 locale translation files (`src/frontend/translate/messages.*.xlf`) using `npm run merge-new-translation`.
+- **Verification**:
+  - Executed full multi-language build (`npm run build`) compiling all 16 locales; zero missing translation warnings emitted.
+  - All 220 frontend unit tests passing (`npm run test-frontend`).
+
