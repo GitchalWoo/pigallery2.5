@@ -15,6 +15,19 @@ export class LoadingBarService {
     this.activeRequests.update((count) => Math.max(0, count - 1));
   }
 
+  public begin(): () => void {
+    this.start();
+    let completed = false;
+
+    return () => {
+      if (completed) {
+        return;
+      }
+      completed = true;
+      this.complete();
+    };
+  }
+
   public stop(): void {
     this.activeRequests.set(0);
   }
