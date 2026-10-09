@@ -5,7 +5,7 @@ import {
   type UrlMatchResult,
   UrlSegment,
 } from '@angular/router';
-import { LoginComponent } from './ui/login/login.component';
+import {loadLoginComponent} from './themes/theme-templates';
 import { ShareLoginComponent } from './ui/sharelogin/share-login.component';
 import { QueryParams } from '../../common/QueryParams';
 import { AuthGuard } from './model/network/helper/auth.guard';
@@ -53,7 +53,7 @@ export function galleryMatcherFunction(
 const routes: Routes = [
   {
     path: 'login',
-    component: LoginComponent,
+    loadComponent: loadLoginComponent,
   },
   {
     path: 'shareLogin',
