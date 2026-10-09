@@ -14,7 +14,7 @@ later, **L** = cleanup.
 
 | # | Item | Where | Priority | Notes |
 |---|---|---|---|---|
-| F7 | Full zoneless change detection | `main.ts`, `polyfills.ts` | L | Retaining `provideZoneChangeDetection()` and `zone.js` for runtime stability. PiGallery2 relies on plain RxJS subscriptions, media `onload` handlers, and router/window events without manual `markForCheck()`. Unit tests were modernized to native `async/await` in Vitest. |
+| F7 | Full zoneless change detection | `main.ts`, `angular.json` | L | Retaining `provideZoneChangeDetection()` and `zone.js` for runtime stability. PiGallery2 relies on plain RxJS subscriptions, media `onload` handlers, and router/window events without manual `markForCheck()`. Unit tests were modernized to native `async/await` in Vitest. Proposed idea: [Implement zoneless](ZONELESS_MIGRATION_PLAN.md), with component-level preparation, compatibility rules, and validation gates; implementation not started. |
 
 ## Security follow-ups
 
