@@ -1,8 +1,4 @@
 <div [hidden]="!isVisible()" #root>
-  @if (isNativeFullScreen) {
-    <app-top-loading-bar [zIndex]="10000"></app-top-loading-bar>
-  }
-
   <div class="blackCanvas"
     [style.opacity]="blackCanvasOpacity">
   </div>
@@ -79,4 +75,6 @@
       (closed)="hideInfoPanel()">
     </app-info-panel>
   }
+
+  <app-top-loading-bar [zIndex]="10000"></app-top-loading-bar>
 </div>

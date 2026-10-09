@@ -806,13 +806,14 @@ describe('GalleryLightboxComponent - Coordinate and Geometry Tests', () => {
       expect(cancelSpy).toHaveBeenCalled();
     });
 
-    it('should update isNativeFullScreen and render loading bar inside root when in native fullscreen', () => {
+    it('should update isNativeFullScreen and keep loading bar inside root above lightbox layers', () => {
       component.showLightbox(0);
       fixture.detectChanges();
 
       const fullScreenService = TestBed.inject(FullScreenService);
       expect(component.isNativeFullScreen).toBe(false);
-      expect(fixture.nativeElement.querySelector('app-top-loading-bar')).toBeNull();
+      const loadingBar = fixture.nativeElement.querySelector('app-top-loading-bar');
+      expect(loadingBar).not.toBeNull();
 
       // Enter native fullscreen on root element
       vi.spyOn(fullScreenService, 'isElementFullScreen').mockImplementation((el) => el === component.root.nativeElement);
@@ -828,7 +829,7 @@ describe('GalleryLightboxComponent - Coordinate and Geometry Tests', () => {
       fixture.detectChanges();
 
       expect(component.isNativeFullScreen).toBe(false);
-      expect(fixture.nativeElement.querySelector('app-top-loading-bar')).toBeNull();
+      expect(fixture.nativeElement.querySelector('app-top-loading-bar')).not.toBeNull();
     });
 
     it('should promote Opening to Open via safety fallback timer if animation does not settle', () => {

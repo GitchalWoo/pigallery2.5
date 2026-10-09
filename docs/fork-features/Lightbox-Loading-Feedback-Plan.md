@@ -136,3 +136,16 @@ This feature provides immediate and continuous visual feedback in the lightbox w
   - Executed full multi-language build (`npm run build`) compiling all 16 locales; zero missing translation warnings emitted.
   - All 220 frontend unit tests passing (`npm run test-frontend`).
 
+### Phase 6: Top Loading Bar Stacking Context & Stale Decode Guard Ordering
+- **Root Cause Analysis**:
+  1. *Loader covered by image (stacking context issue)*: In `GalleryLightboxComponent`, `#root` contains `.lightbox` (`z-index: 1100`) and `.blackCanvas` (`z-index: 1099`). When `FrameComponent` rendered `<app-top-loading-bar>` at `z-index: 9999`, the lightbox created a higher-level stacking context that obscured the global loading bar when not in native fullscreen. In `GalleryLightboxComponent`, `<app-top-loading-bar [zIndex]="10000">` was previously placed at the beginning of the template before `.lightbox` and was only conditionally rendered when `isNativeFullScreen` was true.
+  2. *Stale decode marking new photo ready before identity checks*: In `MediaLightboxGalleryComponent.onImageLoad()`, `markPreviewLoaded()` previously ran *before* verifying `this.isDestroyed || !this.baseRequest || this.baseRequest.id !== requestId || this.baseRequest.completed`. When rapidly navigating from Photo A to Photo B, Photo A's late decode resolution/rejection prematurely marked Photo B as loaded (`mediaLoaded = true`), clearing Photo B's thumbnail placeholder before its image was actually decoded.
+- **Resolution**:
+  1. **Lightbox Loading Bar Stacking Context**: Rendered `<app-top-loading-bar [zIndex]="10000">` inside `GalleryLightboxComponent`'s `#root` container, placed as the last child to ensure it remains rendered on top of `.blackCanvas`, `.lightbox`, and `<app-info-panel>`.
+  2. **Decode Guard Reordering**: In `onImageLoad()`, moved the identity, destruction, and completion checks ahead of all state updates. If the request was superseded, completed, or the component was destroyed, the late decode callback immediately exits without modifying `mediaLoaded` or `imageLoadFinished.this`.
+  3. **Regression Test Assertions**: Extended the stale-completion unit test in `media.lightbox.gallery.component.spec.ts` to explicitly assert that Photo B's `mediaLoaded` remains `false`, `imageLoadFinished.this` remains `false`, and `showThumbnail()` remains `true` when Photo A's decode settles late.
+- **Verification**:
+  - Full frontend unit test suite passing (23 test suites, 220 tests passing, 0 failures).
+  - English frontend build (`npm run build-en`) completed successfully.
+
+

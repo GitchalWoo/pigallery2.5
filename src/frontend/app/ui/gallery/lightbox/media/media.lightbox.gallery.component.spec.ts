@@ -244,14 +244,20 @@ describe('GalleryLightboxMediaComponent - Photo Loading & Lifecycle', () => {
 
     // Photo 2 has started its own request
     expect(loadingBarService.isLoading()).toBe(true);
+    expect(component.mediaLoaded).toBe(false);
+    expect(component.imageLoadFinished.this).toBe(false);
+    expect(component.showThumbnail()).toBe(true);
 
     // Stale decode from photo 1 settles
     resolveDecode1();
     await decodePromise1;
     await Promise.resolve();
 
-    // Photo 2 request must STILL be active
+    // Photo 2 request must STILL be active and NOT marked ready prematurely
     expect(loadingBarService.isLoading()).toBe(true);
+    expect(component.mediaLoaded).toBe(false);
+    expect(component.imageLoadFinished.this).toBe(false);
+    expect(component.showThumbnail()).toBe(true);
 
     // Cancelling photo 2 completes the bar
     component.cancelActiveRequest();

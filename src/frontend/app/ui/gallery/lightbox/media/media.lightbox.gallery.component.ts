@@ -58,7 +58,7 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
 
   private upgradeImage: HTMLImageElement = null;
   // if media not loaded, show thumbnail
-  private mediaLoaded = false;
+  public mediaLoaded = false;
   private videoProgress = 0;
   public highResError = false;
   private isDestroyed = false;
@@ -345,29 +345,18 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
   public onImageLoad(): void {
     const req = this.baseRequest;
     const img = this.imageElement?.nativeElement;
-    const markPreviewLoaded = () => {
-      this.mediaLoaded = true;
-      this.imageLoadFinished.this = true;
-      this.loadNextPhoto();
-      this.changeDetector.markForCheck();
-    };
 
     if (!req || req.completed) {
-      markPreviewLoaded();
       return;
     }
     const requestId = req.id;
     if (img && typeof img.decode === 'function') {
       img.decode().then(() => {
-        markPreviewLoaded();
         if (this.isDestroyed || !this.baseRequest || this.baseRequest.id !== requestId || this.baseRequest.completed) {
           return;
         }
         this.finishBasePhotoLoadSuccess(requestId);
       }).catch(() => {
-        if (img.complete && img.naturalWidth > 0) {
-          markPreviewLoaded();
-        }
         if (this.isDestroyed || !this.baseRequest || this.baseRequest.id !== requestId || this.baseRequest.completed) {
           return;
         }
@@ -378,7 +367,9 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
         }
       });
     } else {
-      markPreviewLoaded();
+      if (this.isDestroyed || !this.baseRequest || this.baseRequest.id !== requestId || this.baseRequest.completed) {
+        return;
+      }
       this.finishBasePhotoLoadSuccess(requestId);
     }
   }
