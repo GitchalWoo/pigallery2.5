@@ -21,6 +21,7 @@ import {DatePipe} from '@angular/common';
 import {Utils} from '../../../../../common/Utils';
 import {MediaDTO} from '../../../../../common/entities/MediaDTO';
 import {LightboxSource} from './LightboxSource';
+import {PageHelper} from '../../../model/page.helper';
 
 // Mock classes
 class MockFullScreenService {
@@ -554,5 +555,188 @@ describe('GalleryLightboxComponent - paged source', () => {
     expect(component.activePhoto).toBeTruthy();
     expect(component.activePhoto.gridMedia.media.name).toBe('photo1.jpg');
     expect(component.blackCanvasOpacity).toBe(0);
+  });
+});
+
+describe('GalleryLightboxComponent - Coordinate and Geometry Tests', () => {
+  let component: GalleryLightboxComponent;
+  let fixture: ComponentFixture<GalleryLightboxComponent>;
+  let mockActivatedRoute: MockActivatedRoute;
+  let mockRouter: MockRouter;
+
+  beforeEach(async () => {
+    mockActivatedRoute = new MockActivatedRoute();
+    mockRouter = new MockRouter(mockActivatedRoute);
+
+    await TestBed.configureTestingModule({
+      imports: [GalleryLightboxComponent],
+      providers: [
+        ChangeDetectorRef,
+        {provide: FullScreenService, useClass: MockFullScreenService},
+        {provide: OverlayService, useClass: MockOverlayService},
+        {provide: WakeLockService, useClass: MockWakeLockService},
+        {provide: Router, useValue: mockRouter},
+        {provide: QueryService, useClass: MockQueryService},
+        {provide: ActivatedRoute, useValue: mockActivatedRoute},
+        {provide: PiTitleService, useClass: MockPiTitleService},
+        {provide: AuthenticationService, useClass: MockAuthenticationService},
+        {provide: GalleryCacheService, useClass: MockGalleryCacheService},
+        {provide: FileSizePipe, useValue: MockFileSizePipe},
+        {provide: DatePipe, useValue: MockFileSizePipe},
+      ]
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(GalleryLightboxComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should convert document targets to viewport coordinates in opening and closing with nonzero ScrollX and ScrollY', () => {
+    vi.spyOn(PageHelper, 'ScrollY', 'get').mockReturnValue(900);
+    vi.spyOn(PageHelper, 'ScrollX', 'get').mockReturnValue(30);
+
+    const photos = [createMockPhoto('photo1.jpg', 0)];
+    const items = photos.map((p, i) => new GridMedia(p, 1, 1, i));
+    const docTarget = {top: 1020, left: 110, width: 196, height: 147};
+
+    const source: LightboxSource = {
+      changes: of(),
+      length: items.length,
+      loadState: 'idle',
+      get: (i: number) => items[i],
+      getMediaId: (m: MediaDTO) => m.name,
+      indexOfId: (id: string) => items.findIndex(g => g.media.name === id),
+      animationTarget: () => docTarget,
+      queryParams: () => ({}),
+      hasMore: () => false,
+      loadMore: () => Promise.resolve(),
+    };
+    component.setSource(source);
+
+    const animatePhotoSpy = vi.spyOn(component, 'animatePhoto');
+    const animateLightboxSpy = vi.spyOn(component, 'animateLightbox');
+
+    component.showLightbox(0);
+
+    // Opening animation should start from converted viewport coordinates
+    expect(animatePhotoSpy).toHaveBeenCalledWith(
+      {top: 120, left: 80, width: 196, height: 147},
+      expect.anything()
+    );
+    expect(animateLightboxSpy).toHaveBeenCalledWith(
+      {top: 120, left: 80, width: 196, height: 147},
+      expect.anything()
+    );
+
+    animatePhotoSpy.mockClear();
+    animateLightboxSpy.mockClear();
+
+    // Closing animation should finish at converted viewport coordinates
+    (component as any).hideLightbox();
+    expect(animatePhotoSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      {top: 120, left: 80, width: 196, height: 147}
+    );
+    expect(animateLightboxSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      {top: 120, left: 80, width: 196, height: 147}
+    );
+  });
+
+  it('should not mutate source animationTarget object', () => {
+    vi.spyOn(PageHelper, 'ScrollY', 'get').mockReturnValue(500);
+    vi.spyOn(PageHelper, 'ScrollX', 'get').mockReturnValue(100);
+
+    const frozenTarget = Object.freeze({top: 800, left: 300, width: 200, height: 150});
+    const photos = [createMockPhoto('photo1.jpg', 0)];
+    const items = photos.map((p, i) => new GridMedia(p, 1, 1, i));
+
+    const source: LightboxSource = {
+      changes: of(),
+      length: items.length,
+      loadState: 'idle',
+      get: (i: number) => items[i],
+      getMediaId: (m: MediaDTO) => m.name,
+      indexOfId: (id: string) => items.findIndex(g => g.media.name === id),
+      animationTarget: () => frozenTarget,
+      queryParams: () => ({}),
+      hasMore: () => false,
+      loadMore: () => Promise.resolve(),
+    };
+    component.setSource(source);
+
+    expect(() => component.showLightbox(0)).not.toThrow();
+    expect(frozenTarget).toEqual({top: 800, left: 300, width: 200, height: 150});
+  });
+
+  it('should fall back to viewport center with nonzero ScrollX and ScrollY when animationTarget is null', () => {
+    vi.spyOn(PageHelper, 'ScrollY', 'get').mockReturnValue(400);
+    vi.spyOn(PageHelper, 'ScrollX', 'get').mockReturnValue(150);
+
+    const photos = [createMockPhoto('photo1.jpg', 0)];
+    const items = photos.map((p, i) => new GridMedia(p, 1, 1, i));
+
+    const source: LightboxSource = {
+      changes: of(),
+      length: items.length,
+      loadState: 'idle',
+      get: (i: number) => items[i],
+      getMediaId: (m: MediaDTO) => m.name,
+      indexOfId: (id: string) => items.findIndex(g => g.media.name === id),
+      animationTarget: () => null,
+      queryParams: () => ({}),
+      hasMore: () => false,
+      loadMore: () => Promise.resolve(),
+    };
+    component.setSource(source);
+
+    const animatePhotoSpy = vi.spyOn(component, 'animatePhoto');
+    component.showLightbox(0);
+
+    const expectedCenterX = component.photoFrameDim.width / 2;
+    const expectedCenterY = component.photoFrameDim.height / 2;
+
+    expect(animatePhotoSpy).toHaveBeenCalledWith(
+      {top: expectedCenterY, left: expectedCenterX, width: 0, height: 0},
+      expect.anything()
+    );
+  });
+
+  it('should execute scroll-to-target in showPhoto before measuring final opening geometry', () => {
+    let currentScrollY = 0;
+    vi.spyOn(PageHelper, 'ScrollY', 'get').mockImplementation(() => currentScrollY);
+    vi.spyOn(PageHelper, 'ScrollY', 'set').mockImplementation((val: number) => {
+      currentScrollY = val;
+    });
+    vi.spyOn(PageHelper, 'ScrollX', 'get').mockReturnValue(0);
+
+    const photos = [createMockPhoto('photo1.jpg', 0)];
+    const items = photos.map((p, i) => new GridMedia(p, 1, 1, i));
+    const targetDocTop = 1500;
+
+    const source: LightboxSource = {
+      changes: of(),
+      length: items.length,
+      loadState: 'idle',
+      get: (i: number) => items[i],
+      getMediaId: (m: MediaDTO) => m.name,
+      indexOfId: (id: string) => items.findIndex(g => g.media.name === id),
+      animationTarget: () => ({top: targetDocTop, left: 100, width: 200, height: 150}),
+      queryParams: () => ({}),
+      hasMore: () => false,
+      loadMore: () => Promise.resolve(),
+    };
+    component.setSource(source);
+
+    const animatePhotoSpy = vi.spyOn(component, 'animatePhoto');
+    component.showLightbox(0);
+
+    // ScrollY should have been updated to targetDocTop (1500)
+    expect(currentScrollY).toBe(1500);
+    // Opening animation from viewport coordinates should reflect the new ScrollY (top = 1500 - 1500 = 0)
+    expect(animatePhotoSpy).toHaveBeenCalledWith(
+      {top: 0, left: 100, width: 200, height: 150},
+      expect.anything()
+    );
   });
 });

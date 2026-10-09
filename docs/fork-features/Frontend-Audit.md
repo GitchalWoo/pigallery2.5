@@ -68,11 +68,12 @@ Do not restore visibility by simply deleting the anti-flicker background.
 
 Verification completed: traced the current template, CSS, generation queue and
 thumbnail availability logic, and compared the flicker-fix patch with its parent.
-This establishes the code-level cause; no live browser reproduction was performed.
-Before implementation is accepted, check missing/generated thumbnails, a cold
-browser cache, throttled requests, queue saturation, decoding, errors, both themes
-and reduced motion. The placeholder simplification in item 6 must retain visible
-loading feedback rather than removing the animation as an optimization.
+Implemented on branch `fix/thumbnail-feedback-geometry` (contrasting `--item-loading-indicator: #555555`,
+150 ms CSS delay on `.sk-cube-grid`, static reduced-motion presentation, `(error)` handler and
+local error state, decode guards against destruction/stale sources, and replacement preview
+preservation; unit tests passing in `photo.grid.gallery.component.spec.ts`; awaiting manual browser check).
+Before final acceptance, check missing/generated thumbnails, a cold browser cache, throttled requests,
+queue saturation, decoding, errors, both themes and reduced motion.
 
 ### 2. High: thumbnail geometry mixes parent-relative and document coordinates
 
@@ -93,8 +94,11 @@ Define whether animation dimensions include the current hover scale and use a
 consistent coordinate system throughout. A shared IntersectionObserver is also a
 candidate for thumbnail prioritization after correcting the geometry.
 
-Validation: later rows, nonzero scroll, grouped headers, timeline rail, hovered
-tiles, and opening/closing the lightbox. [MDN offsetTop reference](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/offsetTop).
+Validation: implemented on branch `fix/thumbnail-feedback-geometry` (`isInView()` viewport bounding rect,
+`getDimension()` document coordinates with container fallback, `LightboxSource.animationTarget()` contract,
+`toViewportDimension()` with `ScrollX`/`ScrollY`, fallback center origin, and scroll-before-measure opening order;
+unit tests passing in `photo.grid.gallery.component.spec.ts` and `lightbox.gallery.component.spec.ts`; awaiting manual browser check).
+Later rows, nonzero scroll, grouped headers, timeline rail, hovered tiles, and opening/closing the lightbox. [MDN offsetTop reference](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/offsetTop).
 
 ### 3. High: resize explicitly destroys all rendered photo components
 
