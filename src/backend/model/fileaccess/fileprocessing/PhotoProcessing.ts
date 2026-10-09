@@ -99,6 +99,10 @@ export class PhotoProcessing {
         width: faceRegion.box.width + margin.x,
         height: faceRegion.box.height + margin.y,
       },
+      cutOriginalSize: {
+        width: photo.metadata.size.width,
+        height: photo.metadata.size.height,
+      },
       useLanczos3: Config.Media.Photo.useLanczos3,
       quality: Config.Media.Photo.quality,
       smartSubsample: Config.Media.Photo.smartSubsample,
