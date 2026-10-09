@@ -91,7 +91,7 @@ html[data-gallery-design="prism"] app-frame .navbar-brand {
   font-size: 1.05rem;
   line-height: 1.2;
   letter-spacing: -.025em;
-  transition: background-color .15s ease, border-color .15s ease;
+  transition: color .15s ease;
 }
 /* Bootstrap's d-sm-block would otherwise defeat the brand's alignment. */
 @media (min-width: 576px) {
@@ -104,13 +104,11 @@ html[data-gallery-design="prism"] app-frame .navbar-brand app-icon {
   width: 2rem;
   height: 2rem;
   margin: 0 !important;
-  border-radius: .6rem;
-  background: var(--pg-soft);
-  color: var(--pg-accent);
+  color: inherit;
 }
 html[data-gallery-design="prism"] app-frame .navbar-brand app-icon svg { width: 1.625rem; height: 1.625rem; }
 html[data-gallery-design="prism"] app-frame .navbar-brand strong { font-weight: 650; }
-html[data-gallery-design="prism"] app-frame .navbar-brand:hover { background: var(--pg-soft); border-color: var(--pg-stroke); }
+html[data-gallery-design="prism"] app-frame .navbar-brand:hover { color: var(--pg-accent); }
 html[data-gallery-design="prism"] app-frame .navbar-brand:focus-visible {
   outline: 2px solid var(--pg-accent);
   outline-offset: 2px;
