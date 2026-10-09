@@ -47,17 +47,6 @@
         Too many results to show. Refine your search.
       </div>
         }
-        <header class="collection-intro">
-          <div>
-            <span class="collection-eyebrow" i18n>Photo library</span>
-            @if (ContentWrapper.directory?.name && ContentWrapper.directory.name !== '.' && ContentWrapper.directory.name !== '/') {
-              <h1>{{ ContentWrapper.directory.name }}</h1>
-            } @else {
-              <h1 i18n>Gallery</h1>
-            }
-          </div>
-          <p class="collection-caption" i18n>Your moments. In a new light.</p>
-        </header>
         <app-gallery-directories class="directories"
         [directories]="directoryContent?.directories || []"></app-gallery-directories>
         @if (ShowMarkDown || ShowMap) {

@@ -2,7 +2,7 @@
 
 Branch: `design/prism-2026`.
 
-A photo studio treatment built on the existing Bootstrap controls: a floating navigation shell, large collection headings, rounded folder/album/face covers, quieter photo tiles, and an orbital login illustration made entirely with CSS. No external fonts, image downloads, or new dependencies.
+A photo studio treatment built on the existing Bootstrap controls: a floating navigation shell, rounded folder/album/face covers, quieter photo tiles, and an orbital login illustration made entirely with CSS. No external fonts, image downloads, or new dependencies.
 
 ## Try it
 
@@ -15,9 +15,9 @@ npm start -- --Server-port=8081 --Gallery-Themes-selectedTheme=prism
 
 Open http://localhost:8081. Use 8082 if another server owns 8081. For a persistent choice, select **prism** in the Gallery theme settings and save. The main menu still cycles Light → Dark → Auto.
 
-The shared layout also follows the default, Classic, and custom Bootstrap palettes. Classic keeps its dark navigation. Existing saved theme lists offer Prism without changing their entries; selecting Prism adds its editable CSS only when missing. Existing custom CSS named `prism`, even an empty definition, takes precedence over the built-in palette.
+Prism is an opt-in design: its layout and controls apply only when **prism** is selected and themes are enabled. Default, Classic, and existing custom themes retain the original component styles and original login layout. Collection mastheads have been removed. Light/Dark/Auto remains independent of the selected design. Existing saved theme lists offer Prism without changing their entries; selecting Prism adds its editable CSS only when missing. Existing custom CSS named `prism`, even an empty definition, takes precedence over the built-in palette.
 
-Palette source: [PrismTheme.ts](../../src/common/config/public/PrismTheme.ts). Surface/accent tokens live in [styles.css](../../src/frontend/styles.css), derived from Bootstrap variables. Custom palettes can override `--pg-accent`, `--pg-accent-rgb`, `--pg-surface`, `--pg-soft`, `--pg-stroke`, and `--pg-shadow`.
+Palette source: [PrismTheme.ts](../../src/common/config/public/PrismTheme.ts). The scoped skin and surface/accent tokens live in [prism.css](../../src/frontend/prism.css), derived from Bootstrap variables. The server marks Prism pages with `data-gallery-design="prism"` before rendering, so the selected design also applies to login without a layout flash. Custom palettes can override `--pg-accent`, `--pg-accent-rgb`, `--pg-surface`, `--pg-soft`, `--pg-stroke`, and `--pg-shadow`.
 
 ## Local container
 
@@ -41,8 +41,8 @@ Open http://localhost:8083 and select Prism in settings. `docker` can replace `p
 - Bootstrap remains responsible for button states, contextual alerts, forms, modal and dropdown behavior.
 - Light/dark/automatic mode and configurable navigation remain in place.
 - Gallery rows retain their calculated layout; oversized sparse rows are constrained to narrow viewports. Long Markdown previews no longer extend the document width.
-- Focus outlines, touch-visible photo actions, reduced-motion preferences, and translated UI text are supported.
-- Validation passed: production English build (1.53 MB initial bundle), 226 frontend tests, frontend spec type-check, 7 focused PublicRouter tests, and isolated Cypress desktop/mobile smoke checks. Browser checks covered Prism light/dark, Classic, default light/dark, login, gallery, mobile menu bounds, collection routes, settings dropdowns, and viewer open/close.
+- Prism supports focus outlines, touch-visible photo actions, reduced-motion preferences, and translated UI text.
+- Validation passed: production English build (1.54 MB initial bundle), 226 frontend tests, frontend spec type-check, 8 focused PublicRouter tests, and isolated Cypress desktop/mobile smoke checks. Browser checks covered Prism light/dark, Classic, default light/dark, login, gallery, mobile menu bounds, collection routes, settings dropdowns, and viewer open/close, plus the original Classic login/gallery on a separate server.
 - The integrated browser was unavailable; visual inspection used Cypress screenshots from Brave. The container image itself was not built during this experiment.
 
 New English messages use Angular i18n; translations can be added through the existing translation workflow.

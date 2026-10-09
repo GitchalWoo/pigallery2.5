@@ -1,3 +1,4 @@
+import {NgTemplateOutlet} from '@angular/common';
 import {Component, type OnInit, ChangeDetectionStrategy} from '@angular/core';
 import {LoginCredential} from '../../../../common/entities/LoginCredential';
 import {AuthenticationService} from '../../model/network/authentication.service';
@@ -16,6 +17,7 @@ import {NgIconComponent} from '@ng-icons/core';
   styleUrls: ['./login.component.css'],
   changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
+    NgTemplateOutlet,
     LanguageComponent,
     IconComponent,
     FormsModule,
@@ -23,6 +25,7 @@ import {NgIconComponent} from '@ng-icons/core';
 ]
 })
 export class LoginComponent implements OnInit {
+  readonly prismDesign = Config.Gallery.Themes.enabled && Config.Gallery.Themes.selectedTheme === 'prism';
   loginCredential: LoginCredential;
   loginError = false;
   title: string;

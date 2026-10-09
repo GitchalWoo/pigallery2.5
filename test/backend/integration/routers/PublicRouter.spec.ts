@@ -113,6 +113,28 @@ describe('PublicRouter', () => {
     beforeEach(setUp);
     afterEach(tearDown);
 
+    it('opts into the new layout only for enabled Prism, preserving legacy selections', async () => {
+      const themes = Config.Gallery.Themes;
+      const originalName = themes.selectedTheme;
+      const originalEnabled = themes.enabled;
+      try {
+        for (const name of ['default', 'classic', 'custom', 'prism']) {
+          themes.enabled = true;
+          themes.selectedTheme = name;
+          const res = await (request.execute(server.Server) as SuperAgentStatic).get('/');
+          res.should.have.status(200);
+          expect(res.text).to.include(`data-gallery-design="${name === 'prism' ? 'prism' : 'legacy'}"`);
+        }
+        themes.enabled = false;
+        const res = await (request.execute(server.Server) as SuperAgentStatic).get('/');
+        expect(res.text).to.include('data-gallery-design="legacy"');
+        expect(res.text).not.to.include(PRISM_THEME);
+      } finally {
+        themes.selectedTheme = originalName;
+        themes.enabled = originalEnabled;
+      }
+    });
+
     it('serves Prism for older configurations without changing their saved theme list', async () => {
       const themes = Config.Gallery.Themes;
       const originalName = themes.selectedTheme;

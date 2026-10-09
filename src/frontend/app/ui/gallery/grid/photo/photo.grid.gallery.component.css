@@ -1,12 +1,11 @@
 :host {
   position: relative;
   overflow: hidden;
-  border-radius: .65rem;
-  transition: box-shadow .25s ease-out;
+  transition: scale .3s ease-out;
 }
 
 :host:hover {
-  box-shadow: 0 0 0 2px var(--pg-accent);
+  scale: 98%;
 }
 
 img {
@@ -201,10 +200,3 @@ a {
 .no-click {
   cursor: auto;
 }
-
-.info { padding: .75rem; font-size: .85rem; }
-.photo-container:focus-within .info { animation: show-info .3s forwards; }
-.photo-container:focus-within .media-button { opacity: 1; }
-@media (hover: none) { .media-button { opacity: 1; } }
-
-img { width: 100%; height: 100%; object-fit: cover; }

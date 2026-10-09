@@ -17,16 +17,3 @@ app-gallery-grid-photo {
     display: inline-block;
     cursor: pointer;
 }
-
-.media-group h6 {
-  margin-top: .75rem;
-  font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -.04em;
-  border-left: 3px solid var(--pg-accent);
-  padding-left: .75rem;
-}
-
-/* A sparse row or a long group title must still fit narrow viewports. */
-.media-group { max-width: 100%; }
-app-gallery-grid-photo { max-width: calc(100% - 4px); }

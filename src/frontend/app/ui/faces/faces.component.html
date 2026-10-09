@@ -3,12 +3,6 @@
   <app-faces-navbar navbar-appendix></app-faces-navbar>
 
   <div body #container class="container-fluid">
-    <header class="collection-intro">
-      <div>
-        <span class="collection-eyebrow" i18n>Familiar faces</span>
-        <h1 i18n>Faces</h1>
-      </div>
-    </header>
     @for (person of favourites | async; track person) {
       <app-face
         [person]="person"

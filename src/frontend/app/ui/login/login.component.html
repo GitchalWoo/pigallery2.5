@@ -1,3 +1,4 @@
+@if (prismDesign) {
 <div class="login-shell">
   <section class="login-art" aria-labelledby="login-headline">
     <div class="login-brand"><app-icon [width]="36" [height]="36"></app-icon><strong>{{title}}</strong></div>
@@ -17,6 +18,33 @@
       <div class="login-mobile-brand"><app-icon [width]="32" [height]="32"></app-icon><strong>{{title}}</strong></div>
       <span class="collection-eyebrow" i18n>Your photo library</span>
       <h2 class="card-title" i18n>Please log in</h2>
+      <ng-container [ngTemplateOutlet]="loginFields"></ng-container>
+
+    </div>
+  </div>
+  </div>
+</div>
+} @else {
+<div class="container d-flex  flex-column justify-content-center">
+  <div class="row align-self-end">
+    <app-language></app-language>
+  </div>
+  <div class="row title  align-self-center">
+    <h1>
+      <app-icon [width]="80"></app-icon>
+    {{title}}</h1>
+  </div>
+  <div class="row card align-self-center">
+    <div class="card-body">
+      <h4 class="card-title" i18n>Please log in</h4>
+      <ng-container [ngTemplateOutlet]="loginFields"></ng-container>
+
+    </div>
+  </div>
+</div>
+}
+
+<ng-template #loginFields>
       <form name="form" id="form" #LoginForm="ngForm" (submit)="onLogin()">
         <div class="error-message" [hidden]="loginError==false" i18n>
           Wrong username or password
@@ -78,8 +106,4 @@
           </button>
         </div>
       </form>
-
-    </div>
-  </div>
-  </div>
-</div>
+</ng-template>

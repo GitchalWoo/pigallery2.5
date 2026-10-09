@@ -1,9 +1,9 @@
 :host {
-  transition: transform .25s ease-out;
+  transition: scale .3s ease-out;
 }
 
 :host:hover {
-  transform: translateY(-4px);
+  scale: 98%;
 }
 
 .info-button {
@@ -28,7 +28,7 @@ a {
 }
 
 .photo-container {
-  border: 1px solid var(--pg-stroke);
+  border: 1px solid #333;
   width: 180px;
   height: 180px;
   background-color: var(--item-background);
@@ -52,25 +52,21 @@ a {
 }
 
 .info {
-  background: linear-gradient(transparent, rgb(0 0 0 / 85%));
+  background-color: rgba(0, 0, 0, 0.6);
   color: white;
   font-size: medium;
   position: absolute;
   bottom: 0;
   left: 0;
-  padding: 2rem 1rem 1rem;
+  padding: 5px;
   width: 100%;
   line-height: normal;
 }
 
 a:hover .info {
-  background: linear-gradient(transparent, rgb(0 0 0 / 90%));
+  background-color: rgba(0, 0, 0, 0.8);
 }
 
 a:hover .photo-container {
-  border-color: var(--pg-accent);
+  border-color: #000;
 }
-
-a { border-radius: 1.25rem; overflow: hidden; box-shadow: var(--pg-shadow); }
-.photo-container.rounded { border-radius: 1.25rem !important; }
-.info { font-weight: 650; letter-spacing: -.02em; }

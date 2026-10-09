@@ -6,7 +6,9 @@
   text-decoration: underline;
 }
 
-
+*:focus {
+  outline: none;
+}
 .admin-menu{
   max-height: 100vh;
   overflow-y: auto;
@@ -20,12 +22,3 @@ nav.sticky-top {
 .btn-settings-nav{
   line-height: initial;
 }
-
-.admin-menu {
-  padding: .75rem;
-  border: 1px solid var(--pg-stroke);
-  border-radius: 1.25rem;
-  background: var(--pg-surface);
-}
-.btn-settings-nav { border-radius: .7rem; }
-.version { color: var(--bs-secondary-color); }

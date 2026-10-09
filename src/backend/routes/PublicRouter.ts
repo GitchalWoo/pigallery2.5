@@ -103,7 +103,7 @@ export class PublicRouter {
       res.tpl.Config = confCopy;
       res.tpl.customHTMLHead = Config.Server.customHTMLHead;
       const selectedTheme = Config.Gallery.Themes.availableThemes.find(th => th.name === Config.Gallery.Themes.selectedTheme)?.theme ?? (Config.Gallery.Themes.selectedTheme === 'prism' ? PRISM_THEME : '');
-      res.tpl.usedTheme = selectedTheme;
+      res.tpl.usedTheme = Config.Gallery.Themes.enabled ? selectedTheme : '';
 
       res.tpl.UIExtensionConfigs = ObjectManagers.getInstance().ExtensionManager.getUIExtensionConfigs();
 

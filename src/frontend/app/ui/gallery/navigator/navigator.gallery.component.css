@@ -70,14 +70,3 @@ app-gallery-filter {
   padding: 0;
   border: none;
 }
-
-:host { display: block; }
-#directory-path { font-size: .85rem; overflow-wrap: anywhere; }
-.container-fluid.bg-body-secondary {
-  background: transparent !important;
-  padding: .75rem .5rem !important;
-}
-nav { align-items: center; gap: .5rem; }
-.photos-count { color: var(--bs-secondary-color); font-size: .8rem; font-variant-numeric: tabular-nums; }
-.btn-navigator { min-width: 2.5rem; min-height: 2.5rem; border-radius: .75rem; }
-.divider { border-color: var(--pg-stroke); }
