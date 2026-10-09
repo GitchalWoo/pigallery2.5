@@ -105,3 +105,21 @@ This feature provides immediate and continuous visual feedback in the lightbox w
 - **Verification**:
   - Full test suite passed (23 test suites, 218 tests passing, 0 failures).
   - English build completed successfully with initial chunks within budget (1.52 MB).
+
+### Phase 4: Request Isolation & Upgrade Identity Guards (PR Review Fixes)
+- **Root Cause Analysis (PR Review Findings)**:
+  1. *Preview completion cancelling original upgrade*: `onImageLoad()` in `MediaLightboxGalleryComponent` read `this.activeRequest`. If zooming occurred before the base preview finished downloading, `activeRequest` pointed to the upgrade request. When `<img #image>` fired `(load)`, it completed the upgrade request prematurely and set `activeRequest = null`, preventing `upgradeImage` from ever being promoted.
+  2. *Old upgrade failure clearing newer request*: In `onUpgradeImageLoad()`, `upgradeImg.decode().catch(...)` called `onUpgradeImageError()` without verifying the captured request ID. If the user navigated to another photo while the decode was pending, the rejection would fail and clear the new photo's active request.
+  3. *Test coverage gap*: In the stale-completion test, `onImageLoad()` was never invoked while photo 1 was active, so `decode()` was never attached to component logic before navigating.
+- **Resolution**:
+  1. **Separate `baseRequest` and `upgradeRequest` records**: Tracked distinct request records (`baseRequest` for `<img #image>` and `upgradeRequest` for `upgradeImage`).
+  2. **Decoupled event binding**:
+     - `onImageLoad()` and `onImageError()` bind strictly to `baseRequest`. If `baseRequest` was already superseded/completed by zoom, `onImageLoad()` marks the preview loaded without touching `upgradeRequest`.
+     - `onUpgradeImageLoad()` and `onUpgradeImageError()` receive and strictly validate `requestId`, ignoring rejections or completions from superseded requests after navigation.
+  3. **Comprehensive test coverage**:
+     - Fixed the stale-completion test to invoke `onImageLoad()` and start `img.decode()` before navigating.
+     - Added unit tests verifying preview load completion during an in-flight zoom upgrade does not cancel the upgrade.
+     - Added unit tests verifying that an old upgrade decode failure after navigation does not fail the new photo's request.
+- **Verification**:
+  - Full test suite passed (23 test suites, 220 tests passing, 0 failures).
+  - English build completed successfully with initial chunks within budget (1.52 MB).

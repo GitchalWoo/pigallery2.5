@@ -8,6 +8,14 @@ import {LightboxService} from '../lightbox.service';
 import {LoadingBarService} from '../../../../model/loading-bar.service';
 
 
+interface PhotoRequest {
+  id: number;
+  type: 'base' | 'upgrade';
+  src: string;
+  doneLoading: () => void;
+  completed: boolean;
+}
+
 @Component({
   selector: 'app-gallery-lightbox-media',
   styleUrls: ['./media.lightbox.gallery.component.css'],
@@ -47,6 +55,7 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
   };
   public transcodeNeedVideos = SupportedFormats.TranscodeNeed.Videos;
   private nextImage = new Image();
+
   private upgradeImage: HTMLImageElement = null;
   // if media not loaded, show thumbnail
   private mediaLoaded = false;
@@ -54,12 +63,12 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
   public highResError = false;
   private isDestroyed = false;
   private currentRequestId = 0;
-  private activeRequest: {
-    id: number;
-    src: string;
-    doneLoading: () => void;
-    completed: boolean;
-  } = null;
+  private baseRequest: PhotoRequest | null = null;
+  private upgradeRequest: PhotoRequest | null = null;
+
+  private get activeRequest(): PhotoRequest | null {
+    return this.upgradeRequest ?? this.baseRequest;
+  }
 
   constructor(public elementRef: ElementRef,
               public lightboxService: LightboxService,
@@ -222,12 +231,12 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
     }
   }
 
-  public cancelActiveRequest(): void {
-    if (this.activeRequest && !this.activeRequest.completed) {
-      this.activeRequest.completed = true;
-      this.activeRequest.doneLoading();
+  public cancelUpgradeRequest(): void {
+    if (this.upgradeRequest && !this.upgradeRequest.completed) {
+      this.upgradeRequest.completed = true;
+      this.upgradeRequest.doneLoading();
     }
-    this.activeRequest = null;
+    this.upgradeRequest = null;
     if (this.upgradeImage) {
       this.upgradeImage.onload = null;
       this.upgradeImage.onerror = null;
@@ -238,6 +247,15 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
       }
       this.upgradeImage = null;
     }
+  }
+
+  public cancelActiveRequest(): void {
+    if (this.baseRequest && !this.baseRequest.completed) {
+      this.baseRequest.completed = true;
+      this.baseRequest.doneLoading();
+    }
+    this.baseRequest = null;
+    this.cancelUpgradeRequest();
   }
 
   public mute(): void {
@@ -317,63 +335,87 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
   }
 
   public onImageError(): void {
-    const req = this.activeRequest;
-    const requestId = req ? req.id : this.currentRequestId;
-    this.finishPhotoLoadError(requestId);
-  }
-
-  public onImageLoad(): void {
-    const req = this.activeRequest;
-    const requestId = req ? req.id : this.currentRequestId;
-    const img = this.imageElement?.nativeElement;
-    if (img && typeof img.decode === 'function') {
-      img.decode().then(() => {
-        if (this.isDestroyed || this.currentRequestId !== requestId) {
-          return;
-        }
-        this.finishPhotoLoadSuccess(requestId);
-      }).catch(() => {
-        if (this.isDestroyed || this.currentRequestId !== requestId) {
-          return;
-        }
-        if (img.complete && img.naturalWidth > 0) {
-          this.finishPhotoLoadSuccess(requestId);
-        } else {
-          this.finishPhotoLoadError(requestId);
-        }
-      });
-    } else {
-      this.finishPhotoLoadSuccess(requestId);
-    }
-  }
-
-  public onUpgradeImageLoad(): void {
-    const req = this.activeRequest;
+    const req = this.baseRequest;
     if (!req || req.completed) {
       return;
     }
+    this.finishBasePhotoLoadError(req.id);
+  }
+
+  public onImageLoad(): void {
+    const req = this.baseRequest;
+    const img = this.imageElement?.nativeElement;
+    const markPreviewLoaded = () => {
+      this.mediaLoaded = true;
+      this.imageLoadFinished.this = true;
+      this.loadNextPhoto();
+      this.changeDetector.markForCheck();
+    };
+
+    if (!req || req.completed) {
+      markPreviewLoaded();
+      return;
+    }
     const requestId = req.id;
+    if (img && typeof img.decode === 'function') {
+      img.decode().then(() => {
+        markPreviewLoaded();
+        if (this.isDestroyed || !this.baseRequest || this.baseRequest.id !== requestId || this.baseRequest.completed) {
+          return;
+        }
+        this.finishBasePhotoLoadSuccess(requestId);
+      }).catch(() => {
+        if (img.complete && img.naturalWidth > 0) {
+          markPreviewLoaded();
+        }
+        if (this.isDestroyed || !this.baseRequest || this.baseRequest.id !== requestId || this.baseRequest.completed) {
+          return;
+        }
+        if (img.complete && img.naturalWidth > 0) {
+          this.finishBasePhotoLoadSuccess(requestId);
+        } else {
+          this.finishBasePhotoLoadError(requestId);
+        }
+      });
+    } else {
+      markPreviewLoaded();
+      this.finishBasePhotoLoadSuccess(requestId);
+    }
+  }
+
+  public onUpgradeImageLoad(requestId?: number): void {
+    const req = this.upgradeRequest;
+    if (!req || req.completed) {
+      return;
+    }
+    const targetId = requestId ?? req.id;
+    if (req.id !== targetId) {
+      return;
+    }
     const upgradeImg = this.upgradeImage;
     const promote = () => {
-      if (this.isDestroyed || this.currentRequestId !== requestId || !this.activeRequest) {
+      if (this.isDestroyed || !this.upgradeRequest || this.upgradeRequest.id !== targetId || this.upgradeRequest.completed) {
         return;
       }
       this.photo.src = req.src;
       this.photo.isBestFit = false;
       this.highResError = false;
-      req.completed = true;
-      req.doneLoading();
-      this.activeRequest = null;
+      this.upgradeRequest.completed = true;
+      this.upgradeRequest.doneLoading();
+      this.upgradeRequest = null;
       this.upgradeImage = null;
       this.changeDetector.markForCheck();
     };
 
     if (upgradeImg && typeof upgradeImg.decode === 'function') {
       upgradeImg.decode().then(promote).catch(() => {
+        if (this.isDestroyed || !this.upgradeRequest || this.upgradeRequest.id !== targetId || this.upgradeRequest.completed) {
+          return;
+        }
         if (upgradeImg.naturalWidth > 0) {
           promote();
         } else {
-          this.onUpgradeImageError();
+          this.onUpgradeImageError(targetId);
         }
       });
     } else {
@@ -381,49 +423,48 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
     }
   }
 
-  public onUpgradeImageError(): void {
-    const req = this.activeRequest;
-    if (!req || this.currentRequestId !== req.id) {
+  public onUpgradeImageError(requestId?: number): void {
+    const req = this.upgradeRequest;
+    if (!req || req.completed) {
+      return;
+    }
+    const targetId = requestId ?? req.id;
+    if (req.id !== targetId) {
       return;
     }
     this.highResError = true;
     req.completed = true;
     req.doneLoading();
-    this.activeRequest = null;
+    this.upgradeRequest = null;
     this.upgradeImage = null;
     this.changeDetector.markForCheck();
   }
 
-  private finishPhotoLoadSuccess(requestId: number): void {
-    if (this.currentRequestId !== requestId) {
+  private finishBasePhotoLoadSuccess(requestId: number): void {
+    if (!this.baseRequest || this.baseRequest.id !== requestId || this.baseRequest.completed) {
       return;
     }
     this.mediaLoaded = true;
     this.imageLoadFinished.this = true;
-    this.highResError = false;
-    if (this.activeRequest && this.activeRequest.id === requestId) {
-      this.activeRequest.completed = true;
-      this.activeRequest.doneLoading();
-      this.activeRequest = null;
-    }
+    this.baseRequest.completed = true;
+    this.baseRequest.doneLoading();
+    this.baseRequest = null;
     this.loadNextPhoto();
     this.changeDetector.markForCheck();
   }
 
-  private finishPhotoLoadError(requestId: number): void {
-    if (this.currentRequestId !== requestId) {
+  private finishBasePhotoLoadError(requestId: number): void {
+    if (!this.baseRequest || this.baseRequest.id !== requestId || this.baseRequest.completed) {
       return;
     }
     this.imageLoadFinished.this = true;
     console.error(
       'Error: cannot load media for lightbox url: ' +
-      (this.activeRequest?.src ?? this.photo.src)
+      this.baseRequest.src
     );
-    if (this.activeRequest && this.activeRequest.id === requestId) {
-      this.activeRequest.completed = true;
-      this.activeRequest.doneLoading();
-      this.activeRequest = null;
-    }
+    this.baseRequest.completed = true;
+    this.baseRequest.doneLoading();
+    this.baseRequest = null;
     this.loadNextPhoto();
     this.changeDetector.markForCheck();
   }
@@ -515,8 +556,9 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
       this.cancelActiveRequest();
       const requestId = ++this.currentRequestId;
       const doneLoading = this.loadingBarService.begin();
-      this.activeRequest = {
+      this.baseRequest = {
         id: requestId,
+        type: 'base',
         src: targetSrc,
         doneLoading,
         completed: false
@@ -526,15 +568,16 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
       this.highResError = false;
     } else if (wantOriginal && this.photo.isBestFit === true) {
       const originalSrc = this.gridMedia.getOriginalMediaPath();
-      if (this.activeRequest?.src === originalSrc) {
+      if (this.upgradeRequest?.src === originalSrc) {
         return;
       }
 
       this.cancelActiveRequest();
       const requestId = ++this.currentRequestId;
       const doneLoading = this.loadingBarService.begin();
-      this.activeRequest = {
+      this.upgradeRequest = {
         id: requestId,
+        type: 'upgrade',
         src: originalSrc,
         doneLoading,
         completed: false
@@ -543,10 +586,10 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
 
       this.upgradeImage = new Image();
       this.upgradeImage.src = originalSrc;
-      this.upgradeImage.onload = () => this.onUpgradeImageLoad();
-      this.upgradeImage.onerror = () => this.onUpgradeImageError();
+      this.upgradeImage.onload = () => this.onUpgradeImageLoad(requestId);
+      this.upgradeImage.onerror = () => this.onUpgradeImageError(requestId);
       if (this.upgradeImage.complete) {
-        this.onUpgradeImageLoad();
+        this.onUpgradeImageLoad(requestId);
       }
     }
   }

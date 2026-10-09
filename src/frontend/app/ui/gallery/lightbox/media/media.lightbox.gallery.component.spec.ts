@@ -229,6 +229,15 @@ describe('GalleryLightboxMediaComponent - Photo Loading & Lifecycle', () => {
 
     expect(loadingBarService.isLoading()).toBe(true);
 
+    // Attach in-flight image element and start decode for photo 1 BEFORE navigating
+    const imgEl1 = {
+      decode: vi.fn().mockReturnValue(decodePromise1),
+      complete: true,
+      naturalWidth: 800,
+    } as any;
+    component.imageElement = {nativeElement: imgEl1} as any;
+    component.onImageLoad();
+
     // Rapid navigation to photo 2
     component.gridMedia = makeGridMedia({name: 'photo2.jpg'});
     component.ngOnChanges();
@@ -237,13 +246,6 @@ describe('GalleryLightboxMediaComponent - Photo Loading & Lifecycle', () => {
     expect(loadingBarService.isLoading()).toBe(true);
 
     // Stale decode from photo 1 settles
-    const imgEl1 = {
-      decode: vi.fn().mockReturnValue(decodePromise1),
-      complete: true,
-      naturalWidth: 800,
-    } as any;
-    component.imageElement = {nativeElement: imgEl1} as any;
-
     resolveDecode1();
     await decodePromise1;
     await Promise.resolve();
@@ -253,6 +255,118 @@ describe('GalleryLightboxMediaComponent - Photo Loading & Lifecycle', () => {
 
     // Cancelling photo 2 completes the bar
     component.cancelActiveRequest();
+    expect(loadingBarService.isLoading()).toBe(false);
+  });
+
+  it('should not cancel original upgrade request when preview finishes loading while upgrade is in-flight', async () => {
+    // 1. Initial load for preview (best-fit)
+    component.gridMedia = makeGridMedia({name: 'photo1.jpg'});
+    component.loadMedia = true;
+    component.ngOnChanges();
+
+    const initialSrc = component.photo.src;
+    expect(initialSrc).toBeTruthy();
+    expect(component.photo.isBestFit).toBe(true);
+    expect(loadingBarService.isLoading()).toBe(true);
+
+    // 2. User zooms in BEFORE preview finishes loading
+    component.zoom = 2;
+    component.ngOnChanges();
+
+    // Upgrade request to original is now in-flight alongside base preview
+    expect(loadingBarService.isLoading()).toBe(true);
+
+    // 3. Preview completes loading and decodes
+    const previewImg = {
+      decode: vi.fn().mockResolvedValue(undefined),
+      complete: true,
+      naturalWidth: 800,
+    } as any;
+    component.imageElement = {nativeElement: previewImg} as any;
+    component.onImageLoad();
+    await Promise.resolve();
+
+    // Base preview completed, but upgrade request is STILL in-flight!
+    expect(loadingBarService.isLoading()).toBe(true);
+    // Preview is still displayed while upgrade is pending
+    expect(component.photo.src).toBe(initialSrc);
+    expect(component.photo.isBestFit).toBe(true);
+
+    // 4. Upgrade image finishes loading and decodes
+    component.onUpgradeImageLoad();
+    await Promise.resolve();
+
+    // Original is promoted successfully and loading bar completes
+    expect(loadingBarService.isLoading()).toBe(false);
+    expect(component.photo.src).toContain(component.gridMedia.getOriginalMediaPath());
+    expect(component.photo.isBestFit).toBe(false);
+  });
+
+  it('should not fail a new photo request when an old upgrade decode rejects after navigation', async () => {
+    let rejectDecode1: (err: any) => void = () => {};
+    const upgradeDecodePromise = new Promise<void>((_, reject) => {
+      rejectDecode1 = reject;
+    });
+
+    // 1. Photo 1 loads
+    component.gridMedia = makeGridMedia({name: 'photo1.jpg'});
+    component.loadMedia = true;
+    component.ngOnChanges();
+
+    // Complete base preview so photo.isBestFit = true
+    const imgEl1 = {
+      decode: vi.fn().mockResolvedValue(undefined),
+      complete: true,
+      naturalWidth: 800,
+    } as any;
+    component.imageElement = {nativeElement: imgEl1} as any;
+    component.onImageLoad();
+    await Promise.resolve();
+
+    // 2. Zoom to start upgrade request
+    component.zoom = 2;
+    component.ngOnChanges();
+    expect(loadingBarService.isLoading()).toBe(true);
+
+    // Mock upgradeImage with pending decode that will reject
+    (component as any).upgradeImage = {
+      decode: vi.fn().mockReturnValue(upgradeDecodePromise),
+      naturalWidth: 0,
+    };
+    component.onUpgradeImageLoad(); // triggers upgradeImg.decode()
+
+    // 3. User navigates to photo 2 before upgrade settles
+    component.zoom = 1;
+    component.gridMedia = makeGridMedia({name: 'photo2.jpg'});
+    component.ngOnChanges();
+
+    // Photo 2 has its own active request
+    expect(loadingBarService.isLoading()).toBe(true);
+    expect(component.highResError).toBe(false);
+
+    // 4. Photo 1's old upgrade decode rejects
+    rejectDecode1(new Error('decode failed'));
+    try {
+      await upgradeDecodePromise;
+    } catch {
+      // expected
+    }
+    await Promise.resolve();
+
+    // Photo 2's request must NOT be failed or cleared
+    expect(component.highResError).toBe(false);
+    expect(loadingBarService.isLoading()).toBe(true);
+
+    // Photo 2 completes its own load normally
+    const imgEl2 = {
+      decode: vi.fn().mockResolvedValue(undefined),
+      complete: true,
+      naturalWidth: 800,
+    } as any;
+    component.imageElement = {nativeElement: imgEl2} as any;
+    component.onImageLoad();
+    await Promise.resolve();
+
     expect(loadingBarService.isLoading()).toBe(false);
   });
 
