@@ -232,19 +232,25 @@ describe('PhotoWorker RAW Preview Safety and Orientation', () => {
       try {
         (fs.promises as any).open = async (...args: any[]) => {
           const handle = await origOpen.apply(fs.promises, args as any);
+          const origClose = handle.close.bind(handle);
           handle.read = async () => {
             throw new Error('Primary read failure');
           };
           handle.close = async () => {
+            await origClose();
             throw new Error('Secondary close failure');
           };
           return handle;
         };
 
-        await ImageRendererFactory.readByteRange(testFile, 0, 10);
-        expect.fail('Should have failed');
-      } catch (err: any) {
-        expect(err.message).to.include('Primary read failure');
+        let thrownError: any = null;
+        try {
+          await ImageRendererFactory.readByteRange(testFile, 0, 10);
+        } catch (err: any) {
+          thrownError = err;
+        }
+        expect(thrownError, 'Expected primary read failure to be thrown').to.not.be.null;
+        expect(thrownError.message).to.include('Primary read failure');
       } finally {
         fs.promises.open = origOpen;
       }
@@ -459,6 +465,93 @@ describe('PhotoWorker RAW Preview Safety and Orientation', () => {
         expect(testPixels.equals(refPixels)).to.be.true;
       });
     }
+
+    // 120 wide x 80 high asymmetric image:
+    // Top-left 60x40: Red [255, 0, 0]
+    // Top-right 60x40: Green [0, 255, 0]
+    // Bottom-left 60x40: Blue [0, 0, 255]
+    // Bottom-right 60x40: Yellow [255, 255, 0]
+    const makeAsymmetric120x80 = () => {
+      const buf = Buffer.alloc(120 * 80 * 3);
+      for (let y = 0; y < 80; y++) {
+        for (let x = 0; x < 120; x++) {
+          const idx = (y * 120 + x) * 3;
+          if (y < 40 && x < 60) {
+            buf[idx] = 255; buf[idx+1] = 0; buf[idx+2] = 0; // Red
+          } else if (y < 40 && x >= 60) {
+            buf[idx] = 0; buf[idx+1] = 255; buf[idx+2] = 0; // Green
+          } else if (y >= 40 && x < 60) {
+            buf[idx] = 0; buf[idx+1] = 0; buf[idx+2] = 255; // Blue
+          } else {
+            buf[idx] = 255; buf[idx+1] = 255; buf[idx+2] = 0; // Yellow
+          }
+        }
+      }
+      return buf;
+    };
+
+    it('should correctly extract off-centre crop in displayed-image space for orientation 2 (horizontal mirror)', async () => {
+      const rawBuf = makeAsymmetric120x80();
+      const baseJpeg = await sharp(rawBuf, {raw: {width: 120, height: 80, channels: 3}}).jpeg().toBuffer();
+      const refJpeg = await sharp(rawBuf, {raw: {width: 120, height: 80, channels: 3}})
+        .withMetadata({orientation: 2})
+        .jpeg()
+        .toBuffer();
+
+      // In displayed space for Orientation 2, horizontal mirroring swaps left and right:
+      // Top-left is Green, Top-right is Red.
+      // An off-centre crop of the top-left region:
+      const crop = {left: 10, top: 10, width: 30, height: 20};
+      const refCropPixels = await sharp(refJpeg).rotate().extract(crop).raw().toBuffer();
+      const testCropPixels = await ImageRendererFactory.applyOrientation(sharp(baseJpeg), 2).extract(crop).raw().toBuffer();
+
+      // Top-left pixel must be Green (around [0, 255, 0]), not Red
+      expect(testCropPixels[0]).to.be.lessThan(50);
+      expect(testCropPixels[1]).to.be.greaterThan(200);
+      expect(testCropPixels.equals(refCropPixels)).to.be.true;
+    });
+
+    it('should correctly extract off-centre crop in displayed-image space for orientation 4 (vertical mirror)', async () => {
+      const rawBuf = makeAsymmetric120x80();
+      const baseJpeg = await sharp(rawBuf, {raw: {width: 120, height: 80, channels: 3}}).jpeg().toBuffer();
+      const refJpeg = await sharp(rawBuf, {raw: {width: 120, height: 80, channels: 3}})
+        .withMetadata({orientation: 4})
+        .jpeg()
+        .toBuffer();
+
+      // In displayed space for Orientation 4, vertical mirroring swaps top and bottom:
+      // Top-left is Blue, Bottom-left is Red.
+      // An off-centre crop of the top-left region:
+      const crop = {left: 10, top: 10, width: 30, height: 20};
+      const refCropPixels = await sharp(refJpeg).rotate().extract(crop).raw().toBuffer();
+      const testCropPixels = await ImageRendererFactory.applyOrientation(sharp(baseJpeg), 4).extract(crop).raw().toBuffer();
+
+      // Top-left pixel must be Blue (around [0, 0, 255]), not Red
+      expect(testCropPixels[0]).to.be.lessThan(50);
+      expect(testCropPixels[2]).to.be.greaterThan(200);
+      expect(testCropPixels.equals(refCropPixels)).to.be.true;
+    });
+
+    for (let ori = 1; ori <= 8; ori++) {
+      it(`should match reference crop for EXIF orientation ${ori} on asymmetric fixture`, async () => {
+        const rawBuf = makeAsymmetric120x80();
+        const isSwapped = ori >= 5;
+        const crop = isSwapped
+          ? {left: 10, top: 15, width: 20, height: 30}
+          : {left: 10, top: 15, width: 30, height: 20};
+
+        const baseJpeg = await sharp(rawBuf, {raw: {width: 120, height: 80, channels: 3}}).jpeg().toBuffer();
+        const refJpeg = await sharp(rawBuf, {raw: {width: 120, height: 80, channels: 3}})
+          .withMetadata({orientation: ori})
+          .jpeg()
+          .toBuffer();
+
+        const refCropPixels = await sharp(refJpeg).rotate().extract(crop).raw().toBuffer();
+        const testCropPixels = await ImageRendererFactory.applyOrientation(sharp(baseJpeg), ori).extract(crop).raw().toBuffer();
+
+        expect(testCropPixels.equals(refCropPixels)).to.be.true;
+      });
+    }
   });
 
   describe('Orientation Precedence and Dimension Computation', () => {
@@ -671,16 +764,29 @@ describe('PhotoWorker RAW Preview Safety and Orientation', () => {
     });
 
     it('should propagate output write errors directly without retrying decode', async () => {
-      const imgPath = path.join(tempDir, 'output_err_test.jpg');
-      await sharp({
-        create: {width: 50, height: 50, channels: 3, background: {r: 0, g: 0, b: 0}}
-      }).jpeg().toFile(imgPath);
+      const cr2File = path.join(tempDir, 'write_error_test.cr2');
+      const validJpeg = await sharp({
+        create: {width: 60, height: 60, channels: 3, background: {r: 200, g: 50, b: 50}}
+      }).jpeg().toBuffer();
+      await fs.promises.writeFile(cr2File, validJpeg);
+
+      let getRawPreviewCalls = 0;
+      const origGetRawPreview = ImageRendererFactory.getRawPreview;
+      ImageRendererFactory.getRawPreview = async (filePath: string) => {
+        getRawPreviewCalls++;
+        return {
+          buffer: validJpeg,
+          orientation: 1,
+          source: 'strip',
+        };
+      };
 
       const invalidOut = '/dev/null/forbidden/path/thumb.webp';
+      let errorThrown: any = null;
       try {
         await PhotoWorker.renderFromImage({
           type: ThumbnailSourceType.Photo,
-          mediaPath: imgPath,
+          mediaPath: cr2File,
           size: 50,
           makeSquare: true,
           outPath: invalidOut,
@@ -690,10 +796,18 @@ describe('PhotoWorker RAW Preview Safety and Orientation', () => {
           sharpOptions: {},
           animate: false,
         });
-        expect.fail('Should have failed');
       } catch (err: any) {
-        expect(err).to.exist;
+        errorThrown = err;
+      } finally {
+        ImageRendererFactory.getRawPreview = origGetRawPreview;
       }
+
+      // Assert error was thrown by toFile and did not succeed
+      expect(errorThrown, 'Expected renderFromImage to fail with write error').to.not.be.null;
+      // Assert it is indeed a file/filesystem write error
+      expect(errorThrown.message || errorThrown.toString()).to.match(/ENOENT|cannot open|failed to write|unable to open/i);
+      // Assert that getRawPreview was called exactly once and was NOT retried on write failure
+      expect(getRawPreviewCalls).to.equal(1);
     });
   });
 

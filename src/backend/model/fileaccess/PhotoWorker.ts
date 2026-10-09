@@ -246,11 +246,11 @@ export class ImageRendererFactory {
       case 1:
         return image;
       case 2:
-        return image.flop();
+        return image.rotate(180).flip();
       case 3:
         return image.rotate(180);
       case 4:
-        return image.flip();
+        return image.rotate(180).flop();
       case 5:
         return image.rotate(90).flip();
       case 6:
