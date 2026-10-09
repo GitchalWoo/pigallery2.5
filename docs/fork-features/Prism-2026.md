@@ -1,0 +1,70 @@
+# Prism — 2026 visual experiment
+
+Branch: `design/prism-2026`.
+
+A photo studio treatment built on the existing Bootstrap controls: a floating navigation shell, rounded folder/album/face covers, quieter photo tiles, and an orbital login illustration made entirely with CSS. No external fonts, image downloads, or new dependencies.
+
+## Try it
+
+```bash
+source ~/.nvm/nvm.sh
+nvm use
+npm run build-en
+npm start -- --Server-port=8081 --Gallery-Themes-selectedTheme=prism
+```
+
+Open http://localhost:8081. Use 8082 if another server owns 8081. For a persistent choice, select **prism** in the Gallery theme settings and save. The main menu still cycles Light → Dark → Auto.
+
+Prism is an opt-in design: its layout and controls apply only when **prism** is selected and themes are enabled. Default, Classic, and existing custom themes retain the legacy design and original login layout. Shared Faces readability and collection spacing improvements apply to all themes. Collection mastheads have been removed. Light/Dark/Auto remains independent of the selected design. Existing saved theme lists offer Prism without changing their entries; selecting Prism adds its editable CSS only when missing. Existing custom CSS named `prism`, even an empty definition, takes precedence over the built-in palette.
+
+Palette source: [PrismTheme.ts](../../src/common/config/public/PrismTheme.ts). The scoped skin and surface/accent tokens live in [prism.css](../../src/frontend/prism.css), derived from Bootstrap variables. The server marks Prism pages with `data-gallery-design="prism"` before rendering, so the selected design also applies to login without a layout flash. Palette fallback tokens use zero-specificity `:where(...)` so built-in and administrator `:root` declarations take precedence. Custom palettes can override `--pg-accent`, `--pg-accent-rgb`, `--pg-surface`, `--pg-soft`, `--pg-stroke`, and `--pg-shadow`.
+
+## Shared collection improvements
+
+Faces uses compact circular portraits with separate, wrapping captions instead of name overlays. Favourite stars remain visible on both pale and dark thumbnails. The shared component styles use Bootstrap colors; Prism adds its surfaces and a gallery-style transparent toolbar.
+
+Albums has a translated title bar matching Faces and the gallery, with no sorting controls yet. All three toolbars share a title/control row height and breadcrumb alignment in every theme. Prism uses the same toolbar padding and reserves a stable main-navbar height across these pages; Timeline retains its distinct layout. On phones, gallery controls stay on one compact row and the item count is hidden to avoid wrapping. Faces only shows its group separator when both favourites and other people are present. The Albums add-search tile stays in document flow. Faces and Albums recalculate card widths on window resize using the actual page padding, so desktop and mobile layouts fit the container.
+
+After saving a theme selection, enabled state, or palette edits, reload the page to apply the server-rendered stylesheet and design marker together. Theme selection does not preview unsaved changes. Changing just the design marker would leave the palette and compiled login route inconsistent.
+
+Collection spacing uses `--gallery-page-gutter`: 0.75rem in the shared design and a responsive 0.5–1.5rem value in Prism. Gallery/search folders, blog previews, photos, group headings, toolbar titles, Albums, Faces, Timeline, and full-width settings align to this gutter. Page containers own the inset so the grid does not add it twice; grid rows measure their actual available width. Timeline still reserves space for its month rail. Long blog previews and their media groups are constrained in every theme. The first group heading has a compact top gap, and an empty folder list adds no Prism bottom margin.
+
+## Theme-owned page templates
+
+The original [login.component.html](../../src/frontend/app/ui/login/login.component.html) and its component remain unchanged. Prism owns a separate [login template](../../src/frontend/app/themes/prism/login/prism-login.component.html) and [component](../../src/frontend/app/themes/prism/login/prism-login.component.ts). Its component inherits the original login behavior, including local credentials, OIDC, validation state, and navigation.
+
+The [page override registry](../../src/frontend/app/themes/theme-templates.ts) selects the compiled Prism login component when Prism is enabled; all other selections use the original component. The router loads only the selected page. There are no theme conditionals or injected theme markup in the original login HTML.
+
+HTML overrides are theme-owned Angular templates registered in source and compiled with the app. Themes added through the CSS editor keep the original pages unless a page override is registered for that theme. To add another theme layout, create its component/template under `app/themes/<theme>/` and register the loader; the original page stays the fallback.
+
+## Local container
+
+Build the current working tree (including uncommitted design edits):
+
+```bash
+podman build -t pigallery2-prism -f docker/debian-trixie/selfcontained/Dockerfile .
+podman run -d --name pigallery2-prism \
+  -p 127.0.0.1:8083:80 \
+  -v "$PWD/demo/images:/app/data/images:ro" \
+  -v prism-config:/app/data/config \
+  -v prism-db:/app/data/db \
+  -v prism-cache:/app/data/tmp \
+  pigallery2-prism
+```
+
+Open http://localhost:8083 and select Prism in settings. `docker` can replace `podman`. Subsequent starts use `podman start pigallery2-prism`; inspect startup credentials with `podman logs pigallery2-prism`.
+
+## Compatibility and checks
+
+- Bootstrap remains responsible for button states, contextual alerts, forms, modal and dropdown behavior. Prism also maps outline-primary and secondary button states to its palette, so sorting icons and the Light/Dark/Auto control do not retain Bootstrap blue or flat grey.
+- Light/dark/automatic mode and configurable navigation remain in place.
+- Gallery rows retain their calculated layout; oversized sparse rows are constrained to narrow viewports. Long Markdown previews no longer extend the document width.
+- Prism supports focus outlines, touch-visible photo actions, reduced-motion preferences, and translated UI text.
+- Validation passed: production English build (1.54 MB initial bundle), 231 frontend tests, frontend spec type-check, 8 focused PublicRouter tests, and isolated Cypress desktop/mobile smoke checks. Browser checks covered Prism light/dark, Classic, default light/dark, login, gallery, mobile menu bounds, collection routes, settings dropdowns, and viewer open/close, plus the original Classic login/gallery on a separate server.
+- Collection consistency check: English production build and isolated Brave checks passed at 1440, 768, 390, and 320 px. Gallery, Faces, and Albums share identical Prism navbar/toolbar heights; Classic title bars and mobile overflow were also checked.
+- Review fixes verified: five focused theme-settings tests, frontend spec type-check, English production build, and Brave assertions for built-in light/dark surfaces, custom `:root` token overrides, and an empty palette falling back to Bootstrap.
+- Search spacing verified: English production build, 33 focused grid tests, and Brave checks for search/folder results at 1440, 390, and 320 px in Classic and Prism. Checks covered result gutters, horizontal overflow, sorting menu access, and viewer open/close.
+- Gutter consistency verified: English production build, 50 focused grid/Timeline tests, and Brave measurements across Gallery, search, Albums, Faces, Timeline, and settings at 1440, 390, and 320 px in Classic and Prism. Checks covered matching content/heading/title edges and no horizontal overflow. The shared settings toolbar also wraps at narrow widths.
+- The integrated browser was unavailable; visual inspection used Cypress screenshots from Brave. The container image itself was not built during this experiment.
+
+Prism login uses the existing configured site title for branding, without slogans or an additional branding setting. Existing translated login labels remain shared. The menu accessibility label is included in all locale catalogs using their existing translation of “Menu”.

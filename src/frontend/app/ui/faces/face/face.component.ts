@@ -13,6 +13,7 @@ import {SearchQueryUtils} from '../../../../../common/SearchQueryUtils';
 
 @Component({
     selector: 'app-face',
+    host: {'[style.width.px]': 'size + 2'}, // reserve the card border without letting long names expand it
     templateUrl: './face.component.html',
     styleUrls: ['./face.component.css'],
     changeDetection: ChangeDetectionStrategy.Eager,

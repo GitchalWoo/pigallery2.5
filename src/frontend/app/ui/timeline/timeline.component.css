@@ -1,5 +1,6 @@
 .timeline-body {
   padding-bottom: 2rem;
+  padding-inline: calc(var(--gallery-page-gutter) - 2px);
 }
 
 .timeline-sentinel {
@@ -47,6 +48,8 @@
 
 @media (min-width: 768px) {
   .timeline-has-rail {
-    padding-right: 4.75rem;
+    padding-right: calc(4.75rem + var(--gallery-page-gutter) - 2px);
   }
 }
+
+.timeline-body > .d-flex, .timeline-body > .alert { margin-inline: 2px; }

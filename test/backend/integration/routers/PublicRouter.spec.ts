@@ -1,3 +1,5 @@
+import {PRISM_THEME} from '../../../../src/common/config/public/PrismTheme';
+import {ThemeConfig} from '../../../../src/common/config/public/ClientConfig';
 import {Config} from '../../../../src/common/config/private/Config';
 import {Server} from '../../../../src/backend/server';
 import {UserDTO, UserRoles} from '../../../../src/common/entities/UserDTO';
@@ -105,6 +107,72 @@ describe('PublicRouter', () => {
       shouldHaveInjectedUser(res, RouteTestingHelper.getExpectedSharingUserForUI(sharing));
     });
 
+  });
+
+  describe('Built-in Prism theme', () => {
+    beforeEach(setUp);
+    afterEach(tearDown);
+
+    it('opts into the new layout only for enabled Prism, preserving legacy selections', async () => {
+      const themes = Config.Gallery.Themes;
+      const originalName = themes.selectedTheme;
+      const originalEnabled = themes.enabled;
+      try {
+        for (const name of ['default', 'classic', 'custom', 'prism']) {
+          themes.enabled = true;
+          themes.selectedTheme = name;
+          const res = await (request.execute(server.Server) as SuperAgentStatic).get('/');
+          res.should.have.status(200);
+          expect(res.text).to.include(`data-gallery-design="${name === 'prism' ? 'prism' : 'legacy'}"`);
+        }
+        themes.enabled = false;
+        const res = await (request.execute(server.Server) as SuperAgentStatic).get('/');
+        expect(res.text).to.include('data-gallery-design="legacy"');
+        expect(res.text).not.to.include(PRISM_THEME);
+      } finally {
+        themes.selectedTheme = originalName;
+        themes.enabled = originalEnabled;
+      }
+    });
+
+    it('serves Prism for older configurations without changing their saved theme list', async () => {
+      const themes = Config.Gallery.Themes;
+      const originalName = themes.selectedTheme;
+      const originalThemes = themes.availableThemes;
+      try {
+        themes.selectedTheme = 'prism';
+        themes.availableThemes = [new ThemeConfig('custom', ':root { --bs-primary: red; }')];
+        const res = await (request.execute(server.Server) as SuperAgentStatic).get('/');
+        res.should.have.status(200);
+        expect(res.text).to.include(PRISM_THEME);
+        expect(themes.availableThemes).to.have.lengthOf(1);
+        expect(themes.availableThemes[0].name).to.equal('custom');
+      } finally {
+        themes.selectedTheme = originalName;
+        themes.availableThemes = originalThemes;
+      }
+    });
+
+    it('preserves customized Prism CSS, including an intentionally empty palette', async () => {
+      const themes = Config.Gallery.Themes;
+      const originalName = themes.selectedTheme;
+      const originalThemes = themes.availableThemes;
+      try {
+        themes.selectedTheme = 'prism';
+        for (const css of [':root { --pg-accent: coral; }', '']) {
+          themes.availableThemes = [new ThemeConfig('prism', css)];
+          const res = await (request.execute(server.Server) as SuperAgentStatic).get('/');
+          res.should.have.status(200);
+          expect(res.text).not.to.include(PRISM_THEME);
+          if (css) {
+            expect(res.text).to.include(css);
+          }
+        }
+      } finally {
+        themes.selectedTheme = originalName;
+        themes.availableThemes = originalThemes;
+      }
+    });
   });
 
   describe('Icon caching', () => {

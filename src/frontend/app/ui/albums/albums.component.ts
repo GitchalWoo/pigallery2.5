@@ -1,4 +1,4 @@
-import {Component, ElementRef, type OnInit, TemplateRef, ViewChild, ChangeDetectionStrategy} from '@angular/core';
+import {Component, ElementRef, HostListener, type OnInit, TemplateRef, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import {AlbumsService} from './albums.service';
 import {BsModalRef, BsModalService} from 'ngx-bootstrap/modal';
 import {SearchQueryTypes, type TextSearch,} from '../../../../common/entities/SearchQueryDTO';
@@ -82,11 +82,17 @@ export class AlbumsComponent implements OnInit {
     this.hideModal();
   }
 
+  @HostListener('window:resize')
+  onResize(): void {
+    this.updateSize();
+  }
+
   private updateSize(): void {
-    const size = 220 + 5;
-    // body - container margin
-    const containerWidth = this.container.nativeElement.clientWidth - 30;
-    this.size = containerWidth / Math.round(containerWidth / size) - 5;
+    const element = this.container.nativeElement as HTMLElement;
+    const style = getComputedStyle(element);
+    const width = Math.max(1, element.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0));
+    const columns = Math.max(1, Math.round(width / 225));
+    this.size = Math.max(1, Math.floor(width / columns) - 4);
   }
 }
 

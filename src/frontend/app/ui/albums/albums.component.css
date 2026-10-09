@@ -4,8 +4,9 @@ app-album {
 }
 
 
-.container-fluid {
+.container-fluid[body] {
   line-height: 0;
+  padding-inline: calc(var(--gallery-page-gutter) - 2px);
 }
 
 .no-item-msg {
@@ -36,3 +37,7 @@ app-album {
   display: inline-block;
   width: 100%;
 }
+
+/* Match the breathing room on other collection pages. */
+.container-fluid[body] { padding-top: 0; padding-bottom: 2rem; }
+.add-saved-search { position: relative; vertical-align: top; }

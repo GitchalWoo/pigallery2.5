@@ -8,7 +8,7 @@
         [person]="person"
       [size]="size"></app-face>
     }
-    @if ((nonFavourites | async).length > 0) {
+    @if ((favourites | async).length > 0 && (nonFavourites | async).length > 0) {
       <hr/>
     }
     @for (person of nonFavourites | async; track person) {

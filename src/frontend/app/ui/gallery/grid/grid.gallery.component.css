@@ -6,6 +6,7 @@
 /* groups sharing a row would otherwise align on their last image row (baseline) */
 .media-group {
     vertical-align: top;
+    max-width: 100%;
 }
 
 .media-grid {
@@ -16,4 +17,13 @@
 app-gallery-grid-photo {
     display: inline-block;
     cursor: pointer;
+}
+
+/* Give the first result heading a compact gap below the collection toolbar. */
+.media-group:first-child > .mt-4:first-child {
+    margin-top: .75rem !important;
+}
+
+.media-group h6 {
+    margin-left: 2px !important;
 }
