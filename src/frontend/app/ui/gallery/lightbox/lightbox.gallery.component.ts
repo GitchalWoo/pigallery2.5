@@ -271,14 +271,14 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     }
     this.status = LightboxStates.Opening;
     const gridMedia = this.source.get(index);
-
-    const lightboxDimension = this.getGridDimension(index);
-    lightboxDimension.top -= PageHelper.ScrollY;
     this.animating = true;
 
-    // Set activePhoto first so mediaElement has active media inputs and thumbnail ready
+    // Set activePhoto first so mediaElement has active media inputs and thumbnail ready,
+    // and any scroll-to-target completes before measuring final viewport geometry
     this.showPhoto(index, false);
     this.piTitleService.setMediaTitle(gridMedia);
+
+    const lightboxDimension = this.toViewportDimension(this.getGridDimension(index));
 
     this.animatePhoto(
       lightboxDimension,
@@ -627,13 +627,31 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     step(1).catch(console.error);
   }
 
+  private toViewportDimension(docDimension: Dimension): Dimension {
+    return {
+      top: docDimension.top - PageHelper.ScrollY,
+      left: docDimension.left - PageHelper.ScrollX,
+      width: docDimension.width,
+      height: docDimension.height,
+    };
+  }
+
   private getGridDimension(index: number): Dimension {
-    return this.source.animationTarget(index) ?? {
+    const target = this.source.animationTarget(index);
+    if (target) {
+      return {
+        top: target.top,
+        left: target.left,
+        width: target.width,
+        height: target.height,
+      };
+    }
+    return {
       top: PageHelper.ScrollY + this.photoFrameDim.height / 2,
-      left: this.photoFrameDim.width / 2,
+      left: PageHelper.ScrollX + this.photoFrameDim.width / 2,
       width: 0,
       height: 0,
-    } as Dimension;
+    };
   }
 
   private showPhoto(photoIndex: number, resize = true): void {
@@ -652,8 +670,7 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     this.stopSlideShow();
 
     this.animating = true;
-    const lightboxDimension = this.getGridDimension(this.activePhotoId);
-    lightboxDimension.top -= PageHelper.ScrollY;
+    const lightboxDimension = this.toViewportDimension(this.getGridDimension(this.activePhotoId));
     this.blackCanvasOpacity = 0;
 
     this.animatePhoto(

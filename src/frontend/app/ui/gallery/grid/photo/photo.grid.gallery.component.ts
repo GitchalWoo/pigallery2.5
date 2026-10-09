@@ -50,7 +50,15 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
 
   wasInView: boolean = null;
   loaded = false;
+  imageError = false;
+  private destroyed = false;
+  private requestedSrc: string | null = null;
+  private loadVersion = 0;
   public mediaButtons: IClientMediaButtonConfigWithBaseApiPath[];
+
+  get hasError(): boolean {
+    return (this.thumbnail?.Error && !this.loaded) || this.imageError;
+  }
 
   constructor(
     private thumbnailService: ThumbnailManagerService,
@@ -156,7 +164,14 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
 
   ngOnInit(): void {
     this.thumbnail = this.thumbnailService.getThumbnail(this.gridMedia);
+    this.requestedSrc = this.thumbnail?.Src ?? null;
+    this.loadVersion = 0;
     this.thumbnail.OnLoad = () => {
+      if (this.requestedSrc !== this.thumbnail.Src) {
+        this.requestedSrc = this.thumbnail.Src;
+        this.loadVersion++;
+        this.imageError = false;
+      }
       this.changeDetector.markForCheck();
     };
     const metadata = this.gridMedia.media.metadata as PhotoMetadata;
@@ -192,25 +207,80 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
   ngAfterViewInit(): void {
     const img = this.imageRef?.nativeElement;
     if (img?.complete && img.naturalWidth > 0) {
+      this.requestedSrc = this.thumbnail?.Src ?? img.src;
+      this.imageError = false;
       this.loaded = true;
       this.changeDetector.markForCheck();
     }
+  }
+
+  onImageError(): void {
+    if (this.destroyed) {
+      return;
+    }
+    this.imageError = true;
+    this.loaded = false;
+    this.changeDetector.markForCheck();
   }
 
   onImageLoad(): void {
     const img = this.imageRef?.nativeElement;
-    if (img && typeof img.decode === 'function') {
-      img.decode().catch(() => {}).finally(() => {
+    if (!img) {
+      return;
+    }
+    const targetImg = img;
+    const version = ++this.loadVersion;
+    const targetSrc = this.thumbnail?.Src ?? targetImg.getAttribute('src') ?? targetImg.src;
+    this.requestedSrc = targetSrc;
+
+    const isCurrent = (): boolean => {
+      if (this.destroyed) {
+        return false;
+      }
+      if (this.imageRef?.nativeElement !== targetImg) {
+        return false;
+      }
+      if (this.loadVersion !== version) {
+        return false;
+      }
+      if (this.requestedSrc !== targetSrc) {
+        return false;
+      }
+      const currentAttr = targetImg.getAttribute('src');
+      if (currentAttr && currentAttr !== targetSrc && !targetImg.src.endsWith(targetSrc)) {
+        return false;
+      }
+      return !this.imageError;
+    };
+
+    if (typeof targetImg.decode === 'function') {
+      targetImg.decode()
+        .then(() => {
+          if (isCurrent()) {
+            this.imageError = false;
+            this.loaded = true;
+            this.changeDetector.markForCheck();
+          }
+        })
+        .catch(() => {
+          // Require a usable image for the decode rejection fallback
+          if (isCurrent() && targetImg.complete && targetImg.naturalWidth > 0) {
+            this.imageError = false;
+            this.loaded = true;
+            this.changeDetector.markForCheck();
+          }
+        });
+    } else {
+      if (isCurrent()) {
+        this.imageError = false;
         this.loaded = true;
         this.changeDetector.markForCheck();
-      });
-    } else {
-      this.loaded = true;
-      this.changeDetector.markForCheck();
+      }
     }
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.thumbnail.destroy();
 
     if (this.animationTimer != null) {
@@ -219,12 +289,19 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
   }
 
   isInView(): boolean {
+    const el = this.container?.nativeElement;
+    if (!el || typeof el.getBoundingClientRect !== 'function') {
+      return false;
+    }
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return false;
+    }
     return (
-      PageHelper.ScrollY <
-      this.container.nativeElement.offsetTop +
-      this.container.nativeElement.clientHeight &&
-      PageHelper.ScrollY + window.innerHeight >
-      this.container.nativeElement.offsetTop
+      rect.bottom > 0 &&
+      rect.top < window.innerHeight &&
+      rect.right > 0 &&
+      rect.left < window.innerWidth
     );
   }
 
@@ -300,7 +377,25 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
   }
 
   public getDimension(): Dimension {
-    if (!this.imageRef?.nativeElement?.offsetParent) {
+    let rect: DOMRect | null = null;
+    const img = this.imageRef?.nativeElement;
+    if (img && typeof img.getBoundingClientRect === 'function') {
+      const imgRect = img.getBoundingClientRect();
+      if (imgRect.width > 0 && imgRect.height > 0) {
+        rect = imgRect;
+      }
+    }
+    if (!rect) {
+      const container = this.container?.nativeElement;
+      if (container && typeof container.getBoundingClientRect === 'function') {
+        const containerRect = container.getBoundingClientRect();
+        if (containerRect.width > 0 && containerRect.height > 0) {
+          rect = containerRect;
+        }
+      }
+    }
+
+    if (!rect) {
       return {
         top: 0,
         left: 0,
@@ -308,11 +403,12 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
         height: 0,
       };
     }
+
     return {
-      top: this.imageRef.nativeElement.offsetParent.offsetTop,
-      left: this.imageRef.nativeElement.offsetParent.offsetLeft,
-      width: this.imageRef.nativeElement.width,
-      height: this.imageRef.nativeElement.height,
+      top: rect.top + PageHelper.ScrollY,
+      left: rect.left + PageHelper.ScrollX,
+      width: rect.width,
+      height: rect.height,
     };
   }
 }

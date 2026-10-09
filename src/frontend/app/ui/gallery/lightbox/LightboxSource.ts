@@ -27,7 +27,7 @@ export interface LightboxSource {
 
   indexOfId(id: string): number;
 
-  // Grid position in page coordinates; null when the item is not rendered.
+  // Grid position in document-space coordinates (CSS pixels), including scroll offsets; null when the item is not rendered.
   animationTarget(index: number): Dimension | null;
 
   queryParams(media?: MediaDTO): Params;

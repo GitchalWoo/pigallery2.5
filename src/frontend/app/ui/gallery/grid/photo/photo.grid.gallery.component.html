@@ -1,9 +1,9 @@
 <div #photoContainer class="photo-container rounded" (mouseover)="mouseOver()" (mouseout)="mouseOut()">
 
-  @if (!loaded) {
+  @if (!loaded || hasError) {
     <app-gallery-grid-photo-loading
-      [error]="thumbnail.Error"
-      [animate]="thumbnail.loading">
+      [error]="hasError"
+      [animate]="!hasError">
     </app-gallery-grid-photo-loading>
   }
 
@@ -11,6 +11,7 @@
     <img alt="{{gridMedia.media.name}}" #img [src]="thumbnail.Src"
          decoding="sync"
          (load)="onImageLoad()"
+         (error)="onImageError()"
          [class.loaded]="loaded">
   }
 

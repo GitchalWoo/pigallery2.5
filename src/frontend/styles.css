@@ -1,5 +1,6 @@
 :root{
-  --item-background: #bbbbbb
+  --item-background: #bbbbbb;
+  --item-loading-indicator: #555555;
 }
 
 a {
