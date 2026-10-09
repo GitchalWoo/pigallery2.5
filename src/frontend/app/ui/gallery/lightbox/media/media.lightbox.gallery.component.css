@@ -49,3 +49,19 @@
   border-color: rgba(255, 255, 255, 0.7);
 }
 
+.high-res-error-badge {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  z-index: 10;
+  pointer-events: none;
+}
+
+

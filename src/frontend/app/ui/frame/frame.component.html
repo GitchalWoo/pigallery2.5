@@ -1,6 +1,4 @@
-@if (loadingBarService.isLoading()) {
-  <div class="top-loading-bar" role="progressbar" aria-label="Loading"></div>
-}
+<app-top-loading-bar></app-top-loading-bar>
 <div #navContainer class="navbar-container auto-hide-navbar"
   [class.navbar-keep-top]="navbarKeepTop || fixNavbarOnTop"
   [class.hide-navbar]="!navbarKeepTop && shouldHideNavbar"

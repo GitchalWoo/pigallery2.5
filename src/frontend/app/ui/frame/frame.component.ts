@@ -25,6 +25,7 @@ import {FormsModule} from '@angular/forms';
 import {GalleryService} from '../gallery/gallery.service';
 import {UploaderService} from '../gallery/uploader/uploader.service';
 import {SearchQueryUtils} from '../../../../common/SearchQueryUtils';
+import {TopLoadingBarComponent} from '../top-loading-bar/top-loading-bar.component';
 
 @Component({
   selector: 'app-frame',
@@ -43,7 +44,8 @@ import {SearchQueryUtils} from '../../../../common/SearchQueryUtils';
     BsDropdownDirective,
     BsDropdownToggleDirective,
     BsDropdownMenuDirective,
-    FormsModule
+    FormsModule,
+    TopLoadingBarComponent
 ],
 })
 export class FrameComponent {

@@ -28,7 +28,7 @@ export class LightboxGesturesDirective {
 
   @HostListener('pointerdown', ['$event'])
   pointerDown(event: PointerEvent): void {
-    if (event.button !== 0 || (event.target as HTMLElement).closest('a, button, input, select, textarea')) {
+    if (event.button !== 0 || (event.target as HTMLElement).closest('a, button, input, select, textarea, .navigation-arrow, .control-button, [role="button"]')) {
       return;
     }
     const position = {x: event.clientX, y: event.clientY};

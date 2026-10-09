@@ -17,6 +17,7 @@
   left: 50%;
   position: absolute;
   line-height: 0;
+  transition: transform 0.1s ease-out;
 }
 
 .navigation-arrow-left ng-icon {
@@ -24,6 +25,18 @@
 }
 .navigation-arrow-right ng-icon {
   transform: translate(-45%,-50%);
+}
+
+.navigation-arrow:active {
+  background-color: rgba(0, 0, 0, 0.45);
+}
+
+.navigation-arrow-left:active ng-icon {
+  transform: translate(-55%, -50%) scale(0.9);
+}
+
+.navigation-arrow-right:active ng-icon {
+  transform: translate(-45%, -50%) scale(0.9);
 }
 
 #controllers-container {

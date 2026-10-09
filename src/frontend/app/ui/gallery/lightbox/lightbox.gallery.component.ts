@@ -21,6 +21,7 @@ import {NgIconComponent} from '@ng-icons/core';
 import {InfoPanelLightboxComponent} from './infopanel/info-panel.lightbox.gallery.component';
 import {LightboxService} from './lightbox.service';
 import {GridLightboxSource, type LightboxItem, type LightboxSource} from './LightboxSource';
+import {TopLoadingBarComponent} from '../../top-loading-bar/top-loading-bar.component';
 
 export enum LightboxStates {
   Open = 1,
@@ -42,7 +43,8 @@ export interface LightboxAnimationPlayer {
     GalleryLightboxMediaComponent,
     NgIconComponent,
     ControlsLightboxComponent,
-    InfoPanelLightboxComponent
+    InfoPanelLightboxComponent,
+    TopLoadingBarComponent
 ]
 })
 export class GalleryLightboxComponent implements OnDestroy, OnInit {
@@ -75,9 +77,22 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
   } as Dimension;
   private iPvisibilityTimer: number = null;
   private visibilityTimer: number = null;
+  private openingTimer: number = null;
   private delayedMediaShow: string = null;
   private activePhotoId: number = null;
   private source: LightboxSource;
+  public isNativeFullScreen = false;
+  private pendingPhotoIndex: number = null;
+
+  private clearOpeningTimer(): void {
+    if (this.openingTimer != null) {
+      clearTimeout(this.openingTimer);
+      this.openingTimer = null;
+    }
+  }
+  private onFsChange = (): void => {
+    this.checkNativeFullScreen();
+  };
   private subscription: {
     photosChange: Subscription;
     route: Subscription;
@@ -132,16 +147,33 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
   }
 
   public toggleFullscreen(): void {
-    if (this.fullScreenService.isFullScreenEnabled()) {
+    if (this.fullScreenService?.isFullScreenEnabled()) {
       this.fullScreenService.exitFullScreen();
     } else {
-      this.fullScreenService.showFullScreen(this.root.nativeElement);
+      this.fullScreenService?.showFullScreen(this.root?.nativeElement);
+    }
+    this.checkNativeFullScreen();
+  }
+
+  @HostListener('document:fullscreenchange')
+  onFullScreenDomChange(): void {
+    this.checkNativeFullScreen();
+  }
+
+  public checkNativeFullScreen(): void {
+    const isFs = !!(this.fullScreenService?.isElementFullScreen &&
+      this.fullScreenService.isElementFullScreen(this.root?.nativeElement));
+    if (this.isNativeFullScreen !== isFs) {
+      this.isNativeFullScreen = isFs;
+      this.changeDetector.markForCheck();
     }
   }
 
   ngOnInit(): void {
     this.infoPanelMaxWidth = 1000;
     this.updatePhotoFrameDim();
+    this.fullScreenService?.OnFullScreenChange?.on(this.onFsChange);
+    this.checkNativeFullScreen();
     this.subscription.route = this.route.queryParams.subscribe(
       (params: Params) => {
         const validPhoto = params[QueryParams.gallery.photo] &&
@@ -172,8 +204,11 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
   }
 
   ngOnDestroy(): void {
+    this.clearOpeningTimer();
     this.navigationToken++;
     this.stopSlideShow();
+    this.fullScreenService?.OnFullScreenChange?.off(this.onFsChange);
+    this.mediaElement?.cancelActiveRequest();
     if (this.subscription.photosChange != null) {
       this.subscription.photosChange.unsubscribe();
     }
@@ -207,7 +242,7 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
           // make sure that currently shown media has uses the right index.
           if (index !== -1) {
             this.activePhotoId = index;
-            this.updateActivePhoto(this.activePhotoId);
+            this.updateActivePhoto(this.activePhotoId, this.status === LightboxStates.Open);
             // if the photo is not available anymore, navigate to the first one.
           } else if (this.source.length > 0) {
             if (this.status === LightboxStates.Open) {
@@ -242,14 +277,19 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
   }
 
   public nextImage(): void {
-    if (this.activePhotoId + 1 < this.source.length) {
-      this.navigateToPhoto(this.activePhotoId + 1);
+    const baseIndex = this.pendingPhotoIndex ?? this.activePhotoId;
+    if (baseIndex != null && baseIndex + 1 < this.source.length) {
+      this.pendingPhotoIndex = baseIndex + 1;
+      this.mediaElement?.cancelActiveRequest();
+      this.navigateToPhoto(this.pendingPhotoIndex);
     } else if (this.source.hasMore()) {
       // errors need an explicit retry, so the slideshow timer does not hammer the server
       if (this.source.loadState !== 'error') {
         this.loadMoreAndAdvance();
       }
     } else if (this.lightboxService.loopSlideshow) {
+      this.pendingPhotoIndex = 0;
+      this.mediaElement?.cancelActiveRequest();
       this.navigateToPhoto(0);
     }
   }
@@ -260,8 +300,11 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
 
   public prevImage(): void {
     this.stopSlideShow();
-    if (this.activePhotoId > 0) {
-      this.navigateToPhoto(this.activePhotoId - 1);
+    const baseIndex = this.pendingPhotoIndex ?? this.activePhotoId;
+    if (baseIndex != null && baseIndex > 0) {
+      this.pendingPhotoIndex = baseIndex - 1;
+      this.mediaElement?.cancelActiveRequest();
+      this.navigateToPhoto(this.pendingPhotoIndex);
     }
   }
 
@@ -272,6 +315,16 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     this.status = LightboxStates.Opening;
     const gridMedia = this.source.get(index);
     this.animating = true;
+
+    this.clearOpeningTimer();
+    this.openingTimer = window.setTimeout((): void => {
+      this.openingTimer = null;
+      if (this.status === LightboxStates.Opening) {
+        this.animating = false;
+        this.status = LightboxStates.Open;
+        this.changeDetector.markForCheck();
+      }
+    }, 350);
 
     // Set activePhoto first so mediaElement has active media inputs and thumbnail ready,
     // and any scroll-to-target completes before measuring final viewport geometry
@@ -284,9 +337,12 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
       lightboxDimension,
       this.calcLightBoxPhotoDimension(gridMedia.media)
     ).onDone((): void => {
-      this.animating = false;
-      this.status = LightboxStates.Open;
-      this.changeDetector.markForCheck();
+      this.clearOpeningTimer();
+      if (this.status === LightboxStates.Opening) {
+        this.animating = false;
+        this.status = LightboxStates.Open;
+        this.changeDetector.markForCheck();
+      }
     });
     this.animateLightbox(lightboxDimension, {
       top: 0,
@@ -328,6 +384,7 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
   ): LightboxAnimationPlayer {
     let doneCb: (() => void) | null = null;
     let finished = false;
+    let fallbackTimer: any = null;
 
     const fromStyles = DimensionUtils.toString(from);
     const toStyles = DimensionUtils.toString(to);
@@ -343,6 +400,10 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     const finish = () => {
       if (finished) return;
       finished = true;
+      if (fallbackTimer != null) {
+        clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
       if (target?.style) {
         Object.assign(target.style, toStyles);
       }
@@ -370,6 +431,8 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
           fill: 'forwards',
         });
         anim.onfinish = finish;
+        anim.oncancel = finish;
+        fallbackTimer = setTimeout(finish, 350);
       } catch (e) {
         finish();
       }
@@ -575,6 +638,7 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
 
   private navigateToPhoto(photoIndex: number): void {
     const gridMedia = this.source.get(photoIndex);
+    this.piTitleService.setMediaTitle(gridMedia);
     this.router
       .navigate([], {
         queryParams: this.source.queryParams(gridMedia.media),
@@ -655,12 +719,20 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
   }
 
   private showPhoto(photoIndex: number, resize = true): void {
+    if (this.status === LightboxStates.Opening && resize) {
+      this.clearOpeningTimer();
+      this.animating = false;
+      this.status = LightboxStates.Open;
+    }
     this.updateActivePhoto(photoIndex, resize);
     this.changeDetector.markForCheck();
   }
 
   private hideLightbox(): void {
+    this.clearOpeningTimer();
     this.navigationToken++;
+    this.pendingPhotoIndex = null;
+    this.mediaElement?.cancelActiveRequest();
     if (this.controls) {
       this.controls.resetZoom();
     }
@@ -700,6 +772,7 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     if (photoIndex < 0 || photoIndex >= this.source.length) {
       throw new Error('Can\'t find the media');
     }
+    this.pendingPhotoIndex = photoIndex;
     this.videoSourceError = false;
     this.activePhotoId = photoIndex;
     const gridMedia = this.source.get(photoIndex);
@@ -732,25 +805,29 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
   }
 
   private calcLightBoxPhotoDimension(photo: MediaDTO): Dimension {
+    const metaWidth = photo?.metadata?.size?.width;
+    const metaHeight = photo?.metadata?.size?.height;
+    const photoWidth = (metaWidth && metaWidth > 0) ? metaWidth : (this.photoFrameDim?.width || 1);
+    const photoHeight = (metaHeight && metaHeight > 0) ? metaHeight : (this.photoFrameDim?.height || 1);
+    const photoAspect = photoWidth / photoHeight;
+    const windowAspect = this.photoFrameDim?.aspect || 1;
     let width: number;
     let height: number;
-    const photoAspect = photo.metadata.size.width / photo.metadata.size.height;
-    const windowAspect = this.photoFrameDim.aspect;
     if (photoAspect < windowAspect) {
       width = Math.round(
-        photo.metadata.size.width *
-        (this.photoFrameDim.height / photo.metadata.size.height)
+        photoWidth *
+        ((this.photoFrameDim?.height || 1) / photoHeight)
       );
-      height = this.photoFrameDim.height;
+      height = this.photoFrameDim?.height || 1;
     } else {
-      width = this.photoFrameDim.width;
+      width = this.photoFrameDim?.width || 1;
       height = Math.round(
-        photo.metadata.size.height *
-        (this.photoFrameDim.width / photo.metadata.size.width)
+        photoHeight *
+        ((this.photoFrameDim?.width || 1) / photoWidth)
       );
     }
-    const top = this.photoFrameDim.height / 2 - height / 2;
-    const left = this.photoFrameDim.width / 2 - width / 2;
+    const top = Math.round((this.photoFrameDim?.height || 0) / 2 - height / 2);
+    const left = Math.round((this.photoFrameDim?.width || 0) / 2 - width / 2);
 
     return {top, left, width, height} as Dimension;
   }

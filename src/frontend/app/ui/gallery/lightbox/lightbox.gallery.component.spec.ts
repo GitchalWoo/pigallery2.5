@@ -22,10 +22,15 @@ import {Utils} from '../../../../../common/Utils';
 import {MediaDTO} from '../../../../../common/entities/MediaDTO';
 import {LightboxSource} from './LightboxSource';
 import {PageHelper} from '../../../model/page.helper';
+import {Event} from '../../../../../common/event/Event';
 
 // Mock classes
 class MockFullScreenService {
+  OnFullScreenChange = new Event<boolean>();
   isFullScreenEnabled() {
+    return false;
+  }
+  isElementFullScreen(_el: any) {
     return false;
   }
 
@@ -739,4 +744,216 @@ describe('GalleryLightboxComponent - Coordinate and Geometry Tests', () => {
       expect.anything()
     );
   });
+
+  describe('Rapid Navigation & Fullscreen Loading Bar', () => {
+    let mockSource: LightboxSource;
+    let items: GridMedia[];
+    let changesSubject: Subject<unknown>;
+
+    beforeEach(() => {
+      const photos = [
+        createMockPhoto('photo0.jpg', 0),
+        createMockPhoto('photo1.jpg', 1),
+        createMockPhoto('photo2.jpg', 2),
+      ];
+      items = photos.map((p, i) => new GridMedia(p, 1, 1, i));
+      changesSubject = new Subject<unknown>();
+
+      mockSource = {
+        changes: changesSubject,
+        length: items.length,
+        loadState: 'idle',
+        get: (i: number) => items[i],
+        getMediaId: (m: MediaDTO) => m.name,
+        indexOfId: (id: string) => items.findIndex(g => g.media.name === id),
+        animationTarget: () => ({top: 0, left: 0, width: 100, height: 100}),
+        queryParams: (m?: MediaDTO) => ({photo: m ? m.name : ''}),
+        hasMore: () => false,
+        loadMore: () => Promise.resolve(),
+      };
+      component.setSource(mockSource);
+    });
+
+    it('should queue and advance navigation target on rapid consecutive nextImage clicks', () => {
+      component.showLightbox(0);
+
+      const navSpy = vi.spyOn(mockRouter, 'navigate');
+      const cancelSpy = vi.fn();
+      component.mediaElement = {cancelActiveRequest: cancelSpy} as any;
+
+      // First click: advances to index 1
+      component.nextImage();
+      expect(navSpy).toHaveBeenCalledWith([], expect.objectContaining({
+        queryParams: {photo: 'photo1.jpg'},
+      }));
+      expect(cancelSpy).toHaveBeenCalledTimes(1);
+
+      // Rapid second click (before router updates route queryParams): must advance to index 2
+      component.nextImage();
+      expect(navSpy).toHaveBeenCalledWith([], expect.objectContaining({
+        queryParams: {photo: 'photo2.jpg'},
+      }));
+      expect(cancelSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('should cancel active media request when closing lightbox', () => {
+      component.showLightbox(0);
+
+      const cancelSpy = vi.fn();
+      component.mediaElement = {cancelActiveRequest: cancelSpy} as any;
+
+      (component as any).hideLightbox();
+      expect(cancelSpy).toHaveBeenCalled();
+    });
+
+    it('should update isNativeFullScreen and keep loading bar inside root above lightbox layers', () => {
+      component.showLightbox(0);
+      fixture.detectChanges();
+
+      const fullScreenService = TestBed.inject(FullScreenService);
+      expect(component.isNativeFullScreen).toBe(false);
+      const loadingBar = fixture.nativeElement.querySelector('app-top-loading-bar');
+      expect(loadingBar).not.toBeNull();
+
+      // Enter native fullscreen on root element
+      vi.spyOn(fullScreenService, 'isElementFullScreen').mockImplementation((el) => el === component.root.nativeElement);
+      component.checkNativeFullScreen();
+      fixture.detectChanges();
+
+      expect(component.isNativeFullScreen).toBe(true);
+      expect(fixture.nativeElement.querySelector('app-top-loading-bar')).not.toBeNull();
+
+      // Exit native fullscreen
+      vi.spyOn(fullScreenService, 'isElementFullScreen').mockReturnValue(false);
+      component.checkNativeFullScreen();
+      fixture.detectChanges();
+
+      expect(component.isNativeFullScreen).toBe(false);
+      expect(fixture.nativeElement.querySelector('app-top-loading-bar')).not.toBeNull();
+    });
+
+    it('should promote Opening to Open via safety fallback timer if animation does not settle', () => {
+      vi.useFakeTimers();
+      try {
+        vi.spyOn(component, 'animatePhoto').mockReturnValue({
+          onDone: () => ({ onDone: vi.fn() }) as any,
+        });
+
+        component.showLightbox(0);
+        expect(component.status).toBe(LightboxStates.Opening);
+        expect(component.animating).toBe(true);
+        expect(component.isOpen()).toBe(false);
+
+        // Advance past safety timer (350ms)
+        vi.advanceTimersByTime(400);
+
+        expect(component.status).toBe(LightboxStates.Open);
+        expect(component.animating).toBe(false);
+        expect(component.isOpen()).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should not break opening sequence when source.changes emits while status is Opening', () => {
+      vi.useFakeTimers();
+      try {
+        let doneCallback: (() => void) | null = null;
+        vi.spyOn(component, 'animatePhoto').mockImplementation(() => {
+          const player = {
+            onDone: (cb: () => void) => {
+              doneCallback = cb;
+              return player;
+            },
+          };
+          return player as any;
+        });
+
+        component.showLightbox(0);
+        expect(component.status).toBe(LightboxStates.Opening);
+
+        // Source emits changes (e.g. grid rendered more photos in background)
+        changesSubject.next({});
+
+        // Status should still be Opening without launching a competing resize animation
+        expect(component.status).toBe(LightboxStates.Opening);
+
+        // When opening animation finishes, it should transition to Open
+        if (doneCallback) {
+          doneCallback();
+        }
+        expect(component.status).toBe(LightboxStates.Open);
+        expect(component.animating).toBe(false);
+        expect(component.isOpen()).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should safely compute lightBoxPhotoDimension with missing or 0x0 metadata size without NaN', () => {
+      const mediaWithZeroSize: any = {
+        name: 'raw.cr2',
+        metadata: {
+          size: {width: 0, height: 0},
+        },
+      };
+      const dimZero = (component as any).calcLightBoxPhotoDimension(mediaWithZeroSize);
+      expect(Number.isFinite(dimZero.top)).toBe(true);
+      expect(Number.isFinite(dimZero.left)).toBe(true);
+      expect(Number.isFinite(dimZero.width)).toBe(true);
+      expect(Number.isFinite(dimZero.height)).toBe(true);
+
+      const mediaWithMissingSize: any = {
+        name: 'raw2.cr2',
+        metadata: {},
+      };
+      const dimMissing = (component as any).calcLightBoxPhotoDimension(mediaWithMissingSize);
+      expect(Number.isFinite(dimMissing.top)).toBe(true);
+      expect(Number.isFinite(dimMissing.left)).toBe(true);
+      expect(Number.isFinite(dimMissing.width)).toBe(true);
+      expect(Number.isFinite(dimMissing.height)).toBe(true);
+    });
+
+    it('should call done callback and finish styles when Web Animations API cancels the animation', () => {
+      const fakeTarget: any = {
+        style: {},
+        animate: vi.fn(),
+        getAnimations: vi.fn().mockReturnValue([]),
+      };
+      let cancelHandler: (() => void) | null = null;
+      const fakeAnim: any = {
+        set oncancel(fn: () => void) {
+          cancelHandler = fn;
+        },
+        get oncancel() {
+          return cancelHandler;
+        },
+        set onfinish(fn: () => void) {},
+        cancel: vi.fn().mockImplementation(() => {
+          if (cancelHandler) {
+            cancelHandler();
+          }
+        }),
+      };
+      fakeTarget.animate.mockReturnValue(fakeAnim);
+
+      let doneCalled = false;
+      const player = (component as any).runAnimation(
+        fakeTarget,
+        {top: 10, left: 20, width: 30, height: 40},
+        {top: 50, left: 60, width: 70, height: 80}
+      );
+      player.onDone(() => {
+        doneCalled = true;
+      });
+
+      // Simulate animation cancellation
+      fakeAnim.cancel();
+
+      expect(doneCalled).toBe(true);
+      expect(fakeTarget.style.top).toBe('50px');
+      expect(fakeTarget.style.left).toBe('60px');
+    });
+  });
 });
+

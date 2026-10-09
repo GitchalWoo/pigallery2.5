@@ -7,7 +7,7 @@ import {LightboxGesturesDirective} from './lightbox-gestures.directive';
   template: `<div appLightboxGestures
     (swipeleft)="swipes.push('left')" (swiperight)="swipes.push('right')" (swipeup)="swipes.push('up')"
     (pan)="pans.push($event)" (pinch)="scales.push($event.scale)" (pinchend)="ends.push($event.scale)"
-    (tap)="taps.push($event.tapCount)"><a href="#">Link</a></div>`
+    (tap)="taps.push($event.tapCount)"><a href="#">Link</a><div class="navigation-arrow">Arrow</div></div>`
 })
 class GestureHost {
   swipes: string[] = [];
@@ -113,6 +113,12 @@ describe('Lightbox pointer gestures', () => {
     const link = element.querySelector('a');
     pointer('pointerdown', 200, 200, 1, link);
     pointer('pointerup', 200, 200, 1, link);
+    expect(host.taps).toEqual([]);
+    expect(host.pans).toEqual([]);
+
+    const arrow = element.querySelector<HTMLElement>('.navigation-arrow')!;
+    pointer('pointerdown', 200, 200, 1, arrow);
+    pointer('pointerup', 200, 200, 1, arrow);
     expect(host.taps).toEqual([]);
     expect(host.pans).toEqual([]);
   });

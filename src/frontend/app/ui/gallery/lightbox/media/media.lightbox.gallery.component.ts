@@ -1,11 +1,20 @@
-import {Component, ElementRef, EventEmitter, Input, type OnChanges, Output, ViewChild, ChangeDetectionStrategy, ChangeDetectorRef} from '@angular/core';
+import {Component, ElementRef, EventEmitter, Input, type OnChanges, type OnDestroy, Output, ViewChild, ChangeDetectionStrategy, ChangeDetectorRef} from '@angular/core';
 import {GridMedia} from '../../grid/GridMedia';
 import {MediaDTOUtils} from '../../../../../../common/entities/MediaDTO';
 import {DomSanitizer, type SafeStyle} from '@angular/platform-browser';
 import {SupportedFormats} from '../../../../../../common/SupportedFormats';
 import {Config} from '../../../../../../common/config/public/Config';
 import {LightboxService} from '../lightbox.service';
+import {LoadingBarService} from '../../../../model/loading-bar.service';
 
+
+interface PhotoRequest {
+  id: number;
+  type: 'base' | 'upgrade';
+  src: string;
+  doneLoading: () => void;
+  completed: boolean;
+}
 
 @Component({
   selector: 'app-gallery-lightbox-media',
@@ -14,7 +23,7 @@ import {LightboxService} from '../lightbox.service';
   changeDetection: ChangeDetectionStrategy.Eager,
   imports: []
 })
-export class GalleryLightboxMediaComponent implements OnChanges {
+export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
   @Input() gridMedia: GridMedia;
   @Input() nextGridMedia: GridMedia;
   @Input() loadMedia = false; // prevents loading media
@@ -46,14 +55,26 @@ export class GalleryLightboxMediaComponent implements OnChanges {
   };
   public transcodeNeedVideos = SupportedFormats.TranscodeNeed.Videos;
   private nextImage = new Image();
+
+  private upgradeImage: HTMLImageElement = null;
   // if media not loaded, show thumbnail
-  private mediaLoaded = false;
+  public mediaLoaded = false;
   private videoProgress = 0;
+  public highResError = false;
+  private isDestroyed = false;
+  private currentRequestId = 0;
+  private baseRequest: PhotoRequest | null = null;
+  private upgradeRequest: PhotoRequest | null = null;
+
+  private get activeRequest(): PhotoRequest | null {
+    return this.upgradeRequest ?? this.baseRequest;
+  }
 
   constructor(public elementRef: ElementRef,
               public lightboxService: LightboxService,
               private sanitizer: DomSanitizer,
-              private changeDetector: ChangeDetectorRef) {
+              private changeDetector: ChangeDetectorRef,
+              private loadingBarService: LoadingBarService) {
   }
 
   get ImageTransform(): SafeStyle {
@@ -152,6 +173,8 @@ export class GalleryLightboxMediaComponent implements OnChanges {
     const mediaChanged = !this.prevGirdPhoto || !this.gridMedia ||
       !MediaDTOUtils.equals(this.prevGirdPhoto.media, this.gridMedia.media);
     if (mediaChanged) {
+      this.cancelActiveRequest();
+      this.highResError = false;
       this.prevGirdPhoto = this.gridMedia;
       this.thumbnailSrc = null;
       this.liveVideoSrc = null;
@@ -192,6 +215,47 @@ export class GalleryLightboxMediaComponent implements OnChanges {
     }
 
     this.loadPhoto();
+  }
+
+  ngOnDestroy(): void {
+    this.isDestroyed = true;
+    this.cancelActiveRequest();
+    if (this.nextImage) {
+      this.nextImage.onload = null;
+      this.nextImage.onerror = null;
+      try {
+        this.nextImage.removeAttribute('src');
+      } catch (e) {
+        this.nextImage.src = '';
+      }
+    }
+  }
+
+  public cancelUpgradeRequest(): void {
+    if (this.upgradeRequest && !this.upgradeRequest.completed) {
+      this.upgradeRequest.completed = true;
+      this.upgradeRequest.doneLoading();
+    }
+    this.upgradeRequest = null;
+    if (this.upgradeImage) {
+      this.upgradeImage.onload = null;
+      this.upgradeImage.onerror = null;
+      try {
+        this.upgradeImage.src = '';
+      } catch (e) {
+        // ignore
+      }
+      this.upgradeImage = null;
+    }
+  }
+
+  public cancelActiveRequest(): void {
+    if (this.baseRequest && !this.baseRequest.completed) {
+      this.baseRequest.completed = true;
+      this.baseRequest.doneLoading();
+    }
+    this.baseRequest = null;
+    this.cancelUpgradeRequest();
   }
 
   public mute(): void {
@@ -256,29 +320,154 @@ export class GalleryLightboxMediaComponent implements OnChanges {
     }
   }
 
-  onImageError(): void {
-    // TODO:handle error
+  public onVideoLoadStart(): void {
+    this.imageLoadFinished.this = true;
+  }
+
+  public onVideoError(): void {
+    this.imageLoadFinished.this = true;
+    console.error('Error: cannot load video for lightbox');
+  }
+
+  public onLiveVideoError(): void {
+    this.liveVideoPlaying = false;
+    console.error('Error: cannot load live video for lightbox');
+  }
+
+  public onImageError(): void {
+    const req = this.baseRequest;
+    if (!req || req.completed) {
+      return;
+    }
+    this.finishBasePhotoLoadError(req.id);
+  }
+
+  public onImageLoad(): void {
+    const req = this.baseRequest;
+    const img = this.imageElement?.nativeElement;
+
+    if (!req || req.completed) {
+      return;
+    }
+    const requestId = req.id;
+    if (img && typeof img.decode === 'function') {
+      img.decode().then(() => {
+        if (this.isDestroyed || !this.baseRequest || this.baseRequest.id !== requestId || this.baseRequest.completed) {
+          return;
+        }
+        this.finishBasePhotoLoadSuccess(requestId);
+      }).catch(() => {
+        if (this.isDestroyed || !this.baseRequest || this.baseRequest.id !== requestId || this.baseRequest.completed) {
+          return;
+        }
+        if (img.complete && img.naturalWidth > 0) {
+          this.finishBasePhotoLoadSuccess(requestId);
+        } else {
+          this.finishBasePhotoLoadError(requestId);
+        }
+      });
+    } else {
+      if (this.isDestroyed || !this.baseRequest || this.baseRequest.id !== requestId || this.baseRequest.completed) {
+        return;
+      }
+      this.finishBasePhotoLoadSuccess(requestId);
+    }
+  }
+
+  public onUpgradeImageLoad(requestId?: number): void {
+    const req = this.upgradeRequest;
+    if (!req || req.completed) {
+      return;
+    }
+    const targetId = requestId ?? req.id;
+    if (req.id !== targetId) {
+      return;
+    }
+    const upgradeImg = this.upgradeImage;
+    const promote = () => {
+      if (this.isDestroyed || !this.upgradeRequest || this.upgradeRequest.id !== targetId || this.upgradeRequest.completed) {
+        return;
+      }
+      this.photo.src = req.src;
+      this.photo.isBestFit = false;
+      this.highResError = false;
+      if (!this.mediaLoaded) {
+        this.mediaLoaded = true;
+        this.imageLoadFinished.this = true;
+        this.loadNextPhoto();
+      }
+      if (this.baseRequest && !this.baseRequest.completed) {
+        this.baseRequest.completed = true;
+        this.baseRequest.doneLoading();
+      }
+      this.baseRequest = null;
+      this.upgradeRequest.completed = true;
+      this.upgradeRequest.doneLoading();
+      this.upgradeRequest = null;
+      this.upgradeImage = null;
+      this.changeDetector.markForCheck();
+    };
+
+    if (upgradeImg && typeof upgradeImg.decode === 'function') {
+      upgradeImg.decode().then(promote).catch(() => {
+        if (this.isDestroyed || !this.upgradeRequest || this.upgradeRequest.id !== targetId || this.upgradeRequest.completed) {
+          return;
+        }
+        if (upgradeImg.naturalWidth > 0) {
+          promote();
+        } else {
+          this.onUpgradeImageError(targetId);
+        }
+      });
+    } else {
+      promote();
+    }
+  }
+
+  public onUpgradeImageError(requestId?: number): void {
+    const req = this.upgradeRequest;
+    if (!req || req.completed) {
+      return;
+    }
+    const targetId = requestId ?? req.id;
+    if (req.id !== targetId) {
+      return;
+    }
+    this.highResError = true;
+    req.completed = true;
+    req.doneLoading();
+    this.upgradeRequest = null;
+    this.upgradeImage = null;
+    this.changeDetector.markForCheck();
+  }
+
+  private finishBasePhotoLoadSuccess(requestId: number): void {
+    if (!this.baseRequest || this.baseRequest.id !== requestId || this.baseRequest.completed) {
+      return;
+    }
+    this.mediaLoaded = true;
+    this.imageLoadFinished.this = true;
+    this.baseRequest.completed = true;
+    this.baseRequest.doneLoading();
+    this.baseRequest = null;
+    this.loadNextPhoto();
+    this.changeDetector.markForCheck();
+  }
+
+  private finishBasePhotoLoadError(requestId: number): void {
+    if (!this.baseRequest || this.baseRequest.id !== requestId || this.baseRequest.completed) {
+      return;
+    }
     this.imageLoadFinished.this = true;
     console.error(
       'Error: cannot load media for lightbox url: ' +
-      this.gridMedia.getBestSizedMediaPath(window.innerWidth, window.innerHeight)
+      this.baseRequest.src
     );
+    this.baseRequest.completed = true;
+    this.baseRequest.doneLoading();
+    this.baseRequest = null;
     this.loadNextPhoto();
-  }
-
-  onImageLoad(): void {
-    this.imageLoadFinished.this = true;
-    const img = this.imageElement?.nativeElement;
-    if (img && typeof img.decode === 'function') {
-      img.decode().catch(() => {}).finally(() => {
-        this.mediaLoaded = true;
-        this.changeDetector.markForCheck();
-      });
-    } else {
-      this.mediaLoaded = true;
-      this.changeDetector.markForCheck();
-    }
-    this.loadNextPhoto();
+    this.changeDetector.markForCheck();
   }
 
   public showThumbnail(): boolean {
@@ -351,25 +540,58 @@ export class GalleryLightboxMediaComponent implements OnChanges {
       return;
     }
 
-    if (
-      this.zoom === 1 ||
-      Config.Gallery.Lightbox.loadFullImageOnZoom === false
-    ) {
-      if (this.photo.src == null) {
-        // Check if the preview size is adequate for lightbox display
-        // If not, load the original instead of a tiny preview
-        if (this.isPreviewAdequateForLightbox()) {
-          this.photo.src = this.gridMedia.getBestSizedMediaPath(window.innerWidth, window.innerHeight);
-          this.photo.isBestFit = true;
-        } else {
-          this.photo.src = this.gridMedia.getOriginalMediaPath();
-          this.photo.isBestFit = false;
-        }
+    const wantOriginal = this.zoom > 1 && Config.Gallery.Lightbox.loadFullImageOnZoom !== false;
+
+    if (this.photo.src == null) {
+      let targetSrc: string;
+      let isBestFit: boolean;
+
+      if (!wantOriginal && this.isPreviewAdequateForLightbox()) {
+        targetSrc = this.gridMedia.getBestSizedMediaPath(window.innerWidth, window.innerHeight);
+        isBestFit = true;
+      } else {
+        targetSrc = this.gridMedia.getOriginalMediaPath();
+        isBestFit = false;
       }
-      // on zoom load high res photo
-    } else if (this.photo.isBestFit === true || this.photo.src == null) {
-      this.photo.src = this.gridMedia.getOriginalMediaPath();
-      this.photo.isBestFit = false;
+
+      this.cancelActiveRequest();
+      const requestId = ++this.currentRequestId;
+      const doneLoading = this.loadingBarService.begin();
+      this.baseRequest = {
+        id: requestId,
+        type: 'base',
+        src: targetSrc,
+        doneLoading,
+        completed: false
+      };
+      this.photo.src = targetSrc;
+      this.photo.isBestFit = isBestFit;
+      this.highResError = false;
+    } else if (wantOriginal && this.photo.isBestFit === true) {
+      const originalSrc = this.gridMedia.getOriginalMediaPath();
+      if (this.upgradeRequest?.src === originalSrc) {
+        return;
+      }
+
+      this.cancelUpgradeRequest();
+      const requestId = ++this.currentRequestId;
+      const doneLoading = this.loadingBarService.begin();
+      this.upgradeRequest = {
+        id: requestId,
+        type: 'upgrade',
+        src: originalSrc,
+        doneLoading,
+        completed: false
+      };
+      this.highResError = false;
+
+      this.upgradeImage = new Image();
+      this.upgradeImage.src = originalSrc;
+      this.upgradeImage.onload = () => this.onUpgradeImageLoad(requestId);
+      this.upgradeImage.onerror = () => this.onUpgradeImageError(requestId);
+      if (this.upgradeImage.complete) {
+        this.onUpgradeImageLoad(requestId);
+      }
     }
   }
 

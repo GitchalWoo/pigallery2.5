@@ -44,5 +44,21 @@ describe('DimensionUtils', () => {
       height: '0px',
     });
   });
+
+  it('should handle NaN or infinite properties safely by defaulting to 0px', () => {
+    const dim: any = {
+      top: NaN,
+      left: Infinity,
+      width: -Infinity,
+      height: undefined,
+    };
+    const styles = DimensionUtils.toString(dim);
+    expect(styles).toEqual({
+      top: '0px',
+      left: '0px',
+      width: '0px',
+      height: '0px',
+    });
+  });
 });
 
