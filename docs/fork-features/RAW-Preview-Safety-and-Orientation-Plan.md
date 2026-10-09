@@ -96,22 +96,11 @@ Optionally corroborate descriptor cleanup using repeated injected failures and `
 
 ## Cache rollout
 
-Existing derivatives can remain sideways after the renderer is fixed because their cache identity does not include this transformation change.
+Existing derivatives can remain sideways after the renderer is fixed because their cache identity does not include this transformation change. This affects thumbnails, icons, face crops and the larger browser-viewable pictures rendered from CR2/other RAW embedded previews.
 
-### Targeted Cache Regeneration Procedure
-Cached photo derivatives are stored under `ProjectPath.TranscodedFolder` (default: `<temp_folder>/transcoded`), and face crops under `ProjectPath.FacesFolder` (default: `<temp_folder>/faces`).
+Production cache rollout is tracked separately in the [Derivative Cache Freshness and Regeneration Plan](Derivative-Cache-Freshness-and-Regeneration-Plan.md). It addresses both same-path source changes (upstream #1178) and renderer/administrator-triggered regeneration, including atomic publication, browser revisions, scoped jobs and obsolete-file cleanup.
 
-To rebuild affected RAW thumbnails and face derivatives without deleting the entire thumbnail cache:
-1. Stop the gallery server (or ensure low background activity).
-2. Remove cached transcoded derivatives corresponding to RAW image extensions:
-   ```sh
-   find <temp_folder>/transcoded -type f \( -iname "*.cr2_*.webp" -o -iname "*.cr3_*.webp" -o -iname "*.arw_*.webp" -o -iname "*.nef_*.webp" -o -iname "*.nrw_*.webp" -o -iname "*.orf_*.webp" -o -iname "*.rw2_*.webp" -o -iname "*.pef_*.webp" -o -iname "*.raf_*.webp" \) -delete
-   ```
-3. If face regions are defined on RAW images, clear the faces cache:
-   ```sh
-   rm -f <temp_folder>/faces/*.webp
-   ```
-4. Start the server. Derivatives will be automatically generated on-demand with correct orientation and scaling, or proactively rebuilt by executing the **Thumbnail Generation** job in Admin Settings.
+That plan supersedes the previous manual deletion procedure. Clearing all hashed face crops cannot be described as RAW-only cleanup. Renderer completion in this document does not mean cache migration or automatic regeneration is implemented; those remain pending under the linked plan.
 
 ## Validation and completion
 
