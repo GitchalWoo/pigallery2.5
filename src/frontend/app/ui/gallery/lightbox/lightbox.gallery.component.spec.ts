@@ -748,6 +748,7 @@ describe('GalleryLightboxComponent - Coordinate and Geometry Tests', () => {
   describe('Rapid Navigation & Fullscreen Loading Bar', () => {
     let mockSource: LightboxSource;
     let items: GridMedia[];
+    let changesSubject: Subject<unknown>;
 
     beforeEach(() => {
       const photos = [
@@ -756,9 +757,10 @@ describe('GalleryLightboxComponent - Coordinate and Geometry Tests', () => {
         createMockPhoto('photo2.jpg', 2),
       ];
       items = photos.map((p, i) => new GridMedia(p, 1, 1, i));
+      changesSubject = new Subject<unknown>();
 
       mockSource = {
-        changes: of(),
+        changes: changesSubject,
         length: items.length,
         loadState: 'idle',
         get: (i: number) => items[i],
@@ -827,6 +829,129 @@ describe('GalleryLightboxComponent - Coordinate and Geometry Tests', () => {
 
       expect(component.isNativeFullScreen).toBe(false);
       expect(fixture.nativeElement.querySelector('app-top-loading-bar')).toBeNull();
+    });
+
+    it('should promote Opening to Open via safety fallback timer if animation does not settle', () => {
+      vi.useFakeTimers();
+      try {
+        vi.spyOn(component, 'animatePhoto').mockReturnValue({
+          onDone: () => ({ onDone: vi.fn() }) as any,
+        });
+
+        component.showLightbox(0);
+        expect(component.status).toBe(LightboxStates.Opening);
+        expect(component.animating).toBe(true);
+        expect(component.isOpen()).toBe(false);
+
+        // Advance past safety timer (350ms)
+        vi.advanceTimersByTime(400);
+
+        expect(component.status).toBe(LightboxStates.Open);
+        expect(component.animating).toBe(false);
+        expect(component.isOpen()).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should not break opening sequence when source.changes emits while status is Opening', () => {
+      vi.useFakeTimers();
+      try {
+        let doneCallback: (() => void) | null = null;
+        vi.spyOn(component, 'animatePhoto').mockImplementation(() => {
+          const player = {
+            onDone: (cb: () => void) => {
+              doneCallback = cb;
+              return player;
+            },
+          };
+          return player as any;
+        });
+
+        component.showLightbox(0);
+        expect(component.status).toBe(LightboxStates.Opening);
+
+        // Source emits changes (e.g. grid rendered more photos in background)
+        changesSubject.next({});
+
+        // Status should still be Opening without launching a competing resize animation
+        expect(component.status).toBe(LightboxStates.Opening);
+
+        // When opening animation finishes, it should transition to Open
+        if (doneCallback) {
+          doneCallback();
+        }
+        expect(component.status).toBe(LightboxStates.Open);
+        expect(component.animating).toBe(false);
+        expect(component.isOpen()).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should safely compute lightBoxPhotoDimension with missing or 0x0 metadata size without NaN', () => {
+      const mediaWithZeroSize: any = {
+        name: 'raw.cr2',
+        metadata: {
+          size: {width: 0, height: 0},
+        },
+      };
+      const dimZero = (component as any).calcLightBoxPhotoDimension(mediaWithZeroSize);
+      expect(Number.isFinite(dimZero.top)).toBe(true);
+      expect(Number.isFinite(dimZero.left)).toBe(true);
+      expect(Number.isFinite(dimZero.width)).toBe(true);
+      expect(Number.isFinite(dimZero.height)).toBe(true);
+
+      const mediaWithMissingSize: any = {
+        name: 'raw2.cr2',
+        metadata: {},
+      };
+      const dimMissing = (component as any).calcLightBoxPhotoDimension(mediaWithMissingSize);
+      expect(Number.isFinite(dimMissing.top)).toBe(true);
+      expect(Number.isFinite(dimMissing.left)).toBe(true);
+      expect(Number.isFinite(dimMissing.width)).toBe(true);
+      expect(Number.isFinite(dimMissing.height)).toBe(true);
+    });
+
+    it('should call done callback and finish styles when Web Animations API cancels the animation', () => {
+      const fakeTarget: any = {
+        style: {},
+        animate: vi.fn(),
+        getAnimations: vi.fn().mockReturnValue([]),
+      };
+      let cancelHandler: (() => void) | null = null;
+      const fakeAnim: any = {
+        set oncancel(fn: () => void) {
+          cancelHandler = fn;
+        },
+        get oncancel() {
+          return cancelHandler;
+        },
+        set onfinish(fn: () => void) {},
+        cancel: vi.fn().mockImplementation(() => {
+          if (cancelHandler) {
+            cancelHandler();
+          }
+        }),
+      };
+      fakeTarget.animate.mockReturnValue(fakeAnim);
+
+      let doneCalled = false;
+      const player = (component as any).runAnimation(
+        fakeTarget,
+        {top: 10, left: 20, width: 30, height: 40},
+        {top: 50, left: 60, width: 70, height: 80}
+      );
+      player.onDone(() => {
+        doneCalled = true;
+      });
+
+      // Simulate animation cancellation
+      fakeAnim.cancel();
+
+      expect(doneCalled).toBe(true);
+      expect(fakeTarget.style.top).toBe('50px');
+      expect(fakeTarget.style.left).toBe('60px');
     });
   });
 });

@@ -80,11 +80,28 @@ This feature provides immediate and continuous visual feedback in the lightbox w
 - Refactored `FrameComponent` to consume `<app-top-loading-bar>`.
 - Verified with unit tests in `loading-bar.service.spec.ts` and `top-loading-bar.component.spec.ts`.
 
-### Phase 2 (Completed in current changes)
+### Phase 2 (Completed in commit `8dfa8eb5`)
 - Added native `fullscreenchange` DOM event listeners, `isElementFullScreen()`, and `getFullscreenElement()` to `FullScreenService`.
 - Decoupled video events from photo callbacks in `MediaLightboxGalleryComponent` (`onVideoLoadStart()`, `onVideoError()`, `onLiveVideoError()`).
 - Added monotonic `currentRequestId` request identity, lifecycle cancellation (`cancelActiveRequest()`), staged zoom upgrade decoding without blanking, and accessible `.high-res-error-badge`.
 - Implemented navigation target queuing (`pendingPhotoIndex`) in `GalleryLightboxComponent` to eliminate dropped rapid clicks, immediate title updates, and native fullscreen top bar rendering.
 - Added tactile `:active` state to `.navigation-arrow` in `controls.lightbox.gallery.component.css`.
 - Verified with unit tests in `media.lightbox.gallery.component.spec.ts`, `lightbox.gallery.component.spec.ts`, and `fullscreen.service.spec.ts`.
-- Full test suite passed (213 frontend tests passing, 0 failures), TypeScript type checks passed with 0 errors, and English build completed successfully with initial chunks within budget (1.52 MB).
+
+### Phase 3: Lightbox Opening Transition Resilience & Controls Display Fix
+- **Root Cause Analysis (Missing Controls on Initial Click in CR2 / Raw Folders)**:
+  - When opening the lightbox, `status` starts as `LightboxStates.Opening`, hiding `<app-lightbox-controls>` (`@if (isOpen())`). The transition to `LightboxStates.Open` depends on `animatePhoto().onDone(...)`.
+  - When entering a folder with raw/CR2 files, background thumbnail generation and grid chunk rendering cause `this.source.changes` (`QueryList.changes`) to fire shortly after opening begins.
+  - Previously, `this.source.changes` unconditionally called `this.updateActivePhoto(this.activePhotoId)` with default `resize = true`, starting a competing animation on the same element.
+  - In `runAnimation`, `target.getAnimations().forEach(a => a.cancel())` cancelled the in-flight opening animation. However, `anim.oncancel` was not wired, so the cancelled opening animation never fired `finish()` or its `onDone` callback.
+  - This left `status` permanently stuck in `LightboxStates.Opening` (`animating = true`), preventing controls from ever rendering and blocking high-res image loading (`[loadMedia]="!animating"`).
+  - Additionally, if CR2 photos had missing or zero metadata dimensions prior to full extraction, `calcLightBoxPhotoDimension` produced `NaN`, turning into invalid `'NaNpx'` CSS values.
+- **Resolution**:
+  1. **`anim.oncancel` & 350 ms safety fallback in `runAnimation`**: Wired `anim.oncancel = finish;` so cancelled animations still settle styles and invoke callbacks. Added a 350 ms fallback timer ensuring animations never hang indefinitely under heavy CPU/thread load or dropped frames.
+  2. **Opening state safety timer**: Added `openingTimer` (350 ms) in `GalleryLightboxComponent.showLightbox()` to guarantee automatic promotion from `Opening` to `Open` even under unexpected browser animation stalls.
+  3. **Guard `source.changes` during transitions**: Updated `this.updateActivePhoto` in `setSource` to pass `resize = (this.status === LightboxStates.Open)`, preventing competing animations while opening or closing.
+  4. **Promote on rapid navigation**: If `showPhoto` is invoked with `resize = true` while opening, promote status to `Open` immediately.
+  5. **Harden dimensions & `NaN` protection**: `DimensionUtils.toString()` checks `Number.isFinite()` falling back to `0px`. `calcLightBoxPhotoDimension()` guards against missing metadata and zero width/height.
+- **Verification**:
+  - Full test suite passed (23 test suites, 218 tests passing, 0 failures).
+  - English build completed successfully with initial chunks within budget (1.52 MB).
