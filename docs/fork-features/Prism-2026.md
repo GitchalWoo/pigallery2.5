@@ -46,7 +46,7 @@ Open http://localhost:8083 and select Prism in settings. `docker` can replace `p
 
 ## Compatibility and checks
 
-- Bootstrap remains responsible for button states, contextual alerts, forms, modal and dropdown behavior.
+- Bootstrap remains responsible for button states, contextual alerts, forms, modal and dropdown behavior. Prism also maps outline-primary and secondary button states to its palette, so sorting icons and the Light/Dark/Auto control do not retain Bootstrap blue or flat grey.
 - Light/dark/automatic mode and configurable navigation remain in place.
 - Gallery rows retain their calculated layout; oversized sparse rows are constrained to narrow viewports. Long Markdown previews no longer extend the document width.
 - Prism supports focus outlines, touch-visible photo actions, reduced-motion preferences, and translated UI text.

@@ -415,6 +415,46 @@ html[data-gallery-design="prism"] .btn-tertiary {
   --bs-btn-focus-shadow-rgb: var(--pg-accent-rgb);
 }
 
+/* Bootstrap outline/secondary buttons have their own compiled color values.
+   Bind them to the palette so icons inherit the same color via currentColor. */
+html[data-gallery-design="prism"] .btn-outline-primary {
+  --bs-btn-color: var(--pg-accent);
+  --bs-btn-border-color: var(--pg-accent);
+  --bs-btn-hover-color: var(--bs-body-bg);
+  --bs-btn-hover-bg: var(--pg-accent);
+  --bs-btn-hover-border-color: var(--pg-accent);
+  --bs-btn-active-color: var(--bs-body-bg);
+  --bs-btn-active-bg: var(--pg-accent);
+  --bs-btn-active-border-color: var(--pg-accent);
+  --bs-btn-disabled-color: var(--pg-accent);
+  --bs-btn-disabled-bg: transparent;
+  --bs-btn-disabled-border-color: var(--pg-accent);
+  --bs-btn-focus-shadow-rgb: var(--pg-accent-rgb);
+}
+
+html[data-gallery-design="prism"] .btn-secondary,
+html[data-gallery-design="prism"] .btn-outline-secondary {
+  --bs-btn-color: var(--pg-accent);
+  --bs-btn-border-color: var(--pg-stroke);
+  --bs-btn-hover-color: var(--pg-accent);
+  --bs-btn-hover-bg: rgba(var(--pg-accent-rgb), .16);
+  --bs-btn-hover-border-color: var(--pg-accent);
+  --bs-btn-active-color: var(--bs-body-bg);
+  --bs-btn-active-bg: var(--pg-accent);
+  --bs-btn-active-border-color: var(--pg-accent);
+  --bs-btn-disabled-color: var(--bs-secondary-color);
+  --bs-btn-disabled-border-color: var(--pg-stroke);
+  --bs-btn-focus-shadow-rgb: var(--pg-accent-rgb);
+}
+html[data-gallery-design="prism"] .btn-secondary {
+  --bs-btn-bg: var(--pg-soft);
+  --bs-btn-disabled-bg: var(--pg-soft);
+}
+html[data-gallery-design="prism"] .btn-outline-secondary {
+  --bs-btn-bg: transparent;
+  --bs-btn-disabled-bg: transparent;
+}
+
 html[data-gallery-design="prism"] .form-control, html[data-gallery-design="prism"] .form-select, html[data-gallery-design="prism"] .input-group-text {
   border-color: var(--pg-stroke);
   border-radius: .8rem;
