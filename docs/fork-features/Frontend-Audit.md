@@ -22,85 +22,7 @@ browser reproduction, especially with scrolling, grouped photos and cached image
 
 ## Findings, in recommended priority order
 
-### 1. High: restore visible thumbnail loading feedback without reintroducing flicker
-
-Sources: `src/frontend/app/ui/gallery/grid/photo/photo.grid.gallery.component.html:3`,
-`photo.grid.gallery.component.css:70`;
-`src/frontend/app/ui/gallery/grid/photo/loading/loading.photo.grid.gallery.component.css:29`;
-`src/frontend/app/ui/gallery/thumbnailManager.service.ts` (`Thumbnail.load()`);
-`src/frontend/app/ui/gallery/thumbnailLoader.service.ts` (`run()`).
-
-**Cause identified in history:** commit `fc59808490e11b668605a841345d0c08081b5fa6`
-("eliminate grid thumbnail flickering, loading churn, and Firefox transition
- delays") added `background-color: var(--item-background)` to `.photo-container`.
-The nine loading cubes already use that exact color. Their animation shrinks them
-from full size to zero, exposing the background beneath. With the new matching
-background, shrinking cubes expose an identical color: the animation can still
-run, but its visual contrast is gone. The code is a CSS cube animation, not a GIF;
-the loading component and its keyframes were not removed by that commit.
-
-**A separate state limitation:** the placeholder is now mounted while `!loaded`,
-but `[animate]="thumbnail.loading"` reflects only an active request through the
-thumbnail generation queue. These are different states:
-
-| State | Placeholder | Cube animation enabled |
-| --- | --- | --- |
-| Missing thumbnail waiting in the queue | Present | No |
-| Missing thumbnail request actively running | Present | Yes, but masked by matching background |
-| Thumbnail marked available on the server, browser still downloading it | Present | No |
-| Generation request finished, displayed image still loading/decoding | Present | No |
-| Displayed image ready (`loaded === true`) | Removed | No |
-
-`Available` comes from media thumbnail metadata; it does not mean the displayed
-image has finished downloading or decoding. For an already generated thumbnail,
-`Thumbnail.load()` does not enqueue a request and never sets `loading = true`, even
-when the browser cache is cold. This state limitation predates the flicker fix:
-the old template used the same animation binding and omitted the loading component
-altogether when `thumbnail.Available` was true. It explains why restoring contrast
-alone will not provide feedback throughout every image-loading path.
-
-**Recommended fix:** keep the stable tile dimensions, opaque background and
-image decode/reveal protections. Give the indicator a contrasting foreground
-(or a separate spinner/pulse layer) and explicitly define which waiting states
-should animate. A short display delay can avoid flashing an indicator for fast
-cached images. Preserve error feedback and respect reduced-motion preferences.
-Do not restore visibility by simply deleting the anti-flicker background.
-
-Verification completed: traced the current template, CSS, generation queue and
-thumbnail availability logic, and compared the flicker-fix patch with its parent.
-Implemented on branch `fix/thumbnail-feedback-geometry` (contrasting `--item-loading-indicator: #555555`,
-150 ms CSS delay on `.sk-cube-grid`, static reduced-motion presentation, `(error)` handler and
-local error state, decode guards against destruction/stale sources, and replacement preview
-preservation; unit tests passing in `photo.grid.gallery.component.spec.ts`; awaiting manual browser check).
-Before final acceptance, check missing/generated thumbnails, a cold browser cache, throttled requests,
-queue saturation, decoding, errors, both themes and reduced motion.
-
-### 2. High: thumbnail geometry mixes parent-relative and document coordinates
-
-Sources: `src/frontend/app/ui/gallery/grid/photo/photo.grid.gallery.component.ts:221`
-and `:302`; `src/frontend/app/ui/gallery/lightbox/lightbox.gallery.component.ts:275`.
-
-`isInView()` compares document scroll position with `.photo-container.offsetTop`.
-The container lives inside a positioned photo component host, so that offset is
-relative to the host, rather than its position down the page. Similarly,
-`getDimension()` reads the image's offset parent's offsets: this is the container's
-position relative to the host. Lightbox code then subtracts document scroll from
-the result. This can misclassify visible thumbnails and supply incorrect opening
-and closing animation coordinates.
-
-Use a bounding rectangle for viewport visibility. For the existing lightbox
-contract, convert its rectangle to document coordinates by adding scroll offsets.
-Define whether animation dimensions include the current hover scale and use a
-consistent coordinate system throughout. A shared IntersectionObserver is also a
-candidate for thumbnail prioritization after correcting the geometry.
-
-Validation: implemented on branch `fix/thumbnail-feedback-geometry` (`isInView()` viewport bounding rect,
-`getDimension()` document coordinates with container fallback, `LightboxSource.animationTarget()` contract,
-`toViewportDimension()` with `ScrollX`/`ScrollY`, fallback center origin, and scroll-before-measure opening order;
-unit tests passing in `photo.grid.gallery.component.spec.ts` and `lightbox.gallery.component.spec.ts`; awaiting manual browser check).
-Later rows, nonzero scroll, grouped headers, timeline rail, hovered tiles, and opening/closing the lightbox. [MDN offsetTop reference](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/offsetTop).
-
-### 3. High: resize explicitly destroys all rendered photo components
+### 1. High: resize explicitly destroys all rendered photo components
 
 Sources: `src/frontend/app/ui/gallery/grid/grid.gallery.component.ts:196`, `:455`,
 `:507`; `src/frontend/app/ui/gallery/grid/grid.gallery.component.html:4` and `:37`.
@@ -122,7 +44,7 @@ Validation: node identity survives resize, cached tiles do not restart loading,
 sort/filter results stay correct, grid-size changes pick appropriate thumbnails,
 and Back restores nonzero scroll. [Angular tracking guidance](https://angular.dev/guide/templates/control-flow).
 
-### 4. Medium: a template creates a fresh observable on every check
+### 2. Medium: a template creates a fresh observable on every check
 
 Sources: `src/frontend/app/ui/gallery/grid/grid.gallery.component.html:30`;
 `src/frontend/app/ui/gallery/blog/blog.service.ts:42`.
@@ -138,7 +60,7 @@ inputs change. The blog component already stores its observable in `ngOnChanges(
 Validate subscription counts and rendering when content/group dates change.
 [Angular AsyncPipe reference](https://angular.dev/api/common/AsyncPipe).
 
-### 5. Medium: hover handling does unnecessary work inside each tile
+### 3. Medium: hover handling does unnecessary work inside each tile
 
 Sources: `src/frontend/app/ui/gallery/grid/photo/photo.grid.gallery.component.html:1`;
 `photo.grid.gallery.component.ts:269`; `photo.grid.gallery.component.css:24`.
@@ -154,7 +76,7 @@ and check rapid re-entry so an interrupted animation does not jump. Its
 `display: table-caption` is unnecessary for an absolutely positioned overlay.
 [MDN mouseenter reference](https://developer.mozilla.org/en-US/docs/Web/API/Element/mouseenter_event).
 
-### 6. Medium: avoidable DOM and animation cost in loading placeholders
+### 4. Medium: avoidable DOM and animation cost in loading placeholders
 
 Source: `src/frontend/app/ui/gallery/grid/photo/loading/loading.photo.grid.gallery.component.html:6`.
 
@@ -168,7 +90,7 @@ Retain reserved tile dimensions and the decoded-image reveal behavior. Measure
 cold-cache loading with many small tiles; compare element count, animation work
 and frame timing. Loaded tiles already remove this subtree, which is good.
 
-### 7. Medium: incremental loading does not bound the rendered DOM
+### 5. Medium: incremental loading does not bound the rendered DOM
 
 Sources: `src/frontend/app/ui/gallery/grid/grid.gallery.component.ts:370`, `:476`.
 
@@ -182,7 +104,7 @@ keyboard focus and lightbox navigation/animation targets. This is a separate
 feature-sized change. CSS `content-visibility` alone would not remove Angular
 components or their change-detection work.
 
-### 8. Medium: some loop keys are not unique for valid data
+### 6. Medium: some loop keys are not unique for valid data
 
 Source: `src/frontend/app/ui/gallery/grid/photo/photo.grid.gallery.component.html:33` and `:70`.
 
@@ -196,7 +118,7 @@ the prepared list remains unchanged.
 Validate these collisions explicitly rather than globally changing loops to
 `track $index`, which is inappropriate for reorderable media collections.
 
-### 9. Medium: interactive markup and focus behavior need attention
+### 7. Medium: interactive markup and focus behavior need attention
 
 Sources: `src/frontend/app/ui/gallery/grid/grid.gallery.component.html:38`;
 `src/frontend/app/ui/gallery/grid/photo/photo.grid.gallery.component.css:187`;
@@ -214,7 +136,7 @@ for delete/favorite actions as siblings of navigation links, avoiding nested
 interactive controls. Preserve the ability to search from caption links without
 also opening the photo through the parent click handler.
 
-### 10. Medium: layout reads occur inside a template binding
+### 8. Medium: layout reads occur inside a template binding
 
 Source: `src/frontend/app/ui/gallery/navigator/navigator.gallery.component.html:212`.
 
@@ -224,7 +146,7 @@ layout when preceding changes have invalidated it. Prefer CSS positioning where
 possible, or cache one measurement and update it when relevant layout/scroll
 conditions change. A resize observer alone will not detect every position change.
 
-### 11. Low: legacy compatibility code and CSS leftovers remain
+### 9. Low: legacy compatibility code and CSS leftovers remain
 
 - `photo.grid.gallery.component.css:65`: prefixed transition duplicates, including
   `-ms-` and `-o-`. Similar blocks occur in lightbox/map styles.
@@ -248,7 +170,7 @@ Do not mechanically remove every WebKit/Mozilla declaration: browser-specific
 range-control selectors and some platform fallbacks require separate assessment.
 [MDN reduced-motion reference](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@media/prefers-reduced-motion).
 
-### 12. Medium: frontend cache policy gaps and deployment-version ambiguity
+### 10. Medium: frontend cache policy gaps and deployment-version ambiguity
 
 Sources: `angular.json` production configuration (`outputHashing: "all"`);
 `src/backend/routes/PublicRouter.ts` (`renderIndex`, fixed-name icon routes and
@@ -351,6 +273,55 @@ Static AST analysis of the frontend TypeScript programs (`src/frontend/tsconfig.
 * **Recommended replacement:** Pass a `ProgressEvent('error')` to `mockReq.error(...)`.
 
 
+## Completed findings
+
+### 1. Restore visible thumbnail loading feedback without reintroducing flicker
+
+Sources: `src/frontend/app/ui/gallery/grid/photo/photo.grid.gallery.component.html:3`,
+`photo.grid.gallery.component.css:70`;
+`src/frontend/app/ui/gallery/grid/photo/loading/loading.photo.grid.gallery.component.css:29`;
+`src/frontend/app/ui/gallery/thumbnailManager.service.ts` (`Thumbnail.load()`);
+`src/frontend/app/ui/gallery/thumbnailLoader.service.ts` (`run()`).
+
+**Cause identified in history:** commit `fc59808490e11b668605a841345d0c08081b5fa6`
+("eliminate grid thumbnail flickering, loading churn, and Firefox transition
+ delays") added `background-color: var(--item-background)` to `.photo-container`.
+The nine loading cubes already use that exact color. Their animation shrinks them
+from full size to zero, exposing the background beneath. With the new matching
+background, shrinking cubes expose an identical color: the animation can still
+run, but its visual contrast is gone.
+
+**State limitation:** the placeholder was mounted while `!loaded`,
+but `[animate]="thumbnail.loading"` reflected only an active request through the
+thumbnail generation queue, leaving queued waits, downloads, and decode phases static.
+
+**Resolution:** completed on branch `fix/thumbnail-feedback-geometry`:
+- Contrasting foreground token `--item-loading-indicator: #555555` against fixed `#bbbbbb` background.
+- 150 ms CSS delay on `.sk-cube-grid` with `@media (prefers-reduced-motion: reduce)` static presentation.
+- Component-local error state and `(error)="onImageError()"` on `<img>`, with placeholder mounted across `!loaded || hasError`.
+- Guarded `onImageLoad()` decode path against component destruction, source changes, and errors while preserving valid decode rejection fallback.
+- Preserved replacement preview so loaded previews are not re-covered on full thumbnail errors.
+- Regression tests in `photo.grid.gallery.component.spec.ts`.
+
+### 2. Thumbnail geometry mixes parent-relative and document coordinates
+
+Sources: `src/frontend/app/ui/gallery/grid/photo/photo.grid.gallery.component.ts:221`
+and `:302`; `src/frontend/app/ui/gallery/lightbox/lightbox.gallery.component.ts:275`.
+
+`isInView()` previously compared document scroll position with `.photo-container.offsetTop`,
+which is relative to the positioned photo component host. `getDimension()` similarly read
+`offsetParent` offsets and unscaled dimensions.
+
+**Resolution:** completed on branch `fix/thumbnail-feedback-geometry`:
+- `isInView()` uses `container.nativeElement.getBoundingClientRect()` with positive overlap on both axes.
+- `getDimension()` computes document-space coordinates combining `getBoundingClientRect()` from imageRef (container fallback) with `PageHelper.ScrollX` and `PageHelper.ScrollY`.
+- Explicit document-space contract documented on `LightboxSource.animationTarget()`.
+- Added `toViewportDimension()` helper in `GalleryLightboxComponent`, subtracting `ScrollX` and `ScrollY`.
+- Fixed fallback center origin to include `ScrollX` and `ScrollY`.
+- Reordered `showLightbox()` to execute scroll-to-target before measuring opening viewport geometry.
+- Regression tests in `photo.grid.gallery.component.spec.ts` and `lightbox.gallery.component.spec.ts`.
+
+
 ## Preserve during cleanup
 
 - Explicit tile dimensions and loading background prevent geometry shifts.
@@ -366,8 +337,8 @@ Static AST analysis of the frontend TypeScript programs (`src/frontend/tsconfig.
 
 ## Suggested implementation sequence
 
-1. Restore visible thumbnail loading feedback while preserving anti-flicker protections.
-2. Correct geometry and duplicate keys; add focused regression coverage.
+1. [Completed] Restore visible thumbnail loading feedback while preserving anti-flicker protections.
+2. [Completed] Correct geometry and duplicate keys; add focused regression coverage.
 3. Stabilize blog observables; simplify hover events and repair focus behavior.
 4. Remove dead compatibility styles and reduce placeholder structure, with visual
    checks for cold/cached image loading and reduced-motion preferences.
