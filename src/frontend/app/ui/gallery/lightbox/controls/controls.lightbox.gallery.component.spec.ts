@@ -97,4 +97,36 @@ describe('ControlsLightboxComponent - cursor visibility', () => {
     expect(swipeable).toBeTruthy();
     expect(swipeable.classList.contains('hide-cursor')).toBe(false);
   });
+
+  it('should emit nextPhoto and stop event propagation when rightArrow is clicked', () => {
+    component.navigation = {hasNext: true, hasPrev: true} as any;
+    fixture.detectChanges();
+
+    const nextSpy = vi.spyOn(component.nextPhoto, 'emit');
+    const rightArrow: HTMLElement = fixture.nativeElement.querySelector('#rightArrow');
+    expect(rightArrow).toBeTruthy();
+
+    const clickEvent = new MouseEvent('click', {bubbles: true, cancelable: true});
+    const stopPropagationSpy = vi.spyOn(clickEvent, 'stopPropagation');
+    rightArrow.dispatchEvent(clickEvent);
+
+    expect(nextSpy).toHaveBeenCalled();
+    expect(stopPropagationSpy).toHaveBeenCalled();
+  });
+
+  it('should emit previousPhoto and stop event propagation when leftArrow is clicked', () => {
+    component.navigation = {hasNext: true, hasPrev: true} as any;
+    fixture.detectChanges();
+
+    const prevSpy = vi.spyOn(component.previousPhoto, 'emit');
+    const leftArrow: HTMLElement = fixture.nativeElement.querySelector('#leftArrow');
+    expect(leftArrow).toBeTruthy();
+
+    const clickEvent = new MouseEvent('click', {bubbles: true, cancelable: true});
+    const stopPropagationSpy = vi.spyOn(clickEvent, 'stopPropagation');
+    leftArrow.dispatchEvent(clickEvent);
+
+    expect(prevSpy).toHaveBeenCalled();
+    expect(stopPropagationSpy).toHaveBeenCalled();
+  });
 });

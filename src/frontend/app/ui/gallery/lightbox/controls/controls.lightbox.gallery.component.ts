@@ -362,7 +362,10 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
     } as TextSearch);
   }
 
-  nextMediaManuallyTriggered() {
+  nextMediaManuallyTriggered(event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
     this.resetSlideshowTimer();
     this.nextPhoto.emit();
   }

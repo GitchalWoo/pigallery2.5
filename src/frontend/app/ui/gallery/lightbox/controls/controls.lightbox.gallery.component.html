@@ -211,14 +211,20 @@
   @if (navigation.hasPrev && zoom == 1) {
     <div [class.dim-controls]="controllersDimmed" class="navigation-arrow navigation-arrow-left highlight rounded-end"
       title="key: left arrow" id="leftArrow" i18n-title
-      (click)="previousPhoto.emit()">
+      role="button"
+      (pointerdown)="$event.stopPropagation()"
+      (pointerup)="$event.stopPropagation()"
+      (click)="$event.stopPropagation(); previousPhoto.emit()">
       <ng-icon name="ionChevronBackOutline"></ng-icon>
     </div>
   }
   @if (navigation.hasNext && zoom == 1) {
     <div [class.dim-controls]="controllersDimmed" class="navigation-arrow navigation-arrow-right highlight rounded-start"
       title="key: right arrow" id="rightArrow" i18n-title
-      (click)="nextMediaManuallyTriggered()">
+      role="button"
+      (pointerdown)="$event.stopPropagation()"
+      (pointerup)="$event.stopPropagation()"
+      (click)="nextMediaManuallyTriggered($event)">
       <ng-icon name="ionChevronForwardOutline"></ng-icon>
       @if (slideShowRunning) {
         <canvas

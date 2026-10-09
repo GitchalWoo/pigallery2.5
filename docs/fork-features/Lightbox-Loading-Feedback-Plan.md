@@ -160,6 +160,22 @@ This feature provides immediate and continuous visual feedback in the lightbox w
   3. **Regression Tests**:
      - Extended the concurrent zoom test in `media.lightbox.gallery.component.spec.ts` to assert that `mediaLoaded`, `imageLoadFinished.this`, and `showThumbnail()` transition correctly at every step.
      - Added a unit test (`should mark photo ready and remove thumbnail when zoom upgrade finishes before preview loads`) ensuring that when an upgrade completes before the preview, readiness flags are set, thumbnail is unmounted, and any subsequent delayed preview load event is safely ignored.
+### Phase 8: Navigation Arrow Hitbox Stability & Gesture Isolation
+- **Root Cause Analysis**:
+  1. *Hitbox shrinkage on `:active`*: In `controls.lightbox.gallery.component.css`, `.navigation-arrow:active` previously applied `transform: scale(0.92)`. Because the arrow container is 60px wide and centered at `50% 50%`, scaling caused the outer edges of the button to shrink inward by 2.4–4px (and more across the rounded corner curves). When a user clicked on the outer 5–10px of the arrow:
+     - `pointerdown` landed on `.navigation-arrow` and engaged `:active`.
+     - The arrow element immediately shrank inward away from the cursor.
+     - The cursor was suddenly outside the element boundaries, causing `pointerup`/`mouseup` to land on `#swipeable-container` behind the arrow.
+     - As a result, the browser cancelled the `click` event on `.navigation-arrow` (`nextPhoto` did not fire), and the subsequent pointer sequence was dispatched to `#swipeable-container`.
+  2. *Unintended double-tap zoom triggers*: When clicking rapidly to advance media or re-clicking after a missed click, the sequence of pointer events falling onto `#swipeable-container` was interpreted by `LightboxGesturesDirective` as a double-tap (`tapCount: 2`), immediately triggering a 5x zoom.
+  3. *Unstopped event propagation on navigation buttons*: Pointerdown, pointerup, and click events on navigation arrows were not stopping propagation, allowing events to bubble to parent lightbox containers.
+- **Resolution**:
+  1. **Stationary Outer Hitbox**: In `controls.lightbox.gallery.component.css`, removed `transform: scale(0.92)` from `.navigation-arrow:active`. Instead, the active state darkens `background-color: rgba(0, 0, 0, 0.45)` and scales only the internal chevron icon (`.navigation-arrow-left:active ng-icon` / `.navigation-arrow-right:active ng-icon { transform: ... scale(0.9); }`). The outer 60px x 100px boundary of the button remains 100% stationary, so every pixel on the arrow stays clickable throughout mouse down, move, and up.
+  2. **Event Propagation Containment**: In `controls.lightbox.gallery.component.html` and `.ts`, added `role="button"`, `(pointerdown)="$event.stopPropagation()"`, `(pointerup)="$event.stopPropagation()"`, and `event.stopPropagation()` on `click` to guarantee navigation button clicks never leak into background gesture listeners.
+  3. **Gesture Directive Interactive Element Exclusion**: In `lightbox-gestures.directive.ts`, extended the interactive element guard in `pointerDown` to explicitly ignore `.navigation-arrow`, `.control-button`, and `[role="button"]`, preventing gesture tracking from ever attaching to controls.
+  4. **Regression Tests**:
+     - Added unit tests in `controls.lightbox.gallery.component.spec.ts` asserting that clicking `#rightArrow` and `#leftArrow` triggers navigation and stops event propagation.
+     - Extended `lightbox-gestures.directive.spec.ts` to assert that clicks on `.navigation-arrow` are ignored and never trigger tap or pan gestures.
 - **Verification**:
-  - Full frontend unit test suite passing (23 test suites, 221 tests passing, 0 failures).
-  - English frontend build (`npm run build-en`) completed successfully.
+  - Full frontend unit test suite passing (23 test suites, 223 tests passing, 0 failures).
+  - English frontend build (`npm run build-en`) completed successfully with zero errors.
