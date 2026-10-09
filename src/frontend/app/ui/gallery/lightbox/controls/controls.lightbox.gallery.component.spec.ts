@@ -20,6 +20,7 @@ import {FullScreenService} from '../../fullscreen.service';
 import {AuthenticationService} from '../../../../model/network/authentication.service';
 import {FileSizePipe} from '../../../../pipes/FileSizePipe';
 import {DatePipe} from '@angular/common';
+import {Event} from '../../../../../../common/event/Event';
 
 class MockLightboxService {
   controllersDimmed = false;
@@ -29,7 +30,11 @@ class MockLightboxService {
 }
 
 class MockFullScreenService {
+  OnFullScreenChange = new Event<boolean>();
   isFullScreenEnabled() {
+    return false;
+  }
+  isElementFullScreen(_el: any) {
     return false;
   }
 }

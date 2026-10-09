@@ -22,10 +22,15 @@ import {Utils} from '../../../../../common/Utils';
 import {MediaDTO} from '../../../../../common/entities/MediaDTO';
 import {LightboxSource} from './LightboxSource';
 import {PageHelper} from '../../../model/page.helper';
+import {Event} from '../../../../../common/event/Event';
 
 // Mock classes
 class MockFullScreenService {
+  OnFullScreenChange = new Event<boolean>();
   isFullScreenEnabled() {
+    return false;
+  }
+  isElementFullScreen(_el: any) {
     return false;
   }
 
@@ -739,4 +744,90 @@ describe('GalleryLightboxComponent - Coordinate and Geometry Tests', () => {
       expect.anything()
     );
   });
+
+  describe('Rapid Navigation & Fullscreen Loading Bar', () => {
+    let mockSource: LightboxSource;
+    let items: GridMedia[];
+
+    beforeEach(() => {
+      const photos = [
+        createMockPhoto('photo0.jpg', 0),
+        createMockPhoto('photo1.jpg', 1),
+        createMockPhoto('photo2.jpg', 2),
+      ];
+      items = photos.map((p, i) => new GridMedia(p, 1, 1, i));
+
+      mockSource = {
+        changes: of(),
+        length: items.length,
+        loadState: 'idle',
+        get: (i: number) => items[i],
+        getMediaId: (m: MediaDTO) => m.name,
+        indexOfId: (id: string) => items.findIndex(g => g.media.name === id),
+        animationTarget: () => ({top: 0, left: 0, width: 100, height: 100}),
+        queryParams: (m?: MediaDTO) => ({photo: m ? m.name : ''}),
+        hasMore: () => false,
+        loadMore: () => Promise.resolve(),
+      };
+      component.setSource(mockSource);
+    });
+
+    it('should queue and advance navigation target on rapid consecutive nextImage clicks', () => {
+      component.showLightbox(0);
+
+      const navSpy = vi.spyOn(mockRouter, 'navigate');
+      const cancelSpy = vi.fn();
+      component.mediaElement = {cancelActiveRequest: cancelSpy} as any;
+
+      // First click: advances to index 1
+      component.nextImage();
+      expect(navSpy).toHaveBeenCalledWith([], expect.objectContaining({
+        queryParams: {photo: 'photo1.jpg'},
+      }));
+      expect(cancelSpy).toHaveBeenCalledTimes(1);
+
+      // Rapid second click (before router updates route queryParams): must advance to index 2
+      component.nextImage();
+      expect(navSpy).toHaveBeenCalledWith([], expect.objectContaining({
+        queryParams: {photo: 'photo2.jpg'},
+      }));
+      expect(cancelSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('should cancel active media request when closing lightbox', () => {
+      component.showLightbox(0);
+
+      const cancelSpy = vi.fn();
+      component.mediaElement = {cancelActiveRequest: cancelSpy} as any;
+
+      (component as any).hideLightbox();
+      expect(cancelSpy).toHaveBeenCalled();
+    });
+
+    it('should update isNativeFullScreen and render loading bar inside root when in native fullscreen', () => {
+      component.showLightbox(0);
+      fixture.detectChanges();
+
+      const fullScreenService = TestBed.inject(FullScreenService);
+      expect(component.isNativeFullScreen).toBe(false);
+      expect(fixture.nativeElement.querySelector('app-top-loading-bar')).toBeNull();
+
+      // Enter native fullscreen on root element
+      vi.spyOn(fullScreenService, 'isElementFullScreen').mockImplementation((el) => el === component.root.nativeElement);
+      component.checkNativeFullScreen();
+      fixture.detectChanges();
+
+      expect(component.isNativeFullScreen).toBe(true);
+      expect(fixture.nativeElement.querySelector('app-top-loading-bar')).not.toBeNull();
+
+      // Exit native fullscreen
+      vi.spyOn(fullScreenService, 'isElementFullScreen').mockReturnValue(false);
+      component.checkNativeFullScreen();
+      fixture.detectChanges();
+
+      expect(component.isNativeFullScreen).toBe(false);
+      expect(fixture.nativeElement.querySelector('app-top-loading-bar')).toBeNull();
+    });
+  });
 });
+

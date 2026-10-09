@@ -69,3 +69,22 @@ This feature provides immediate and continuous visual feedback in the lightbox w
 | **Controls / Nav** | Rapid double/triple clicks | Navigation queue advances target index (+1, +2) without dropping clicks |
 | **Controls / Nav** | Control `:active` feedback | Visual press confirmation on arrow buttons |
 | **Fullscreen** | Native fullscreen entry/exit | Top bar displays inside fullscreen `#root`; single bar visible |
+
+---
+
+## Implementation & Verification Status
+
+### Phase 1 (Completed in commit `9175d0b9`)
+- Implemented `LoadingBarService.begin()` returning idempotent cancellation / completion closures.
+- Created `TopLoadingBarComponent` with 150 ms reveal delay (`loading-bar-reveal`), indeterminate keyframe animation, `prefers-reduced-motion` static bar, and accessibility labels (`role="progressbar"`).
+- Refactored `FrameComponent` to consume `<app-top-loading-bar>`.
+- Verified with unit tests in `loading-bar.service.spec.ts` and `top-loading-bar.component.spec.ts`.
+
+### Phase 2 (Completed in current changes)
+- Added native `fullscreenchange` DOM event listeners, `isElementFullScreen()`, and `getFullscreenElement()` to `FullScreenService`.
+- Decoupled video events from photo callbacks in `MediaLightboxGalleryComponent` (`onVideoLoadStart()`, `onVideoError()`, `onLiveVideoError()`).
+- Added monotonic `currentRequestId` request identity, lifecycle cancellation (`cancelActiveRequest()`), staged zoom upgrade decoding without blanking, and accessible `.high-res-error-badge`.
+- Implemented navigation target queuing (`pendingPhotoIndex`) in `GalleryLightboxComponent` to eliminate dropped rapid clicks, immediate title updates, and native fullscreen top bar rendering.
+- Added tactile `:active` state to `.navigation-arrow` in `controls.lightbox.gallery.component.css`.
+- Verified with unit tests in `media.lightbox.gallery.component.spec.ts`, `lightbox.gallery.component.spec.ts`, and `fullscreen.service.spec.ts`.
+- Full test suite passed (213 frontend tests passing, 0 failures), TypeScript type checks passed with 0 errors, and English build completed successfully with initial chunks within budget (1.52 MB).

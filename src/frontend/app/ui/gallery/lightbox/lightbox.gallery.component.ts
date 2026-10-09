@@ -21,6 +21,7 @@ import {NgIconComponent} from '@ng-icons/core';
 import {InfoPanelLightboxComponent} from './infopanel/info-panel.lightbox.gallery.component';
 import {LightboxService} from './lightbox.service';
 import {GridLightboxSource, type LightboxItem, type LightboxSource} from './LightboxSource';
+import {TopLoadingBarComponent} from '../../top-loading-bar/top-loading-bar.component';
 
 export enum LightboxStates {
   Open = 1,
@@ -42,7 +43,8 @@ export interface LightboxAnimationPlayer {
     GalleryLightboxMediaComponent,
     NgIconComponent,
     ControlsLightboxComponent,
-    InfoPanelLightboxComponent
+    InfoPanelLightboxComponent,
+    TopLoadingBarComponent
 ]
 })
 export class GalleryLightboxComponent implements OnDestroy, OnInit {
@@ -78,6 +80,11 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
   private delayedMediaShow: string = null;
   private activePhotoId: number = null;
   private source: LightboxSource;
+  public isNativeFullScreen = false;
+  private pendingPhotoIndex: number = null;
+  private onFsChange = (): void => {
+    this.checkNativeFullScreen();
+  };
   private subscription: {
     photosChange: Subscription;
     route: Subscription;
@@ -132,16 +139,33 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
   }
 
   public toggleFullscreen(): void {
-    if (this.fullScreenService.isFullScreenEnabled()) {
+    if (this.fullScreenService?.isFullScreenEnabled()) {
       this.fullScreenService.exitFullScreen();
     } else {
-      this.fullScreenService.showFullScreen(this.root.nativeElement);
+      this.fullScreenService?.showFullScreen(this.root?.nativeElement);
+    }
+    this.checkNativeFullScreen();
+  }
+
+  @HostListener('document:fullscreenchange')
+  onFullScreenDomChange(): void {
+    this.checkNativeFullScreen();
+  }
+
+  public checkNativeFullScreen(): void {
+    const isFs = !!(this.fullScreenService?.isElementFullScreen &&
+      this.fullScreenService.isElementFullScreen(this.root?.nativeElement));
+    if (this.isNativeFullScreen !== isFs) {
+      this.isNativeFullScreen = isFs;
+      this.changeDetector.markForCheck();
     }
   }
 
   ngOnInit(): void {
     this.infoPanelMaxWidth = 1000;
     this.updatePhotoFrameDim();
+    this.fullScreenService?.OnFullScreenChange?.on(this.onFsChange);
+    this.checkNativeFullScreen();
     this.subscription.route = this.route.queryParams.subscribe(
       (params: Params) => {
         const validPhoto = params[QueryParams.gallery.photo] &&
@@ -174,6 +198,8 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
   ngOnDestroy(): void {
     this.navigationToken++;
     this.stopSlideShow();
+    this.fullScreenService?.OnFullScreenChange?.off(this.onFsChange);
+    this.mediaElement?.cancelActiveRequest();
     if (this.subscription.photosChange != null) {
       this.subscription.photosChange.unsubscribe();
     }
@@ -242,14 +268,19 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
   }
 
   public nextImage(): void {
-    if (this.activePhotoId + 1 < this.source.length) {
-      this.navigateToPhoto(this.activePhotoId + 1);
+    const baseIndex = this.pendingPhotoIndex ?? this.activePhotoId;
+    if (baseIndex != null && baseIndex + 1 < this.source.length) {
+      this.pendingPhotoIndex = baseIndex + 1;
+      this.mediaElement?.cancelActiveRequest();
+      this.navigateToPhoto(this.pendingPhotoIndex);
     } else if (this.source.hasMore()) {
       // errors need an explicit retry, so the slideshow timer does not hammer the server
       if (this.source.loadState !== 'error') {
         this.loadMoreAndAdvance();
       }
     } else if (this.lightboxService.loopSlideshow) {
+      this.pendingPhotoIndex = 0;
+      this.mediaElement?.cancelActiveRequest();
       this.navigateToPhoto(0);
     }
   }
@@ -260,8 +291,11 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
 
   public prevImage(): void {
     this.stopSlideShow();
-    if (this.activePhotoId > 0) {
-      this.navigateToPhoto(this.activePhotoId - 1);
+    const baseIndex = this.pendingPhotoIndex ?? this.activePhotoId;
+    if (baseIndex != null && baseIndex > 0) {
+      this.pendingPhotoIndex = baseIndex - 1;
+      this.mediaElement?.cancelActiveRequest();
+      this.navigateToPhoto(this.pendingPhotoIndex);
     }
   }
 
@@ -575,6 +609,7 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
 
   private navigateToPhoto(photoIndex: number): void {
     const gridMedia = this.source.get(photoIndex);
+    this.piTitleService.setMediaTitle(gridMedia);
     this.router
       .navigate([], {
         queryParams: this.source.queryParams(gridMedia.media),
@@ -661,6 +696,8 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
 
   private hideLightbox(): void {
     this.navigationToken++;
+    this.pendingPhotoIndex = null;
+    this.mediaElement?.cancelActiveRequest();
     if (this.controls) {
       this.controls.resetZoom();
     }
@@ -700,6 +737,7 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     if (photoIndex < 0 || photoIndex >= this.source.length) {
       throw new Error('Can\'t find the media');
     }
+    this.pendingPhotoIndex = photoIndex;
     this.videoSourceError = false;
     this.activePhotoId = photoIndex;
     const gridMedia = this.source.get(photoIndex);

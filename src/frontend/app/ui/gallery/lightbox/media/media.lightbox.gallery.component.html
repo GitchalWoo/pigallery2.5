@@ -31,7 +31,7 @@
         [loop]="true"
         [muted]="true"
         playsinline
-        (error)="onImageError()"
+        (error)="onLiveVideoError()"
         #liveVideo>
         <source [src]="liveVideoSrc" (error)="onSourceError()">
       </video>
@@ -52,10 +52,10 @@
     <video
       [style.width.%]="imageSize.width"
       [style.height.%]="imageSize.height"
-      (loadstart)="onImageLoad()"
+      (loadstart)="onVideoLoadStart()"
       [loop]="lightboxService.loopVideos"
       autoplay
-      (error)="onImageError()"
+      (error)="onVideoError()"
       (timeupdate)="onVideoProgress()"
       #video>
       <source [src]="gridMedia.getBestFitVideoPath()" (error)="onSourceError()">
@@ -63,6 +63,11 @@
     </video>
   }
 
+  @if (highResError) {
+    <div class="high-res-error-badge" role="status" aria-live="polite" i18n>
+      Higher-resolution image could not be loaded.
+    </div>
+  }
 
 </div>
 

@@ -26,6 +26,11 @@
   transform: translate(-45%,-50%);
 }
 
+.navigation-arrow:active {
+  transform: scale(0.92);
+  background-color: rgba(0, 0, 0, 0.45);
+}
+
 #controllers-container {
   z-index: 1100;
   color: white;

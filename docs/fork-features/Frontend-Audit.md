@@ -321,6 +321,25 @@ which is relative to the positioned photo component host. `getDimension()` simil
 - Reordered `showLightbox()` to execute scroll-to-target before measuring opening viewport geometry.
 - Regression tests in `photo.grid.gallery.component.spec.ts` and `lightbox.gallery.component.spec.ts`.
 
+### 3. Lightbox loading feedback and rapid navigation queuing
+
+Sources: `src/frontend/app/ui/gallery/lightbox/lightbox.gallery.component.ts:244`,
+`src/frontend/app/ui/gallery/lightbox/media/media.lightbox.gallery.component.ts:194`,
+`src/frontend/app/ui/frame/frame.component.html:1`.
+
+The lightbox previously lacked continuous loading indication during high-resolution
+image downloads and decodes, dropped rapid consecutive Next clicks due to async router
+state desynchronization, and coupled video `loadstart`/`error` events with image decoding.
+
+**Resolution:** completed on branch `feat/lightbox-loading-feedback`:
+- Added ownership-safe `LoadingBarService.begin()` token tracking for higher-resolution image downloads and decodes.
+- Extracted standalone `TopLoadingBarComponent` with 150 ms anti-flicker CSS delay, indeterminate animation, and `prefers-reduced-motion` static bar fallback.
+- Guarded photo load and decode completion with monotonic request IDs, staged background upgrade for zoom to prevent blanking displayed previews, and explicit cancellation.
+- Decoupled video and Live Photo event handlers from photo loading callbacks.
+- Enhanced `FullScreenService` with native `fullscreenchange` DOM listeners, rendering the top loading bar inside `#root` in native fullscreen mode.
+- Fixed rapid click navigation dropping inputs by queueing target indices and providing immediate `:active` button feedback.
+- Regression tests in `loading-bar.service.spec.ts`, `top-loading-bar.component.spec.ts`, `fullscreen.service.spec.ts`, `media.lightbox.gallery.component.spec.ts`, and `lightbox.gallery.component.spec.ts`.
+
 
 ## Preserve during cleanup
 
