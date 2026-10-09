@@ -244,6 +244,64 @@ Do not mechanically remove every WebKit/Mozilla declaration: browser-specific
 range-control selectors and some platform fallbacks require separate assessment.
 [MDN reduced-motion reference](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@media/prefers-reduced-motion).
 
+### 12. Medium: frontend cache policy gaps and deployment-version ambiguity
+
+Sources: `angular.json` production configuration (`outputHashing: "all"`);
+`src/backend/routes/PublicRouter.ts` (`renderIndex`, fixed-name icon routes and
+the generic static-file route); `.github/workflows/build.yml` (master and
+release image tags); `scripts/frontend.mjs` and `scripts/release.mjs` (production
+build and clean release directory); `docker/*/Dockerfile.build` and
+`docker/debian-trixie/selfcontained/Dockerfile` (image packaging and labels).
+
+Production JavaScript and CSS already use content-hashed filenames, so changed
+bundles naturally receive new URLs. The release script rebuilds the frontend
+using the production configuration into a clean release directory; the workflow
+packages that release artifact into its images. No configuration evidence was
+found that master images deliberately reuse an old frontend.
+
+The rendered HTML shell does not explicitly set a cache policy. Fixed-name SVG
+icons receive `Cache-Control: public, max-age=31536000` (one year). PNG icons and
+generic static files instead use `sendFile({maxAge: 31536000})`: that option is
+in milliseconds, producing `max-age=31536` (about 8.76 hours), not one year.
+These routes do not currently set `immutable`. The missing HTML policy and
+caching of fixed-name assets are confirmed gaps, but do not establish that a
+browser reused stale HTML or application bundles.
+
+Release builds do not retain previous hashed assets. Replacing a deployment
+can therefore break an already-open page that requests an old lazy-loaded chunk
+after rollout; this is distinct from a fresh page load showing an old UI.
+A reported Firefox session showed
+the previous UI after a master deployment until a hard refresh; this was not
+independently reproduced, so browser caching and deployment-image selection
+remain separate hypotheses. The workflow publishes master builds as `edge`;
+`latest` is published only for version-tag builds. Deploying `latest` therefore
+does not deploy the newest master commit.
+
+Set the rendered HTML response to `private, no-store` (it is rendered per
+request and can contain user-specific template data). Keep long-lived immutable
+caching for content-hashed assets, and require revalidation for fixed-name
+resources or give them versioned URLs. Deploy assets atomically and retain
+previous hashed assets for a short rollout grace period so existing tabs can
+finish loading. For master deployments, pull and deploy `edge`, then verify the
+running container's image digest; do not rely on a browser refresh to update an
+old image. Add an image revision label to the workflow's `Dockerfile.build`
+images. The self-contained Debian Dockerfile already defines
+`org.opencontainers.image.revision` from `SOURCE_COMMIT`, defaulting to `unknown`
+unless supplied at build time. Release `package.json` also records
+`buildCommitHash` when Git metadata is available. These frontend assets are
+separate from generated photo thumbnails;
+deployment should not clear the thumbnail cache.
+
+Validation performed: configuration and source review only, including the
+installed `send` implementation's conversion of `maxAge` to seconds. The Firefox
+report and rollout behavior were not reproduced; no application changes were made.
+
+Deployment validation still needed: verify the deployed image digest/commit against the intended master
+build; inspect response headers for `/` and representative hashed and fixed-name
+resources before and after a deployment. Confirm a fresh page load uses the new
+bundle, while a page held open across rollout can still load its previous lazy
+chunk. The recommendations above have not been implemented or deployment-tested.
+
 ## Deprecated API usages in frontend codebase
 
 Static AST analysis of the frontend TypeScript programs (`src/frontend/tsconfig.app.json` and `src/frontend/tsconfig.spec.json`) identified 12 deprecated function and method calls across 6 files:
