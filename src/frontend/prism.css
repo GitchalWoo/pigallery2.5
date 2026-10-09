@@ -43,7 +43,7 @@ html[data-gallery-design="prism"] app-album .info { font-weight: 650; letter-spa
 
 
 /* app-albums */
-html[data-gallery-design="prism"] app-albums .container-fluid[body] { padding: 1.5rem clamp(.5rem, 1.5vw, 1.5rem) 2rem; }
+html[data-gallery-design="prism"] app-albums .container-fluid[body] { padding: 0 clamp(.5rem, 1.5vw, 1.5rem) 2rem; }
 html[data-gallery-design="prism"] app-albums .no-item-msg, html[data-gallery-design="prism"] app-albums .no-face-msg { height: auto; padding-block: 5rem; color: var(--bs-secondary-color); }
 html[data-gallery-design="prism"] app-albums .add-saved-search { border-radius: 1.25rem; background: var(--pg-soft); color: var(--pg-accent); border: 1px dashed var(--pg-accent); }
 
@@ -75,6 +75,7 @@ html[data-gallery-design="prism"] app-frame .navbar-container {
 
 html[data-gallery-design="prism"] app-frame .navbar {
   padding: .65rem .5rem;
+  min-height: 4.125rem;
   border: 1px solid var(--pg-stroke);
   border-radius: 1.25rem;
   box-shadow: var(--pg-shadow);
@@ -218,13 +219,13 @@ html[data-gallery-design="prism"] app-gallery-grid-photo img { width: 100%; heig
 
 /* app-gallery-navbar */
 
-html[data-gallery-design="prism"] app-gallery-navbar { display: block; }
 html[data-gallery-design="prism"] app-gallery-navbar #directory-path { font-size: .85rem; overflow-wrap: anywhere; }
-html[data-gallery-design="prism"] app-gallery-navbar .container-fluid.bg-body-secondary {
+html[data-gallery-design="prism"] :is(app-gallery-navbar, app-faces-navbar, .collection-navbar) .container-fluid.bg-body-secondary {
   background: transparent !important;
   padding: .75rem .5rem !important;
 }
-html[data-gallery-design="prism"] app-gallery-navbar nav { align-items: center; gap: .5rem; }
+html[data-gallery-design="prism"] :is(app-gallery-navbar, app-faces-navbar, .collection-navbar) nav { gap: .5rem; }
+html[data-gallery-design="prism"] :is(app-gallery-navbar, app-faces-navbar, .collection-navbar) .breadcrumb { font-size: .85rem; }
 html[data-gallery-design="prism"] app-gallery-navbar .photos-count { color: var(--bs-secondary-color); font-size: .8rem; font-variant-numeric: tabular-nums; }
 html[data-gallery-design="prism"] app-gallery-navbar .btn-navigator { min-width: 2.5rem; min-height: 2.5rem; border-radius: .75rem; }
 html[data-gallery-design="prism"] app-gallery-navbar .divider { border-color: var(--pg-stroke); }
@@ -496,11 +497,12 @@ html[data-gallery-design="prism"] app-gallery-grid-photo:hover { scale: 1; }
 html[data-gallery-design="prism"] app-login .card { min-width: 0; }
 
 /* Match the Faces toolbar to the gallery toolbar. */
-html[data-gallery-design="prism"] app-faces-navbar { display: block; }
-html[data-gallery-design="prism"] app-faces-navbar .container-fluid.bg-body-secondary {
-  background: transparent !important;
-  padding: .75rem .5rem !important;
-}
-html[data-gallery-design="prism"] app-faces-navbar nav { align-items: center; }
-html[data-gallery-design="prism"] app-faces-navbar .breadcrumb { font-size: .85rem; }
 html[data-gallery-design="prism"] app-faces-navbar .btn-navigator { min-height: 2.5rem; min-width: 2.5rem; border-radius: .75rem; }
+
+@media (max-width: 767px) {
+  html[data-gallery-design="prism"] app-gallery-navbar .btn-navigator {
+    min-width: 2rem;
+    padding-inline: .375rem;
+  }
+  html[data-gallery-design="prism"] app-gallery-navbar .divider { margin-left: .2rem; }
+}

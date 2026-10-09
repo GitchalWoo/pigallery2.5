@@ -1,4 +1,15 @@
 <app-frame>
+  <div navbar-appendix class="collection-navbar">
+    <div class="container-fluid pt-1 pb-1 pe-0 ps-0 bg-body-secondary">
+      <nav class="row" aria-label="breadcrumb">
+        <div class="col-auto">
+          <ol class="mb-0 mt-1 breadcrumb">
+            <li class="breadcrumb-item" i18n>Albums</li>
+          </ol>
+        </div>
+      </nav>
+    </div>
+  </div>
 
   <div body #container class="container-fluid">
     @for (album of albumsService.albums | async; track album) {

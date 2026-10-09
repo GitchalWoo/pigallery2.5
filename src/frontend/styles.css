@@ -94,3 +94,46 @@ This is mostly btn-dark + border fix
 
 
 body {overflow-y: scroll;}
+
+/* Collection toolbars share a stable title/control row in every theme. */
+:is(app-gallery-navbar, app-faces-navbar, .collection-navbar) {
+  display: block;
+}
+:is(app-gallery-navbar, app-faces-navbar, .collection-navbar) nav {
+  display: flex;
+  align-items: center;
+  min-height: 2.5rem;
+  margin: 0;
+}
+:is(app-gallery-navbar, app-faces-navbar, .collection-navbar) .breadcrumb {
+  margin-top: 0 !important;
+  line-height: 1.5;
+}
+
+app-frame nav.navbar {
+  min-height: 3.5rem;
+}
+@media (max-width: 767px) {
+  :is(app-gallery-navbar, app-faces-navbar, .collection-navbar) nav {
+    flex-wrap: nowrap;
+  }
+  :is(app-gallery-navbar, app-faces-navbar, .collection-navbar) nav > .col-auto:first-child {
+    flex: 1;
+    min-width: 0;
+    padding-inline: .25rem;
+  }
+  :is(app-gallery-navbar, app-faces-navbar, .collection-navbar) .breadcrumb {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  app-gallery-navbar nav > .col-auto:last-child {
+    flex-shrink: 0;
+    padding-inline: .25rem;
+    white-space: nowrap;
+  }
+  app-gallery-navbar .photos-count,
+  app-gallery-navbar .photos-count + .divider {
+    display: none !important;
+  }
+}

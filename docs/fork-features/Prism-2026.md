@@ -23,7 +23,7 @@ Palette source: [PrismTheme.ts](../../src/common/config/public/PrismTheme.ts). T
 
 Faces uses compact circular portraits with separate, wrapping captions instead of name overlays. Favourite stars remain visible on both pale and dark thumbnails. The shared component styles use Bootstrap colors; Prism adds its surfaces and a gallery-style transparent toolbar.
 
-Albums has consistent spacing below navigation, and its add-search tile stays in document flow. Faces and Albums recalculate card widths on window resize using the actual page padding, so desktop and mobile layouts fit the container.
+Albums has a translated title bar matching Faces and the gallery, with no sorting controls yet. All three toolbars share a title/control row height and breadcrumb alignment in every theme. Prism uses the same toolbar padding and reserves a stable main-navbar height across these pages; Timeline retains its distinct layout. On phones, gallery controls stay on one compact row and the item count is hidden to avoid wrapping. Faces only shows its group separator when both favourites and other people are present. The Albums add-search tile stays in document flow. Faces and Albums recalculate card widths on window resize using the actual page padding, so desktop and mobile layouts fit the container.
 
 ## Theme-owned page templates
 
@@ -57,6 +57,7 @@ Open http://localhost:8083 and select Prism in settings. `docker` can replace `p
 - Gallery rows retain their calculated layout; oversized sparse rows are constrained to narrow viewports. Long Markdown previews no longer extend the document width.
 - Prism supports focus outlines, touch-visible photo actions, reduced-motion preferences, and translated UI text.
 - Validation passed: production English build (1.54 MB initial bundle), 231 frontend tests, frontend spec type-check, 8 focused PublicRouter tests, and isolated Cypress desktop/mobile smoke checks. Browser checks covered Prism light/dark, Classic, default light/dark, login, gallery, mobile menu bounds, collection routes, settings dropdowns, and viewer open/close, plus the original Classic login/gallery on a separate server.
+- Collection consistency check: English production build and isolated Brave checks passed at 1440, 768, 390, and 320 px. Gallery, Faces, and Albums share identical Prism navbar/toolbar heights; Classic title bars and mobile overflow were also checked.
 - The integrated browser was unavailable; visual inspection used Cypress screenshots from Brave. The container image itself was not built during this experiment.
 
 New English messages use Angular i18n; translations can be added through the existing translation workflow.

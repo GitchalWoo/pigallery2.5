@@ -17,6 +17,6 @@ app-face {
     color: #6c757d;
 }
 
-.container-fluid { padding-top: .75rem; padding-bottom: 2rem; }
-app-face { margin: 4px; }
+.container-fluid { padding-top: 0; padding-bottom: 2rem; }
+app-face { margin: 2px 4px 4px; }
 hr { border-color: var(--bs-border-color); margin-block: .75rem; }
