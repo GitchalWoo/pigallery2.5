@@ -259,18 +259,16 @@ html[data-gallery-design="prism"] app-login .login-art::after {
     linear-gradient(160deg, transparent 55%, #a095d41a);
 }
 html[data-gallery-design="prism"] app-login .login-brand { display: flex; align-items: center; gap: .75rem; font-size: 1.05rem; letter-spacing: -.03em; }
-html[data-gallery-design="prism"] app-login .login-manifesto { position: relative; z-index: 1; margin-top: 18rem;
+html[data-gallery-design="prism"] app-login .login-title { position: relative; z-index: 1; margin-top: 18rem;
   text-shadow: 0 2px 30px #19162b; }
-html[data-gallery-design="prism"] app-login .login-manifesto h1 {
+html[data-gallery-design="prism"] app-login .login-title h1 {
   font-size: clamp(3rem, 5.6vw, 6.5rem);
   font-weight: 750;
   line-height: .98;
   letter-spacing: -.065em;
   margin: 1.5rem 0;
+  overflow-wrap: anywhere;
 }
-html[data-gallery-design="prism"] app-login .login-manifesto p { color: #c5bdd9; font-size: 1rem; }
-html[data-gallery-design="prism"] app-login .login-manifesto .collection-eyebrow { color: #c5bdd9; }
-html[data-gallery-design="prism"] app-login .login-manifesto .collection-eyebrow::before { background: #bbf6d5; box-shadow: 0 0 0 4px #bbf6d518; }
 html[data-gallery-design="prism"] app-login .orbit-art {
   position: absolute;
   top: 8%;
@@ -450,25 +448,6 @@ html[data-gallery-design="prism"] .modal-content { border-radius: var(--pg-radiu
 html[data-gallery-design="prism"] .card { --bs-card-border-radius: 1.1rem; }
 html[data-gallery-design="prism"] .card-header:first-child { border-radius: 1.1rem 1.1rem 0 0; }
 html[data-gallery-design="prism"] .alert { border-radius: 1rem; }
-html[data-gallery-design="prism"] .collection-eyebrow {
-  color: var(--bs-secondary-color);
-  font-size: .7rem;
-  font-weight: 700;
-  letter-spacing: .18em;
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  gap: .6rem;
-}
-html[data-gallery-design="prism"] .collection-eyebrow::before {
-  content: '';
-  width: .5rem;
-  height: .5rem;
-  background: var(--pg-accent);
-  border-radius: 50%;
-  box-shadow: 0 0 0 4px rgba(var(--pg-accent-rgb), .1);
-}
-
 html[data-gallery-design="prism"] :where(a, button, input, select, [tabindex]):focus-visible {
   outline: 3px solid var(--pg-accent);
   outline-offset: 3px;

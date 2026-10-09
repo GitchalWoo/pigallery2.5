@@ -7957,6 +7957,14 @@
         </context-group>
         <target>Loading</target>
       </trans-unit>
+      <trans-unit id="2102825898069375693" datatype="html">
+        <source>Menu</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/frontend/app/ui/frame/frame.component.html</context>
+          <context context-type="linenumber">91</context>
+        </context-group>
+        <target>Meny</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

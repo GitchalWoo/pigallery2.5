@@ -66,4 +66,4 @@ Open http://localhost:8083 and select Prism in settings. `docker` can replace `p
 - Search spacing verified: English production build, 33 focused grid tests, and Brave checks for search/folder results at 1440, 390, and 320 px in Classic and Prism. Checks covered result gutters, horizontal overflow, sorting menu access, and viewer open/close.
 - The integrated browser was unavailable; visual inspection used Cypress screenshots from Brave. The container image itself was not built during this experiment.
 
-New English messages use Angular i18n; translations can be added through the existing translation workflow.
+Prism login uses the existing configured site title for branding, without slogans or an additional branding setting. Existing translated login labels remain shared. The menu accessibility label is included in all locale catalogs using their existing translation of “Menu”.
