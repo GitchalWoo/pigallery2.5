@@ -27,7 +27,7 @@ Albums has a translated title bar matching Faces and the gallery, with no sortin
 
 After saving a theme selection, enabled state, or palette edits, reload the page to apply the server-rendered stylesheet and design marker together. Theme selection does not preview unsaved changes. Changing just the design marker would leave the palette and compiled login route inconsistent.
 
-Search and folder photo grids now have shared horizontal gutters, with Prism using its responsive collection gutter. The first group heading has a compact top gap, and an empty folder list adds no Prism bottom margin. Grid rows continue to measure the actual available container width.
+Collection spacing uses `--gallery-page-gutter`: 0.75rem in the shared design and a responsive 0.5–1.5rem value in Prism. Gallery/search folders, blog previews, photos, group headings, toolbar titles, Albums, Faces, Timeline, and full-width settings align to this gutter. Page containers own the inset so the grid does not add it twice; grid rows measure their actual available width. Timeline still reserves space for its month rail. Long blog previews and their media groups are constrained in every theme. The first group heading has a compact top gap, and an empty folder list adds no Prism bottom margin.
 
 ## Theme-owned page templates
 
@@ -64,6 +64,7 @@ Open http://localhost:8083 and select Prism in settings. `docker` can replace `p
 - Collection consistency check: English production build and isolated Brave checks passed at 1440, 768, 390, and 320 px. Gallery, Faces, and Albums share identical Prism navbar/toolbar heights; Classic title bars and mobile overflow were also checked.
 - Review fixes verified: five focused theme-settings tests, frontend spec type-check, English production build, and Brave assertions for built-in light/dark surfaces, custom `:root` token overrides, and an empty palette falling back to Bootstrap.
 - Search spacing verified: English production build, 33 focused grid tests, and Brave checks for search/folder results at 1440, 390, and 320 px in Classic and Prism. Checks covered result gutters, horizontal overflow, sorting menu access, and viewer open/close.
+- Gutter consistency verified: English production build, 50 focused grid/Timeline tests, and Brave measurements across Gallery, search, Albums, Faces, Timeline, and settings at 1440, 390, and 320 px in Classic and Prism. Checks covered matching content/heading/title edges and no horizontal overflow. The shared settings toolbar also wraps at narrow widths.
 - The integrated browser was unavailable; visual inspection used Cypress screenshots from Brave. The container image itself was not built during this experiment.
 
 Prism login uses the existing configured site title for branding, without slogans or an additional branding setting. Existing translated login labels remain shared. The menu accessibility label is included in all locale catalogs using their existing translation of “Menu”.

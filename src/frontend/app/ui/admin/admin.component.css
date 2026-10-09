@@ -22,3 +22,9 @@ nav.sticky-top {
 .btn-settings-nav{
   line-height: initial;
 }
+
+.container-fluid[body] { padding-inline: var(--gallery-page-gutter); }
+
+.form-horizontal > .d-flex { flex-wrap: wrap; gap: .5rem; }
+.form-horizontal > .d-flex > div:first-child { min-width: 0; max-width: 100%; }
+.version { overflow-wrap: anywhere; }

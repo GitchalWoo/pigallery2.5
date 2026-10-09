@@ -12,7 +12,8 @@ app-frame {
 
 
 .blog-map-row {
-  width: 100%;
+  width: auto;
+  margin-inline: 2px;
   display: flex;
   position: relative;
   margin-top: 0.2em;
@@ -24,8 +25,8 @@ app-frame {
 app-gallery-blog {
   float: left;
   width: 100%;
-  margin-right: 0.25em;
-  margin-left: 2px;
+  margin-right: 0;
+  margin-left: 0;
 }
 
 app-gallery-map {
@@ -38,12 +39,12 @@ app-gallery-map {
 
 .app-gallery-body{
   flex-grow: 1;
+  padding-inline: calc(var(--gallery-page-gutter) - 2px);
 }
 
 
 .directories {
-  margin-right: 2px;
-  margin-left: 2px;
+  margin-inline: 0;
   display: block;
 }
 
@@ -92,3 +93,5 @@ app-gallery-map {
     -webkit-transform: perspective(120px) rotateX(-180deg) rotateY(-179.9deg);
   }
 }
+
+.app-gallery-body > .alert { margin-inline: 2px; }

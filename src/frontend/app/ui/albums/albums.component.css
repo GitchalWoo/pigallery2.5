@@ -6,6 +6,7 @@ app-album {
 
 .container-fluid[body] {
   line-height: 0;
+  padding-inline: calc(var(--gallery-page-gutter) - 2px);
 }
 
 .no-item-msg {

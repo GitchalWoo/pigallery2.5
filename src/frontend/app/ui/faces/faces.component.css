@@ -6,6 +6,7 @@ app-face {
 
 .container-fluid {
     line-height: 0;
+    padding-inline: calc(var(--gallery-page-gutter) - 4px);
 }
 
 .no-face-msg {
@@ -19,4 +20,4 @@ app-face {
 
 .container-fluid { padding-top: 0; padding-bottom: 2rem; }
 app-face { margin: 2px 4px 4px; }
-hr { border-color: var(--bs-border-color); margin-block: .75rem; }
+hr { border-color: var(--bs-border-color); margin: .75rem 4px; }

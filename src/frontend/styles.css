@@ -1,6 +1,7 @@
 @import './prism.css';
 
 :root{
+  --gallery-page-gutter: .75rem;
   --item-background: #bbbbbb;
   --item-loading-indicator: #555555;
 }
@@ -136,4 +137,11 @@ app-frame nav.navbar {
   app-gallery-navbar .photos-count + .divider {
     display: none !important;
   }
+}
+
+:is(app-gallery-navbar, app-faces-navbar, .collection-navbar) > .container-fluid {
+  padding-inline: var(--gallery-page-gutter) !important;
+}
+:is(app-gallery-navbar, app-faces-navbar, .collection-navbar) nav > .col-auto:first-child {
+  padding-left: 0;
 }
