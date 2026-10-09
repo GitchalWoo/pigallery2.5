@@ -27,6 +27,8 @@ Albums has a translated title bar matching Faces and the gallery, with no sortin
 
 After saving a theme selection, enabled state, or palette edits, reload the page to apply the server-rendered stylesheet and design marker together. Theme selection does not preview unsaved changes. Changing just the design marker would leave the palette and compiled login route inconsistent.
 
+Search and folder photo grids now have shared horizontal gutters, with Prism using its responsive collection gutter. The first group heading has a compact top gap, and an empty folder list adds no Prism bottom margin. Grid rows continue to measure the actual available container width.
+
 ## Theme-owned page templates
 
 The original [login.component.html](../../src/frontend/app/ui/login/login.component.html) and its component remain unchanged. Prism owns a separate [login template](../../src/frontend/app/themes/prism/login/prism-login.component.html) and [component](../../src/frontend/app/themes/prism/login/prism-login.component.ts). Its component inherits the original login behavior, including local credentials, OIDC, validation state, and navigation.
@@ -61,6 +63,7 @@ Open http://localhost:8083 and select Prism in settings. `docker` can replace `p
 - Validation passed: production English build (1.54 MB initial bundle), 231 frontend tests, frontend spec type-check, 8 focused PublicRouter tests, and isolated Cypress desktop/mobile smoke checks. Browser checks covered Prism light/dark, Classic, default light/dark, login, gallery, mobile menu bounds, collection routes, settings dropdowns, and viewer open/close, plus the original Classic login/gallery on a separate server.
 - Collection consistency check: English production build and isolated Brave checks passed at 1440, 768, 390, and 320 px. Gallery, Faces, and Albums share identical Prism navbar/toolbar heights; Classic title bars and mobile overflow were also checked.
 - Review fixes verified: five focused theme-settings tests, frontend spec type-check, English production build, and Brave assertions for built-in light/dark surfaces, custom `:root` token overrides, and an empty palette falling back to Bootstrap.
+- Search spacing verified: English production build, 33 focused grid tests, and Brave checks for search/folder results at 1440, 390, and 320 px in Classic and Prism. Checks covered result gutters, horizontal overflow, sorting menu access, and viewer open/close.
 - The integrated browser was unavailable; visual inspection used Cypress screenshots from Brave. The container image itself was not built during this experiment.
 
 New English messages use Angular i18n; translations can be added through the existing translation workflow.

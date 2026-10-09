@@ -116,6 +116,7 @@ html[data-gallery-design="prism"] app-gallery-blog .text-preview markdown { disp
 
 /* app-gallery-directories */
 html[data-gallery-design="prism"] app-gallery-directories { margin-bottom: 1rem; }
+html[data-gallery-design="prism"] app-gallery-directories:empty { margin-bottom: 0; }
 
 
 /* app-gallery-directory */
@@ -159,8 +160,9 @@ html[data-gallery-design="prism"] app-gallery-directory:focus-within { transform
 
 
 /* app-gallery-grid */
+html[data-gallery-design="prism"] app-gallery-grid { margin-inline: clamp(.5rem, 1.5vw, 1.5rem); }
 html[data-gallery-design="prism"] app-gallery-grid .media-group h6 {
-  margin-top: .75rem;
+  margin-top: 0;
   font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: -.04em;
