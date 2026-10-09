@@ -1,3 +1,4 @@
+import {PRISM_THEME} from './PrismTheme';
 /* eslint-disable @typescript-eslint/no-inferrable-types */
 import 'reflect-metadata';
 import {FaceSortByTypes, GroupByTypes, GroupingMethod, SortByTypes, SortingMethod} from '../../entities/SortingMethods';
@@ -1139,7 +1140,9 @@ export class ThemesConfig {
       '--bs-bg-opacity: 1;\n' +
       'background-color: rgba(var(--bs-dark-rgb), var(--bs-bg-opacity)) !important;\n' +
       '}'
-    )];
+    ),
+    new ThemeConfig('prism', PRISM_THEME)
+  ];
 }
 
 

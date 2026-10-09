@@ -32,3 +32,6 @@
 hr {
     margin: auto 0;
 }
+
+:host { display: block; min-width: 0; max-width: 100%; }
+.text-preview markdown { display: block; overflow: hidden; text-overflow: ellipsis; }

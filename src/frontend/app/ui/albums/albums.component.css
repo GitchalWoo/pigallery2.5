@@ -36,3 +36,10 @@ app-album {
   display: inline-block;
   width: 100%;
 }
+
+.container-fluid { padding-inline: clamp(.5rem, 1.5vw, 1.5rem); }
+.collection-intro { line-height: normal; }
+.no-item-msg, .no-face-msg { height: auto; padding-block: 5rem; color: var(--bs-secondary-color); }
+
+app-album { margin: 2px; }
+.add-saved-search { border-radius: 1.25rem; margin: 2px; background: var(--pg-soft); color: var(--pg-accent); border: 1px dashed var(--pg-accent); }

@@ -84,11 +84,11 @@
             <li class="nav-item divider-vertical d-xl-block d-none">
             </li>
             <li class="nav-item dropdown">
-              <div class="btn-group" dropdown #dropdown="bs-dropdown" placement="bottom"
+              <div class="btn-group" dropdown #dropdown="bs-dropdown" placement="bottom right"
                 [autoClose]="false" container="body">
                 <button id="button-frame-menu" dropdownToggle
                   type="button" class="btn btn-tertiary dropdown-toggle"
-                  aria-controls="dropdown-frame-menu">
+                  aria-controls="dropdown-frame-menu" aria-label="Menu" i18n-aria-label>
                   <ng-icon class="align-text-top" size="1.2em" name="ionMenuOutline"></ng-icon>
                   @if (isAdmin() && notificationService.numberOfNotifications>0) {
                     <span

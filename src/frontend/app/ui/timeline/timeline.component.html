@@ -1,6 +1,12 @@
 <app-gallery-lightbox #lightbox></app-gallery-lightbox>
 <app-frame>
   <div body class="container-fluid app-gallery-body timeline-body" [class.timeline-has-rail]="railYears.length > 0">
+    <header class="collection-intro">
+      <div>
+        <span class="collection-eyebrow" i18n>Through the years</span>
+        <h1 i18n>Timeline</h1>
+      </div>
+    </header>
     @if (atMonth || railYears.length > 0) {
       <div class="d-flex align-items-center gap-2 mt-2">
         @if (atMonth) {

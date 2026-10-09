@@ -50,3 +50,19 @@
     padding-right: 4.75rem;
   }
 }
+
+.timeline-rail {
+  top: 6rem;
+  right: .65rem;
+  padding: .5rem .3rem;
+  border: 1px solid var(--pg-stroke);
+  border-radius: 1rem;
+  background: var(--pg-surface);
+  box-shadow: var(--pg-shadow);
+}
+.timeline-rail-month.active {
+  color: var(--pg-accent);
+  background: rgba(var(--pg-accent-rgb), .12);
+  border-radius: .4rem;
+}
+@media (min-width: 768px) { .timeline-has-rail { padding-right: 5.5rem; } }

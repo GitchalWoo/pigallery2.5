@@ -1,3 +1,4 @@
+import {PRISM_THEME} from '../../common/config/public/PrismTheme';
 import {Express, NextFunction, Request, Response} from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -101,7 +102,7 @@ export class PublicRouter {
           .replace(/'/g, '&#039;');
       res.tpl.Config = confCopy;
       res.tpl.customHTMLHead = Config.Server.customHTMLHead;
-      const selectedTheme = Config.Gallery.Themes.availableThemes.find(th => th.name === Config.Gallery.Themes.selectedTheme)?.theme || '';
+      const selectedTheme = Config.Gallery.Themes.availableThemes.find(th => th.name === Config.Gallery.Themes.selectedTheme)?.theme ?? (Config.Gallery.Themes.selectedTheme === 'prism' ? PRISM_THEME : '');
       res.tpl.usedTheme = selectedTheme;
 
       res.tpl.UIExtensionConfigs = ObjectManagers.getInstance().ExtensionManager.getUIExtensionConfigs();

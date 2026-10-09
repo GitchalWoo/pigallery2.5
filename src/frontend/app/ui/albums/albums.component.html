@@ -1,6 +1,12 @@
 <app-frame>
 
   <div body #container class="container-fluid">
+    <header class="collection-intro">
+      <div>
+        <span class="collection-eyebrow" i18n>Curated by you</span>
+        <h1 i18n>Albums</h1>
+      </div>
+    </header>
     @for (album of albumsService.albums | async; track album) {
       <app-album
         [album]="album"

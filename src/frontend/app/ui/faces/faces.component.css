@@ -16,3 +16,9 @@ app-face {
 .no-face-msg h2 {
     color: #6c757d;
 }
+
+.container-fluid { padding-inline: clamp(.5rem, 1.5vw, 1.5rem); }
+.collection-intro { line-height: normal; }
+.no-item-msg, .no-face-msg { height: auto; padding-block: 5rem; color: var(--bs-secondary-color); }
+
+app-face { margin: 2px; }

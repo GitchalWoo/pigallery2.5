@@ -1,9 +1,9 @@
 :host {
-  transition: scale .3s ease-out;
+  transition: transform .25s ease-out;
 }
 
 :host:hover {
-  scale: 98%;
+  transform: translateY(-4px);
 }
 
 a {
@@ -11,7 +11,7 @@ a {
 }
 
 .photo-container {
-  border: 1px solid #333;
+  border: 1px solid var(--pg-stroke);
   width: 180px;
   height: 180px;
   background-color: var(--item-background);
@@ -43,25 +43,33 @@ a {
 }
 
 .info {
-  background-color: rgba(0, 0, 0, 0.6);
+  background: linear-gradient(transparent, rgb(0 0 0 / 85%));
   color: white;
   font-size: medium;
   position: absolute;
   bottom: 0;
   left: 0;
-  padding: 5px;
+  padding: 2rem 1rem 1rem;
   width: 100%;
 }
 
 a:hover .info {
-  background-color: rgba(0, 0, 0, 0.8);
+  background: linear-gradient(transparent, rgb(0 0 0 / 90%));
 }
 
 a:hover .photo-container {
-  border-color: #000;
+  border-color: var(--pg-accent);
 }
 
 .directory-name {
-  width: 180px;
-  white-space: normal;
+  width: 100%;
+  overflow-wrap: anywhere;
+  font-weight: 650;
+  letter-spacing: -.02em;
 }
+
+.button { display: block; border-radius: 1.25rem; overflow: hidden; box-shadow: var(--pg-shadow); }
+.photo-container.rounded { border-radius: 1.25rem !important; }
+.photo { transition: transform .5s ease; }
+a:hover .photo { transform: scale(1.045); }
+:host:focus-within { transform: translateY(-4px); }

@@ -17,3 +17,7 @@ form {
     max-width: 500px;
   }
 }
+
+.navbar-form .input-group { min-height: 2.5rem; }
+.navbar-form .btn { border-color: var(--pg-stroke); }
+@media (max-width: 575px) { form { padding-right: .4rem; } }
