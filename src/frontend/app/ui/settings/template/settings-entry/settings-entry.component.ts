@@ -214,15 +214,19 @@ export class SettingsEntryComponent
   selectTheme(name: string): void {
     // Older saved configurations have their own theme list. Install the palette
     // only when selected, preserving every existing/custom theme definition.
-    const themes = (this.state.rootConfig as any).__state.availableThemes;
-    if (name === 'prism' && !themes.value.some((theme: ThemeConfig) => theme.name === name)) {
+    const themes = (this.state?.rootConfig as any)?.__state?.availableThemes;
+    if (!themes) {
+      return;
+    }
+    if (name === 'prism' && !(themes.value ?? []).some((theme: ThemeConfig) => theme.name === name)) {
+      themes.value ??= [];
       themes.value.push(new themes.arrayType('prism', PRISM_THEME));
     }
     this.onChange(name);
   }
 
   get AvailableThemes() {
-    const themes: ThemeConfig[] = (this.state.rootConfig as any).__state.availableThemes.value;
+    const themes: ThemeConfig[] = (this.state?.rootConfig as any)?.__state?.availableThemes?.value ?? [];
     return [{
       key: 'default',
       value: $localize`default`
@@ -234,7 +238,8 @@ export class SettingsEntryComponent
   get SelectedThemeSettings(): {
     theme: string
   } {
-    return (this.state.value as ThemeConfig[]).find(th => th.name === (this.state.rootConfig as any).__state.selectedTheme.value) || {theme: 'N/A'};
+    const selectedTheme = (this.state?.rootConfig as any)?.__state?.selectedTheme?.value;
+    return ((this.state?.value ?? []) as ThemeConfig[]).find(th => th.name === selectedTheme) || {theme: 'N/A'};
   }
 
   get Disabled() {

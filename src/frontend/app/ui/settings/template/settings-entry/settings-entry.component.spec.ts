@@ -43,4 +43,24 @@ describe('Prism selection in saved theme configurations', () => {
     expect(themes).toHaveLength(0);
     expect(component.onChange).toHaveBeenCalledWith('default');
   });
+
+  it('handles theme controls before settings state is bound', () => {
+    const component = new SettingsEntryComponent(null, null, null);
+    component.onChange = vi.fn();
+    expect(component.AvailableThemes.map(theme => theme.key)).toEqual(['default', 'prism']);
+    expect(component.SelectedThemeSettings).toEqual({theme: 'N/A'});
+    component.selectTheme('prism');
+    expect(component.onChange).not.toHaveBeenCalled();
+    component.state = {rootConfig: {}} as any;
+    expect(() => component.selectTheme('prism')).not.toThrow();
+    expect(component.AvailableThemes.map(theme => theme.key)).toEqual(['default', 'prism']);
+  });
+
+  it('initializes a missing theme list when its settings entry is present', () => {
+    const component = setup(undefined);
+    component.selectTheme('prism');
+    expect((component.state.rootConfig as any).__state.availableThemes.value[0].theme).toBe(PRISM_THEME);
+    expect(component.onChange).toHaveBeenCalledWith('prism');
+  });
+
 });

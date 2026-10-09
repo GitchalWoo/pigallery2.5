@@ -193,18 +193,6 @@ html[data-gallery-design="prism"] app-gallery-grid-photo:hover {
   }
 }
 
-@keyframes prism-hide-info {
-
-  0% {
-    transform: translateY(-100%);
-    background: rgba(0, 0, 0, 0.8);
-  }
-  100% {
-    transform: translateY(0);
-    background-color: transparent;
-  }
-}
-
 html[data-gallery-design="prism"] app-gallery-grid-photo .media-button {
   transition: background-color .3s ease-out;
 }
@@ -356,7 +344,8 @@ html[data-gallery-design="prism"] app-timeline .timeline-rail-month.active {
 html[data-gallery-design="prism"] bs-dropdown-container {
   z-index: 1060;
 }
-html[data-gallery-design="prism"] {
+/* Palette defaults must yield to administrator and built-in :root tokens. */
+:where(html[data-gallery-design="prism"]) {
   --pg-accent: var(--bs-primary);
   --pg-accent-rgb: var(--bs-primary-rgb);
   --pg-surface: var(--bs-body-bg);
@@ -364,6 +353,9 @@ html[data-gallery-design="prism"] {
   --pg-stroke: var(--bs-border-color);
   --pg-shadow: 0 16px 48px rgb(0 0 0 / 8%);
   --pg-radius: 1.5rem;
+}
+
+html[data-gallery-design="prism"] {
   --item-background: var(--bs-secondary-bg);
   --item-loading-indicator: var(--bs-secondary-color);
 }

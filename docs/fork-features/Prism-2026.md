@@ -17,13 +17,15 @@ Open http://localhost:8081. Use 8082 if another server owns 8081. For a persiste
 
 Prism is an opt-in design: its layout and controls apply only when **prism** is selected and themes are enabled. Default, Classic, and existing custom themes retain the legacy design and original login layout. Shared Faces readability and collection spacing improvements apply to all themes. Collection mastheads have been removed. Light/Dark/Auto remains independent of the selected design. Existing saved theme lists offer Prism without changing their entries; selecting Prism adds its editable CSS only when missing. Existing custom CSS named `prism`, even an empty definition, takes precedence over the built-in palette.
 
-Palette source: [PrismTheme.ts](../../src/common/config/public/PrismTheme.ts). The scoped skin and surface/accent tokens live in [prism.css](../../src/frontend/prism.css), derived from Bootstrap variables. The server marks Prism pages with `data-gallery-design="prism"` before rendering, so the selected design also applies to login without a layout flash. Custom palettes can override `--pg-accent`, `--pg-accent-rgb`, `--pg-surface`, `--pg-soft`, `--pg-stroke`, and `--pg-shadow`.
+Palette source: [PrismTheme.ts](../../src/common/config/public/PrismTheme.ts). The scoped skin and surface/accent tokens live in [prism.css](../../src/frontend/prism.css), derived from Bootstrap variables. The server marks Prism pages with `data-gallery-design="prism"` before rendering, so the selected design also applies to login without a layout flash. Palette fallback tokens use zero-specificity `:where(...)` so built-in and administrator `:root` declarations take precedence. Custom palettes can override `--pg-accent`, `--pg-accent-rgb`, `--pg-surface`, `--pg-soft`, `--pg-stroke`, and `--pg-shadow`.
 
 ## Shared collection improvements
 
 Faces uses compact circular portraits with separate, wrapping captions instead of name overlays. Favourite stars remain visible on both pale and dark thumbnails. The shared component styles use Bootstrap colors; Prism adds its surfaces and a gallery-style transparent toolbar.
 
 Albums has a translated title bar matching Faces and the gallery, with no sorting controls yet. All three toolbars share a title/control row height and breadcrumb alignment in every theme. Prism uses the same toolbar padding and reserves a stable main-navbar height across these pages; Timeline retains its distinct layout. On phones, gallery controls stay on one compact row and the item count is hidden to avoid wrapping. Faces only shows its group separator when both favourites and other people are present. The Albums add-search tile stays in document flow. Faces and Albums recalculate card widths on window resize using the actual page padding, so desktop and mobile layouts fit the container.
+
+After saving a theme selection, enabled state, or palette edits, reload the page to apply the server-rendered stylesheet and design marker together. Theme selection does not preview unsaved changes. Changing just the design marker would leave the palette and compiled login route inconsistent.
 
 ## Theme-owned page templates
 
@@ -58,6 +60,7 @@ Open http://localhost:8083 and select Prism in settings. `docker` can replace `p
 - Prism supports focus outlines, touch-visible photo actions, reduced-motion preferences, and translated UI text.
 - Validation passed: production English build (1.54 MB initial bundle), 231 frontend tests, frontend spec type-check, 8 focused PublicRouter tests, and isolated Cypress desktop/mobile smoke checks. Browser checks covered Prism light/dark, Classic, default light/dark, login, gallery, mobile menu bounds, collection routes, settings dropdowns, and viewer open/close, plus the original Classic login/gallery on a separate server.
 - Collection consistency check: English production build and isolated Brave checks passed at 1440, 768, 390, and 320 px. Gallery, Faces, and Albums share identical Prism navbar/toolbar heights; Classic title bars and mobile overflow were also checked.
+- Review fixes verified: five focused theme-settings tests, frontend spec type-check, English production build, and Brave assertions for built-in light/dark surfaces, custom `:root` token overrides, and an empty palette falling back to Bootstrap.
 - The integrated browser was unavailable; visual inspection used Cypress screenshots from Brave. The container image itself was not built during this experiment.
 
 New English messages use Angular i18n; translations can be added through the existing translation workflow.

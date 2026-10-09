@@ -85,7 +85,7 @@
                 (ngModelChange)="selectTheme($event)"
                 [disabled]="state.readonly || Disabled"
                 class="form-select" [(ngModel)]="state.value">
-                @for (th of AvailableThemes; track th) {
+                @for (th of AvailableThemes; track th.key) {
                   <option [ngValue]="th.key">{{th.value}}
                   </option>
                 }
