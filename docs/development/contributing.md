@@ -162,6 +162,15 @@ installation or an X11/Xvfb display. You can narrow tests by path pattern, for e
 
   `npm run test-backend -- --grep 'Settings middleware'`
 
+Focused coverage suites are grouped by behavior: sharing ownership and updates
+(`SharingMWs management`), user session refreshes (`UserMWs session updates`),
+admin job and extension endpoints (`AdminMWs`, `ExtensionMWs`), file processing
+jobs (`FileJob processing loop`), and GPX compression (`GPXProcessing`). For
+browser-level share login feedback, run the `share.cy.ts` Cypress spec against
+the E2E server. These examples cover important middleware and processing paths;
+they do not represent exhaustive frontend coverage. Backend c8 coverage does
+not instrument frontend or Cypress code.
+
 Run backend suites serially: they share configuration, database fixtures, and
 application managers.
 

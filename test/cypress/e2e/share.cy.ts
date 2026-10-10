@@ -89,6 +89,27 @@ describe('Share', () => {
 
   });
 
+  it('rejects an incorrect password for a protected share', () => {
+    cy.wait('@getContent');
+
+    cy.get('button#shareButton').click();
+    cy.get('input#share-password').type('secret', {force: true});
+    cy.get('button#getShareButton').click();
+    cy.get('input#shareLink').should('contain.value', 'http');
+    cy.get('input#shareLink').invoke('val').then((link: string) => {
+      const sharingKey = new URL(link).pathname.split('/').pop();
+      cy.get('button.btn-close').click();
+      cy.get('button#button-frame-menu').click();
+      cy.get('#dropdown-frame-menu ng-icon[name="ionLogOutOutline"]').click({scrollBehavior: false});
+
+      cy.visit('/shareLogin?sk=' + sharingKey);
+      cy.get('input#password').type('incorrect-password');
+      cy.get('button#button-share-login').click();
+      cy.get('.error-message').should('be.visible');
+      cy.get('app-share-login').should('exist');
+    });
+  });
+
 
   it('Open no password sharing', () => {
     cy.wait('@getContent');
