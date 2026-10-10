@@ -1,12 +1,12 @@
-# PiGallery2
-![GitHub package.json version](https://img.shields.io/github/package-json/v/bpatrik/pigallery2)
-[![Coverage Status](https://coveralls.io/repos/github/bpatrik/pigallery2/badge.svg?branch=master)](https://coveralls.io/github/bpatrik/pigallery2?branch=master)
-[![Docker build](https://github.com/bpatrik/pigallery2/workflows/docker-buildx/badge.svg)](https://github.com/bpatrik/pigallery2/actions)
+# PiGallery2.5
+![GitHub package.json version](https://img.shields.io/github/package-json/v/GitchalWoo/pigallery2.5)
+[![Coverage Status](https://coveralls.io/repos/github/GitchalWoo/pigallery2.5/badge.svg?branch=master)](https://coveralls.io/github/GitchalWoo/pigallery2.5?branch=master)
+[![Docker build](https://github.com/GitchalWoo/pigallery2.5/workflows/docker-buildx/badge.svg)](https://github.com/GitchalWoo/pigallery2.5/actions)
 
-PiGallery2 is a **fast** directory-first photo gallery website, optimized for running on low-resource servers (especially on Raspberry Pi).
+PiGallery2.5 is a modernized fork of PiGallery2 which is a **fast** directory-first photo gallery website, optimized for running on low-resource servers (especially on Raspberry Pi).
 
 ## About This Fork
-This repository is a fork of [PiGallery2](https://github.com/bpatrik/pigallery2). It keeps the upstream project's core functionality and documentation, with additional changes maintained here. For the original project and its releases, visit the [upstream repository](https://github.com/bpatrik/pigallery2). Changes specific to this fork are tracked in this repository's commit history.
+This repository is a fork of [PiGallery2](https://github.com/bpatrik/pigallery2). Its goal is to modernize the project while preserving the original's minimalist philosophy: a fast, directory-first gallery that stays simple to run and use. It keeps the upstream project's core functionality and documentation, with additional changes maintained here. For the original project and its releases, visit the [upstream repository](https://github.com/bpatrik/pigallery2). Changes specific to this fork are tracked in this repository's commit history.
 
 For this fork's build, release, translation, and test commands, use the local
 [contribution guide](docs/development/contributing.md). The
