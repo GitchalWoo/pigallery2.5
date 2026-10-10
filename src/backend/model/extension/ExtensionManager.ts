@@ -160,6 +160,7 @@ export class ExtensionManager implements IObjectManager {
         // Never remove a directory that existed before this install attempt.
         const ownedDir = ExtensionPath.folder(extensionId);
         await fs.promises.rm(ownedDir, {recursive: true, force: true});
+        ExtensionConfigTemplateLoader.Instance.forgetExtension(extensionId);
         if (!hadConfig) Config.Extensions.extensions.removeProperty(extensionId);
       }
       throw err;

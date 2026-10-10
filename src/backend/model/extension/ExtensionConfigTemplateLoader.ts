@@ -58,6 +58,12 @@ export class ExtensionConfigTemplateLoader {
     }
   }
 
+  /** Remove cached discovery state when a newly installed extension is rolled back. */
+  public forgetExtension(extFolder: string): void {
+    this.extensionTemplates = this.extensionTemplates.filter(ext => ext.folder !== extFolder);
+    this.extensionList = this.extensionList.filter(folder => folder !== extFolder);
+  }
+
   public loadExtensionTemplates(config: PrivateConfigClass) {
     if (!ProjectPath.ExtensionFolder) {
       throw new Error('Unknown extensions folder.');

@@ -125,6 +125,25 @@ describe('Extension filesystem containment', () => {
     assert.throws(() => loader.loadSingleExtension('unsafe', Config), /symlink escapes/);
   });
 
+  it('does not rediscover rolled-back templates from the in-memory cache', () => {
+    const folder = path.join(ProjectPath.ExtensionFolder, 'sample');
+    fs.mkdirSync(folder);
+    fs.writeFileSync(path.join(folder, 'server.js'), 'module.exports = {};');
+    const entries = new Map<string, unknown>();
+    const config: any = {Extensions: {extensions: {
+      keys: () => Array.from(entries.keys()),
+      addProperty: (name: string, _type: unknown, value: unknown) => entries.set(name, value),
+      removeProperty: (name: string) => entries.delete(name)
+    }}};
+    const loader = new ExtensionConfigTemplateLoader();
+    loader.loadSingleExtension('sample', config);
+    assert.ok(entries.has('sample'));
+    fs.rmSync(folder, {recursive: true});
+    loader.forgetExtension('sample');
+    loader.loadExtensionTemplates(config);
+    assert.equal(entries.has('sample'), false);
+  });
+
   for (const phase of ['extract', 'template', 'init']) {
     it(`removes its own extension directory after ${phase} failure and allows retry`, async () => {
       manager.repository.getExtensionList = async () => [{id: 'sample', zipUrl: 'https://example.invalid/extension.zip'} as any];
