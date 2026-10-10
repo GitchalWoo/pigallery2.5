@@ -6,7 +6,8 @@ on:
       - experimental
   push:
     branches:
-      - '**'
+      - master
+      - experimental
     tags:
       - '*.*'
   workflow_dispatch:
