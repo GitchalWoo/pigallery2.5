@@ -105,6 +105,21 @@ describe('Extension filesystem containment', () => {
     assert.deepEqual((new ExtensionConfigTemplateLoader() as any).getExtensionFolders(), ['sample']);
   });
 
+  it('marks matching extension IDs as installed without changing catalog entries', async () => {
+    manager.repository.getExtensionList = async () => [
+      {id: 'Sample', name: 'Installed'},
+      {id: 'other', name: 'Uninstalled'},
+    ] as any;
+    Config.Extensions.extensions.addProperty('sample', {type: ServerExtensionsEntryConfig}, new ServerExtensionsEntryConfig('sample'));
+    try {
+      const result = await manager.getExtensionListWithInstallStatus();
+      assert.deepEqual(result.map(entry => entry.installed), [true, false]);
+      assert.equal(result[0].name, 'Installed');
+    } finally {
+      Config.Extensions.extensions.removeProperty('sample');
+    }
+  });
+
   it('skips unsafe discovery entries and keeps valid extensions available', () => {
     fs.mkdirSync(path.join(ProjectPath.ExtensionFolder, 'valid'));
     fs.mkdirSync(path.join(ProjectPath.ExtensionFolder, 'my extension'));
