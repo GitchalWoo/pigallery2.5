@@ -13,7 +13,11 @@ available tags:
 This fork's Node 24 images support `amd64` and `arm64v8`. ARMv7 / 32-bit
 images are no longer built because the official
 [Node 24 base images](https://github.com/nodejs/docker-node/blob/main/versions.json)
-do not support that architecture. Raspberry Pi deployments need a 64-bit OS.
+do not support that architecture. Published Raspberry Pi images need a 64-bit OS.
+An unpublished [ARMv7 experiment](../fork-features/ARMv7-Docker-Experiment.md)
+using Debian's Node 24 packages passed ARM32 smoke tests, including CR2
+thumbnail generation. It is not a supported production image; the report
+contains local build instructions and remaining validation requirements.
 
 It contains all necessary dependencies, auto-restarts on reboot, supports HTTPS, and is easy to upgrade.
 

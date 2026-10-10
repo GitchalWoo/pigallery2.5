@@ -47,6 +47,10 @@ The official and recommended way to run PiGallery2 is using **Docker**.
 
 ### [Install with Docker (Recommended)](https://bpatrik.github.io/pigallery2/setup/docker)
 
+This fork publishes amd64/arm64 images. An unpublished ARMv7 experiment has
+passed ARM32 smoke tests, including RAW/CR2 thumbnails; see the
+[ARMv7 test report](docs/fork-features/ARMv7-Docker-Experiment.md) for reproduction
+steps and limitations.
 
 ### [Native Installation (Unsupported)](https://bpatrik.github.io/pigallery2/setup/direct-install)
 Native installation is possible for users familiar with Node.js but is not officially supported.

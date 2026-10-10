@@ -36,3 +36,13 @@ builds, replace only the previous generated release output.
 The self-contained Dockerfile builds its release inside the image instead.
 See [build and release tooling](contributing.md#build-and-release-tooling) for
 locale filtering and the other release commands.
+
+### ARMv7 feasibility experiment
+
+The [ARMv7 test report](../fork-features/ARMv7-Docker-Experiment.md) documents an
+unpublished Debian sid ARM32 image using packaged Node 24 and libvips. Unlike
+the production recipes, its Dockerfile uses `release/` directly as the build
+context. Application startup, SQLite, bcrypt, image diagnostics, CR2/HEIC/ARW
+thumbnails, and basic FFmpeg tooling passed under QEMU. The production
+Dockerfiles and amd64/arm64 publishing matrix are unchanged. Review the report's
+hardening and real-hardware gates before treating ARMv7 as supported.
