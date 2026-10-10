@@ -10,9 +10,14 @@
 name: Lint Dockerfiles
 
 on:
+  pull_request:
+    branches:
+      - master
+      - experimental
   push:
     branches:
-      - '**'
+      - master
+      - experimental
 
 jobs:
   dockerfile_linting:

@@ -3,7 +3,12 @@ describe('Bootstrap controls with zone-based change detection', () => {
     cy.visit('/');
     cy.get('#username').type('admin');
     cy.get('#password').type('admin');
+    cy.intercept({
+      method: 'Get',
+      url: '/pgapi/gallery/content/',
+    }).as('getContent');
     cy.get('button').contains('Login').click();
+    cy.wait('@getContent');
     cy.location('pathname').should('include', '/gallery');
     cy.visit('/admin');
 
