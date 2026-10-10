@@ -1,7 +1,7 @@
 # PiGallery2.5
 ![GitHub package.json version](https://img.shields.io/github/package-json/v/GitchalWoo/pigallery2.5)
 [![Coverage Status](https://coveralls.io/repos/github/GitchalWoo/pigallery2.5/badge.svg?branch=master)](https://coveralls.io/github/GitchalWoo/pigallery2.5?branch=master)
-[![Docker build](https://github.com/GitchalWoo/pigallery2.5/workflows/docker-buildx/badge.svg)](https://github.com/GitchalWoo/pigallery2.5/actions)
+[![Docker build](https://github.com/GitchalWoo/pigallery2.5/actions/workflows/build.yml/badge.svg)](https://github.com/GitchalWoo/pigallery2.5/actions/workflows/build.yml)
 
 PiGallery2.5 is a modernized fork of PiGallery2 which is a **fast** directory-first photo gallery website, optimized for running on low-resource servers (especially on Raspberry Pi).
 
