@@ -337,7 +337,10 @@ Implementation notes:
 - Docker pins Node **24.21.0** on Alpine 3.23 and Debian Trixie. Official
   [Node 24 images](https://github.com/nodejs/docker-node/blob/main/versions.json)
   omit ARMv7, so both verification and publishing matrices now use amd64 and
-  arm64. Raspberry Pi deployments need a 64-bit OS.
+  arm64. Published Raspberry Pi images need a 64-bit OS. A later
+  [ARMv7 experiment](ARMv7-Docker-Experiment.md) (2026-10-10) passed QEMU smoke
+  checks using Debian's Node 24 packages; this does not change the publishing
+  matrix or restore production ARMv7 support.
 - Docker startup validation exposed two inherited release problems. Sharp
   0.35.5 has a separate build command and requires libvips **>=8.18.7**; the
   distributions provide 8.16.1 / 8.17.3. `docker/build-libvips.sh` downloads

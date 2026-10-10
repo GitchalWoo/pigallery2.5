@@ -1,0 +1,30 @@
+FROM docker.io/library/debian:sid-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nodejs npm libnode-dev libvips-dev build-essential python3 pkg-config \
+    ca-certificates ffmpeg wget && \
+    rm -rf /var/lib/apt/lists/* && \
+    npm install --global npm@11.19.0
+
+WORKDIR /app
+ENV SHARP_FORCE_GLOBAL_LIBVIPS=1 \
+    npm_config_nodedir=/usr \
+    NODE_ENV=production \
+    default-Database-dbFolder=/app/data/db \
+    default-Media-folder=/app/data/images \
+    default-Media-tempFolder=/app/data/tmp \
+    default-Extensions-folder=/app/data/config/extensions \
+    PI_DOCKER=true
+
+COPY . /app
+RUN node -p 'JSON.stringify({version:process.version,arch:process.arch,abi:process.versions.modules})' && \
+    npm install --omit=optional --no-package-lock && \
+    npm install --no-save --omit=optional --no-package-lock node-addon-api@8.5.0 node-gyp@11.5.0 && \
+    npm run build --prefix node_modules/sharp && \
+    mkdir -p /app/data/config /app/data/db /app/data/images /app/data/tmp
+
+RUN node --expose-gc ./src/backend/index --run-diagnostics \
+    --config-path=/app/diagnostics-config.json --Server-Log-level=silly
+
+EXPOSE 80
+ENTRYPOINT ["node", "--expose-gc", "./src/backend/index", "--config-path=/app/data/config/config.json"]

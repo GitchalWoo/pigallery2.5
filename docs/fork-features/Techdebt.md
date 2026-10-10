@@ -29,6 +29,14 @@ later, **L** = cleanup.
 | T1 | Generated `.js` / `.js.map` files next to TypeScript sources | L | Completed in `cleanup/techdebt-modernization`: verified all git-ignored compiled files, working tree clean. |
 | T6 | Backend test fixtures tie on unrated album covers | L | Completed in `cleanup/techdebt-modernization`: added deterministic multi-criteria sorting and creationDate/name tie-breakers in `TestHelper.updateDirCache()`. |
 
+## ARMv7 Docker follow-up
+
+The [ARMv7 feasibility experiment](ARMv7-Docker-Experiment.md) passed QEMU
+application/media smoke checks on 2026-10-10, including CR2. Production support
+remains deferred pending a pinned maintained runtime, separate builder/runtime
+stages, optional dependency decisions, fresh-release and real-hardware testing,
+broader workflow coverage, and CI verification before publishing.
+
 ## Completed dependency and tooling cleanup (2026-10-07)
 
 Merged into `master` at `c088d0a6` via PR #13; these IDs are retained here for traceability.
