@@ -14,7 +14,7 @@ describe('Gallery', () => {
     cy.get('.col-sm-12 > .btn').click();
   });
   it('Gallery should open', () => {
-    cy.get('.mb-0 > :nth-child(1) > .nav-link').contains('Gallery');
+    cy.location('pathname').should('include', '/gallery');
   });
   it('Gallery should filter', () => {
     cy.wait('@getContent');

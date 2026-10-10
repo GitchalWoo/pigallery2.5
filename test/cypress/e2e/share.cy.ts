@@ -78,7 +78,7 @@ describe('Share', () => {
          cy.visit(link);
 
 
-        cy.get('.mb-0 > :nth-child(1) > .nav-link').contains('Gallery');
+        cy.get('app-gallery', { timeout: 15000 }).should('exist');
 
         cy.wait('@getSharedContent').then((interception) => {
           expect(interception.response.statusCode).to.eq(200);

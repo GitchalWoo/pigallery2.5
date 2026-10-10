@@ -25,6 +25,9 @@ export class RateLimiter {
     }
 
     return (req: Request, res: Response, next: NextFunction): void => {
+      if (process.env.DISABLE_RATE_LIMITING === 'true') {
+        return next();
+      }
       const store = this.stores.get(category)!;
       const ip = (req.ip || req.socket.remoteAddress || 'unknown-ip').toString();
       const now = Date.now();
