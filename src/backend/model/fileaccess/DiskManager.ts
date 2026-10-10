@@ -113,7 +113,9 @@ export class DiskManager {
     // exclude dirs that have the given files (like .ignore)
     for (const exclude of Config.Indexing.excludeFileList) {
       try {
-        await fsp.access(path.join(absoluteName, exclude));
+        const marker = await SafePath.resolveExisting(ProjectPath.ImageFolder,
+          path.relative(ProjectPath.ImageFolder, path.join(absoluteName, exclude)));
+        await fsp.access(marker);
         return true;
       } catch (e) {
         // ignoring errors

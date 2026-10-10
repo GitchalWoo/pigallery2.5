@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import {PhotoProcessing} from '../../../../../src/backend/model/fileaccess/fileprocessing/PhotoProcessing';
 import {VideoProcessing} from '../../../../../src/backend/model/fileaccess/fileprocessing/VideoProcessing';
 import {Config} from '../../../../../src/common/config/private/Config';
+import {ProjectPath} from '../../../../../src/backend/ProjectPath';
 import {DatabaseType} from '../../../../../src/common/config/private/PrivateConfig';
 
 declare const before: any;
@@ -24,10 +25,15 @@ function getFileModificationTime(filename: string): Promise<Date | null> {
 }
 
 describe('MetadataLoader', () => {
+  let originalImageFolder: string;
+  after(() => { ProjectPath.ImageFolder = originalImageFolder; });
   // loading default settings (this might have been changed by other tests)
 
   before(() => {
     Config.loadSync();
+    originalImageFolder = ProjectPath.ImageFolder;
+    // This suite intentionally reads both test assets and demo media.
+    ProjectPath.ImageFolder = path.resolve(__dirname, '../../../../..');
     Config.Database.type = DatabaseType.sqlite;
     Config.Faces.enabled = true;
     Config.Faces.keywordsToPersons = true;

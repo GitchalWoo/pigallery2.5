@@ -1,5 +1,5 @@
 import * as path from 'path';
-import {promises as fs} from 'fs';
+import {promises as fs, realpathSync} from 'fs';
 
 export class SafePath {
   /**
@@ -45,6 +45,13 @@ export class SafePath {
     const target = SafePath.resolve(baseDir, untrustedPath);
     const [realBase, realTarget] = await Promise.all([fs.realpath(baseDir), fs.realpath(target)]);
     SafePath.assertContained(realBase, realTarget);
+    return target;
+  }
+
+  /** Synchronous equivalent for extension configuration loading during startup. */
+  public static resolveExistingSync(baseDir: string, untrustedPath: string): string {
+    const target = SafePath.resolve(baseDir, untrustedPath);
+    SafePath.assertContained(realpathSync(baseDir), realpathSync(target));
     return target;
   }
 

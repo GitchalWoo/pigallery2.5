@@ -22,6 +22,8 @@ import {ExtensionConfigTemplateLoader} from './ExtensionConfigTemplateLoader';
 import {Utils} from '../../../common/Utils';
 import {UIExtensionDTO} from '../../../common/entities/extension/IClientUIConfig';
 import {ExtensionConfigWrapper} from './ExtensionConfigWrapper';
+import {ExtensionPath} from './ExtensionPath';
+import {SafePath} from '../fileaccess/SafePath';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const exec = util.promisify(require('child_process').exec);
 const LOG_TAG = '[ExtensionManager]';
@@ -87,6 +89,10 @@ export class ExtensionManager implements IObjectManager {
       throw new Error('Extensions are disabled');
     }
 
+    ExtensionPath.validateName(extensionId);
+    await fs.promises.mkdir(ProjectPath.ExtensionFolder, {recursive: true});
+    const extensionDir = ExtensionPath.folder(extensionId);
+
     Logger.debug(LOG_TAG, `Installing extension with ID: ${extensionId}`);
 
     // Get the extension list
@@ -104,33 +110,33 @@ export class ExtensionManager implements IObjectManager {
     }
 
     // Download the zip file
-    const zipFilePath = path.join(ProjectPath.ExtensionFolder, `${extensionId}.zip`);
-    Logger.silly(LOG_TAG, `Downloading extension from ${extension.zipUrl} to ${zipFilePath}`);
+    const downloadDir = await fs.promises.mkdtemp(path.join(ProjectPath.ExtensionFolder, '.download-'));
+    try {
+      const zipFilePath = path.join(downloadDir, 'extension.zip');
+      Logger.silly(LOG_TAG, `Downloading extension from ${extension.zipUrl} to ${zipFilePath}`);
 
-    await this.downloadFile(extension.zipUrl, zipFilePath);
+      await this.downloadFile(extension.zipUrl, zipFilePath);
 
-    // Create the extension directory
-    const extensionDir = path.join(ProjectPath.ExtensionFolder, extensionId);
-    if (!fs.existsSync(extensionDir)) {
-      await fs.promises.mkdir(extensionDir, {recursive: true});
-    }
+      // Create the extension directory
+      if (!fs.existsSync(extensionDir)) {
+        await fs.promises.mkdir(extensionDir, {recursive: true});
+      }
 
-    // Unzip the file
-    Logger.silly(LOG_TAG, `Unzipping extension to ${extensionDir}`);
-    await this.unzipFile(zipFilePath, extensionDir);
+      // Unzip the file
+      Logger.silly(LOG_TAG, `Unzipping extension to ${extensionDir}`);
+      await this.unzipFile(zipFilePath, extensionDir);
 
-    // Update the configuration
-    Logger.silly(LOG_TAG, `Updating configuration for extension ${extensionId}`);
+      // Update the configuration
+      Logger.silly(LOG_TAG, `Updating configuration for extension ${extensionId}`);
 
-    ExtensionConfigTemplateLoader.Instance.loadSingleExtension(extensionId, Config);
+      ExtensionConfigTemplateLoader.Instance.loadSingleExtension(extensionId, Config);
 
-    // Initialize the extension
-    Logger.silly(LOG_TAG, `Initializing extension ${extensionId}`);
-    await this.initSingleExtension(extensionId);
+      // Initialize the extension
+      Logger.silly(LOG_TAG, `Initializing extension ${extensionId}`);
+      await this.initSingleExtension(extensionId);
 
-    // Clean up the temporary file
-    if (fs.existsSync(zipFilePath)) {
-      fs.unlinkSync(zipFilePath);
+    } finally {
+      await fs.promises.rm(downloadDir, {recursive: true, force: true});
     }
 
     Logger.debug(LOG_TAG, `Extension ${extensionId} installed successfully`);
@@ -145,6 +151,7 @@ export class ExtensionManager implements IObjectManager {
       throw new Error('Extensions are disabled');
     }
 
+    ExtensionPath.folder(configKey);
     Logger.debug(LOG_TAG, `Reloading extension with config key: ${configKey}`);
 
     // Find the unique extension ID by matching the folder name
@@ -178,6 +185,7 @@ export class ExtensionManager implements IObjectManager {
       throw new Error('Extensions are disabled');
     }
 
+    const extPath = ExtensionPath.folder(configKey);
     Logger.debug(LOG_TAG, `Deleting extension with config key: ${configKey}`);
 
     // Find the unique extension ID by matching the folder name
@@ -198,7 +206,6 @@ export class ExtensionManager implements IObjectManager {
     }
 
     // Remove the extension folder
-    const extPath = path.join(ProjectPath.ExtensionFolder, configKey);
     if (fs.existsSync(extPath)) {
       Logger.silly(LOG_TAG, `Removing extension folder: ${extPath}`);
       fs.rmSync(extPath, { recursive: true, force: true });
@@ -285,17 +292,17 @@ export class ExtensionManager implements IObjectManager {
       return;
     }
 
-    const extPath = path.join(ProjectPath.ExtensionFolder, folderName);
-    const serverExtPath = path.join(extPath, 'server.js');
-    const packageJsonPath = path.join(extPath, 'package.json');
+    const extPath = ExtensionPath.folder(folderName);
+    const serverExtPath = ExtensionPath.optionalEntry(extPath, 'server.js');
+    const packageJsonPath = ExtensionPath.optionalEntry(extPath, 'package.json');
 
-    if (!fs.existsSync(serverExtPath)) {
+    if (!serverExtPath) {
       Logger.silly(LOG_TAG, `Skipping ${folderName} server initiation. server.js does not exists`);
       return;
     }
 
-    if (fs.existsSync(packageJsonPath)) {
-      if (fs.existsSync(path.join(extPath, 'node_modules'))) {
+    if (packageJsonPath) {
+      if (ExtensionPath.optionalEntry(extPath, 'node_modules', true)) {
         Logger.debug(LOG_TAG, `node_modules folder exists. Skipping "npm install".`);
       } else {
         Logger.silly(LOG_TAG, `Running: "npm install --prefer-offline --no-audit --progress=false --omit=dev" in ${extPath}`);
@@ -339,8 +346,8 @@ export class ExtensionManager implements IObjectManager {
       return;
     }
 
-    const serverExt = path.join(extObj.folder, 'server.js');
-    if (fs.existsSync(serverExt)) {
+    const serverExt = ExtensionPath.optionalEntry(ExtensionPath.folder(extObj.folder), 'server.js');
+    if (serverExt) {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const ext = require(serverExt);
       if (typeof ext?.cleanUp === 'function') {
@@ -370,58 +377,58 @@ export class ExtensionManager implements IObjectManager {
     const nodeReadable = Readable.fromWeb(response.body as any);
 
     // Pipe the response body to a file
-    await pipeline(nodeReadable, fs.createWriteStream(outputPath));
+    outputPath = await SafePath.resolveForWrite(ProjectPath.ExtensionFolder, path.relative(ProjectPath.ExtensionFolder, outputPath));
+    await pipeline(nodeReadable, fs.createWriteStream(outputPath, {flags: 'wx'}));
   }
 
   private async unzipFile(zipFilePath: string, outputPath: string): Promise<void> {
-    try {
-      // Extract to temp first
-      const tempExtractPath = path.join(outputPath, '__temp_unzip');
-
-      const zip = new AdmZip(zipFilePath);
-      zip.extractAllTo(tempExtractPath, true);
-
-      // Flatten directory
-      // Check for single subdirectory
-      const entries = fs.readdirSync(tempExtractPath);
-      if (entries.length === 1) {
-        const singleDirPath = path.join(tempExtractPath, entries[0]);
-        const stat = fs.statSync(singleDirPath);
-
-        if (stat.isDirectory()) {
-          const innerFiles = fs.readdirSync(singleDirPath);
-
-          // Move contents of the inner folder to outputPath
-          innerFiles.forEach((file) => {
-            const src = path.join(singleDirPath, file);
-            const dest = path.join(outputPath, file);
-            fs.renameSync(src, dest);
-          });
-
-          // Remove the temp and wrapper folder
-          fs.rmSync(tempExtractPath, {recursive: true, force: true});
-
-          console.log('Flattened and extracted successfully.');
-        } else {
-          // It's not a folder, just move it directly
-          fs.renameSync(singleDirPath, path.join(outputPath, entries[0]));
-          fs.rmSync(tempExtractPath, {recursive: true, force: true});
-          console.log('Moved single file directly.');
-        }
-      } else {
-        // Multiple entries, just move all
-        entries.forEach((entry) => {
-          const src = path.join(tempExtractPath, entry);
-          const dest = path.join(outputPath, entry);
-          fs.renameSync(src, dest);
-        });
-
-        fs.rmSync(tempExtractPath, {recursive: true, force: true});
-        console.log('Extracted with multiple top-level items.');
+    zipFilePath = await SafePath.resolveExisting(ProjectPath.ExtensionFolder, path.relative(ProjectPath.ExtensionFolder, zipFilePath));
+    outputPath = await SafePath.resolveExisting(ProjectPath.ExtensionFolder, path.relative(ProjectPath.ExtensionFolder, outputPath));
+    const zip = new AdmZip(zipFilePath);
+    const entries = zip.getEntries();
+    // Validate the entire archive before writing anything. Reject links and paths
+    // rather than relying on the ZIP library to rewrite dangerous entry names.
+    for (const entry of entries) {
+      const name = entry.entryName;
+      const mode = (entry.attr >>> 16) & 0xf000;
+      if (!name || name.includes('\\') || name.includes('\0') ||
+          name.startsWith('/') || /^[a-zA-Z]:/.test(name) ||
+          name.split('/').some(part => part === '..' || part === '.') ||
+          (mode !== 0 && mode !== 0x8000 && mode !== 0x4000)) {
+        throw new Error('Unsafe extension archive entry');
       }
-    } catch (error) {
-      Logger.error(LOG_TAG, `Error unzipping file: ${error}`);
-      throw new Error(`Failed to unzip file: ${error}`);
+      SafePath.resolve(outputPath, name);
+    }
+
+    const staging = await fs.promises.mkdtemp(path.join(outputPath, '.extract-'));
+    try {
+      // Use the existing ZIP library in a fresh private directory. Its extractor
+      // handles directory creation and rejects pre-existing symlink traversal.
+      zip.extractAllTo(staging, false);
+      const names = await fs.promises.readdir(staging);
+      let source = staging;
+      if (names.length === 1 && (await fs.promises.lstat(path.join(staging, names[0]))).isDirectory()) {
+        source = await SafePath.resolveExisting(staging, names[0]);
+      }
+      const files = await fs.promises.readdir(source);
+      // Check all destinations before moving; do not overwrite installed files.
+      for (const file of files) {
+        const target = await SafePath.resolveForWrite(outputPath, file);
+        try {
+          await fs.promises.lstat(target);
+        } catch (err) {
+          if (err.code === 'ENOENT') continue;
+          throw err;
+        }
+        throw new Error('Extension destination already exists');
+      }
+      for (const file of files) {
+        const src = await SafePath.resolveExisting(source, file);
+        const dest = await SafePath.resolveForWrite(outputPath, file);
+        await fs.promises.rename(src, dest);
+      }
+    } finally {
+      await fs.promises.rm(staging, {recursive: true, force: true});
     }
   }
 }
