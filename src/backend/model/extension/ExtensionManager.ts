@@ -111,6 +111,9 @@ export class ExtensionManager implements IObjectManager {
 
     // Download the zip file
     const downloadDir = await fs.promises.mkdtemp(path.join(ProjectPath.ExtensionFolder, '.download-'));
+    let createdDir = false;
+    const hadConfig = Config.Extensions.extensions.keys().includes(extensionId);
+    const initialObjectIds = new Set(Object.keys(this.extObjects));
     try {
       const zipFilePath = path.join(downloadDir, 'extension.zip');
       Logger.silly(LOG_TAG, `Downloading extension from ${extension.zipUrl} to ${zipFilePath}`);
@@ -118,8 +121,13 @@ export class ExtensionManager implements IObjectManager {
       await this.downloadFile(extension.zipUrl, zipFilePath);
 
       // Create the extension directory
-      if (!fs.existsSync(extensionDir)) {
-        await fs.promises.mkdir(extensionDir, {recursive: true});
+      try {
+        // Only this successful mkdir gives us ownership for failure cleanup.
+        await fs.promises.mkdir(extensionDir);
+        createdDir = true;
+      } catch (err) {
+        if (err.code !== 'EEXIST') throw err;
+        ExtensionPath.folder(extensionId);
       }
 
       // Unzip the file
@@ -134,7 +142,27 @@ export class ExtensionManager implements IObjectManager {
       // Initialize the extension
       Logger.silly(LOG_TAG, `Initializing extension ${extensionId}`);
       await this.initSingleExtension(extensionId);
-
+    } catch (err) {
+      if (createdDir) {
+        // Initialization may register an object before throwing. Release only
+        // registrations belonging to this failed installation.
+        for (const id of Object.keys(this.extObjects)) {
+          if (!initialObjectIds.has(id) && this.extObjects[id].folder === extensionId) {
+            try {
+              await this.cleanUpSingleExtension(id);
+            } catch (cleanupError) {
+              Logger.warn(LOG_TAG, 'Failed extension initialization cleanup', cleanupError.message);
+            } finally {
+              delete this.extObjects[id];
+            }
+          }
+        }
+        // Never remove a directory that existed before this install attempt.
+        const ownedDir = ExtensionPath.folder(extensionId);
+        await fs.promises.rm(ownedDir, {recursive: true, force: true});
+        if (!hadConfig) Config.Extensions.extensions.removeProperty(extensionId);
+      }
+      throw err;
     } finally {
       await fs.promises.rm(downloadDir, {recursive: true, force: true});
     }

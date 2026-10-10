@@ -41,6 +41,7 @@ export class MetadataLoader {
     }
   }
 
+  /** Requires an absolute source path within ImageFolder. */
   @ExtensionDecorator(e => e.gallery.MetadataLoader.loadVideoMetadata)
   public static async loadVideoMetadata(fullPath: string): Promise<VideoMetadata> {
     fullPath = await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, fullPath));
@@ -188,6 +189,7 @@ export class MetadataLoader {
     return metadata;
   }
 
+  /** Requires an absolute source path within ImageFolder. */
   @ExtensionDecorator(e => e.gallery.MetadataLoader.loadPhotoMetadata)
   public static async loadPhotoMetadata(fullPath: string): Promise<PhotoMetadata> {
     fullPath = await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, fullPath));

@@ -13,7 +13,10 @@ export class ExtensionPath {
 
   /** Single direct child only; never treat a symlink alias as an installed folder. */
   public static folder(name: string): string {
-    ExtensionPath.validateName(name);
+    // Keep the allowlist at the path-construction boundary as well as at API entry.
+    if (typeof name !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(name)) {
+      throw new Error('Invalid extension folder name');
+    }
     const target = SafePath.resolve(ProjectPath.ExtensionFolder, name);
     try {
       const stat = fs.lstatSync(target);

@@ -4,6 +4,7 @@ import {ExtensionPath} from './ExtensionPath';
 import {ServerExtensionsEntryConfig} from '../../../common/config/private/subconfigs/ServerExtensionsConfig';
 import {ProjectPath} from '../../ProjectPath';
 import {Utils} from '../../../common/Utils';
+import {Logger} from '../../Logger';
 
 
 /**
@@ -76,9 +77,13 @@ export class ExtensionConfigTemplateLoader {
 
       for (let i = 0; i < this.extensionList.length; ++i) {
         const extFolder = this.extensionList[i];
-        const template = this.loadSingleExtensionTemplate(extFolder);
-        if (template) {
-          this.extensionTemplates.push(template);
+        try {
+          const template = this.loadSingleExtensionTemplate(extFolder);
+          if (template) {
+            this.extensionTemplates.push(template);
+          }
+        } catch (err) {
+          Logger.warn('[ExtensionConfigTemplateLoader]', `Skipping invalid extension template: ${extFolder}`, err.message);
         }
       }
     }
@@ -126,10 +131,16 @@ export class ExtensionConfigTemplateLoader {
     const list = (fs
       .readdirSync(ProjectPath.ExtensionFolder, {withFileTypes: true}))
       .filter(entry => !entry.name.startsWith('.') && (entry.isDirectory() || entry.isSymbolicLink()))
-      .map(entry => {
-        ExtensionPath.folder(entry.name);
-        return entry.name;
-      });
+      .filter(entry => {
+        try {
+          ExtensionPath.folder(entry.name);
+          return true;
+        } catch (err) {
+          Logger.warn('[ExtensionConfigTemplateLoader]', `Skipping unsafe extension folder: ${entry.name}`, err.message);
+          return false;
+        }
+      })
+      .map(entry => entry.name);
     list.sort();
     return list;
   }

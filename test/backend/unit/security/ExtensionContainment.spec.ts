@@ -105,6 +105,82 @@ describe('Extension filesystem containment', () => {
     assert.deepEqual((new ExtensionConfigTemplateLoader() as any).getExtensionFolders(), ['sample']);
   });
 
+  it('skips unsafe discovery entries and keeps valid extensions available', () => {
+    fs.mkdirSync(path.join(ProjectPath.ExtensionFolder, 'valid'));
+    fs.mkdirSync(path.join(ProjectPath.ExtensionFolder, 'my extension'));
+    fs.symlinkSync(path.join(root, 'outside'), path.join(ProjectPath.ExtensionFolder, 'external'));
+    fs.symlinkSync('missing', path.join(ProjectPath.ExtensionFolder, 'dangling'));
+    assert.deepEqual((new ExtensionConfigTemplateLoader() as any).getExtensionFolders(), ['valid']);
+    assert.throws(() => ExtensionPath.folder('my extension'), /Invalid extension/);
+  });
+
+  it('skips linked templates during bulk discovery but rejects direct loading', () => {
+    const folder = path.join(ProjectPath.ExtensionFolder, 'unsafe');
+    fs.mkdirSync(folder);
+    fs.writeFileSync(path.join(root, 'outside/server.js'), 'throw new Error("OUTSIDE CODE EXECUTED")');
+    fs.symlinkSync(path.join(root, 'outside/server.js'), path.join(folder, 'server.js'));
+    const loader = new ExtensionConfigTemplateLoader();
+    const config: any = {Extensions: {extensions: {keys: (): string[] => []}}};
+    assert.doesNotThrow(() => loader.loadExtensionTemplates(config));
+    assert.throws(() => loader.loadSingleExtension('unsafe', Config), /symlink escapes/);
+  });
+
+  for (const phase of ['extract', 'template', 'init']) {
+    it(`removes its own extension directory after ${phase} failure and allows retry`, async () => {
+      manager.repository.getExtensionList = async () => [{id: 'sample', zipUrl: 'https://example.invalid/extension.zip'} as any];
+      (manager as any).downloadFile = async (_url: string, target: string) => {
+        const zip = new AdmZip();
+        zip.addFile('server.js', Buffer.from('module.exports = {};'));
+        zip.writeZip(target);
+      };
+      const loader = ExtensionConfigTemplateLoader.Instance;
+      const originalLoad = loader.loadSingleExtension;
+      const originalExtract = (manager as any).unzipFile.bind(manager);
+      let fail = true;
+      let released = false;
+      loader.loadSingleExtension = () => {
+        if (fail && phase === 'template') throw new Error('template failure');
+      };
+      (manager as any).initSingleExtension = async () => {
+        if (fail && phase === 'init') {
+          manager.extObjects.partial = {folder: 'sample', messengers: {cleanUp() { released = true; }}} as any;
+          throw new Error('init failure');
+        }
+      };
+      (manager as any).unzipFile = async (archive: string, folder: string) => {
+        await originalExtract(archive, folder);
+        if (fail && phase === 'extract') throw new Error('extract failure');
+      };
+      try {
+        await assert.rejects(manager.installExtension('sample'), new RegExp(phase + ' failure'));
+        assert.deepEqual(fs.readdirSync(ProjectPath.ExtensionFolder), []);
+        assert.deepEqual(Object.keys(manager.extObjects), []);
+        if (phase === 'init') assert.equal(released, true);
+        fail = false;
+        await manager.installExtension('sample');
+        assert.deepEqual(fs.readdirSync(ProjectPath.ExtensionFolder), ['sample']);
+        assert.ok(fs.existsSync(path.join(ProjectPath.ExtensionFolder, 'sample/server.js')));
+      } finally {
+        loader.loadSingleExtension = originalLoad;
+      }
+    });
+  }
+
+  it('preserves existing installations when extraction fails', async () => {
+    const folder = path.join(ProjectPath.ExtensionFolder, 'sample');
+    fs.mkdirSync(folder);
+    fs.writeFileSync(path.join(folder, 'server.js'), 'original');
+    manager.repository.getExtensionList = async () => [{id: 'sample', zipUrl: 'https://example.invalid/extension.zip'} as any];
+    (manager as any).downloadFile = async (_url: string, target: string) => {
+      const zip = new AdmZip();
+      zip.addFile('server.js', Buffer.from('overwrite'));
+      zip.writeZip(target);
+    };
+    await assert.rejects(manager.installExtension('sample'), /destination already exists/);
+    assert.equal(fs.readFileSync(path.join(folder, 'server.js'), 'utf8'), 'original');
+    assert.deepEqual(fs.readdirSync(ProjectPath.ExtensionFolder), ['sample']);
+  });
+
   async function extract(zip: AdmZip): Promise<void> {
     const archive = path.join(ProjectPath.ExtensionFolder, 'archive.zip');
     zip.writeZip(archive);

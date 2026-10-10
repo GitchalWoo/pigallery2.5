@@ -25,12 +25,11 @@ export class SafePath {
     const relativePart = cleanPath.replace(/^([/])+/, '');
     const target = path.resolve(safeBase, relativePart);
 
-    // If safeBase is root ('/'), any absolute path starts with safeBase
-    const rootPrefix = safeBase === path.sep ? safeBase : safeBase + path.sep;
-
-    // Lexical containment check
-    if (target !== safeBase && !target.startsWith(rootPrefix)) {
-      throw new Error(`Path traversal detected: attempt to escape base directory`);
+    // Check the normalized relative path, including the sibling-prefix case.
+    // Keep the guard next to path resolution so static analysis can see it.
+    const relative = path.relative(safeBase, target);
+    if (relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) {
+      throw new Error('Path traversal detected: attempt to escape base directory');
     }
 
     return target;
