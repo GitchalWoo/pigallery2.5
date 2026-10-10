@@ -13,5 +13,18 @@
 // https://on.cypress.io/configuration
 // ***********************************************************
 
-// When a command from ./commands is ready to use, import with `import './commands'` syntax
-// import './commands';
+// Ensure the test browser always requests and renders the English locale
+beforeEach(() => {
+  cy.setCookie('pigallery2-lang', 'en');
+});
+
+Cypress.on('window:before:load', (win) => {
+  Object.defineProperty(win.navigator, 'language', {
+    value: 'en-US',
+    configurable: true,
+  });
+  Object.defineProperty(win.navigator, 'languages', {
+    value: ['en-US', 'en'],
+    configurable: true,
+  });
+});

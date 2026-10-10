@@ -245,3 +245,26 @@ PiGallery includes automated unit/router tests and a local development IdP setup
      ```bash
      podman stop pigallery-dex
      ```
+
+### End-to-End (E2E) tests with Cypress
+
+PiGallery uses Cypress for automated browser end-to-end testing against an isolated backend instance:
+
+1. **Start the test backend**:
+   The standard E2E test backend runs on port **8090** with rate limiting disabled and isolated temporary data:
+   ```bash
+   npm run start-e2e-server
+   ```
+2. **Run Cypress tests**:
+   In another terminal:
+   ```bash
+   # Run all Cypress E2E specs headlessly
+   npm run cypress:run
+
+   # Or run a specific test spec:
+   npx cypress run --spec test/cypress/e2e/login.cy.ts
+
+   # Or open the interactive Cypress Test Runner:
+   npm run cypress:open
+   ```
+   *Note: If you are testing against a server running on another port (such as 8081), pass `CYPRESS_baseUrl=http://localhost:8081`.*

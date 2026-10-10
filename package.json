@@ -25,7 +25,7 @@
     "merge-new-translation": "node scripts/translations.mjs merge",
     "generate-man": "npm run build-backend && node scripts/generate-man.mjs",
     "lint": "ng lint",
-    "start-e2e-server": "node ./test/folder-reset test/e2e && node ./src/backend/index --config-path=test/e2e/config.json --Database-dbFolder=test/e2e --Server-port=8080 --Users.suppressDefUserWarn=true",
+    "start-e2e-server": "node ./test/folder-reset test/e2e && DISABLE_RATE_LIMITING=true node ./src/backend/index --config-path=test/e2e/config.json --Database-dbFolder=test/e2e --Server-port=8090 --Users.suppressDefUserWarn=true",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
     "build-extension-interface": "tsc -p extension/ext-interface.tsconfig.json && tsc -p extension/ext-enums.tsconfig.json",

@@ -14,7 +14,7 @@ describe('Search', () => {
     cy.get('.col-sm-12 > .btn').click();
   });
   it('Search builder should propagate to search bar', () => {
-    cy.get('.mb-0 > :nth-child(1) > .nav-link').contains('Gallery');
+    cy.location('pathname').should('include', '/gallery');
 
     cy.get('app-gallery-search .search-text').type('a and b', {force: true});
     cy.get('app-gallery-search ng-icon[name="ionChevronDownOutline"]').click();

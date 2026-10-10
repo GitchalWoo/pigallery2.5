@@ -37,10 +37,10 @@
 - Vitest setup and Angular zoneless support: `src/frontend/test-setup.ts` initializes JSDOM stubs (`window.matchMedia`, `canvas.getContext('2d')`). With the F7 zoneless migration, tests run natively without Zone.js or `ProxyZone`; async tests use native `async/await` and Vitest fake timers (`vi.advanceTimersByTimeAsync()`).
 - Type-check frontend specs with `npx tsc -p src/frontend/tsconfig.spec.json --noEmit` (templates are not checked; `npm run build-en` covers them).
 - End-to-End (Cypress):
-  - `start-e2e-server` runs on port 8080 (`node ./test/folder-reset test/e2e && node ./src/backend/index --config-path=test/e2e/config.json --Database-dbFolder=test/e2e --Server-port=8080 --Users.suppressDefUserWarn=true`).
+  - `start-e2e-server` runs on port 8090 (`node ./test/folder-reset test/e2e && DISABLE_RATE_LIMITING=true node ./src/backend/index --config-path=test/e2e/config.json --Database-dbFolder=test/e2e --Server-port=8090 --Users.suppressDefUserWarn=true`).
   - **`ELECTRON_RUN_AS_NODE=1` gotcha**: The assistant environment sets `ELECTRON_RUN_AS_NODE=1`. When Cypress runs Electron, it treats Electron as raw Node.js and crashes on flags like `--no-sandbox`. **Always prefix Cypress commands with `unset ELECTRON_RUN_AS_NODE &&`**.
   - **Sandbox / Xvfb gotcha**: Cypress headless requires X11/Xvfb display support (`spawn Xvfb ENOENT` occurs inside sandboxes). Use the tool's sandbox escalation option (`sandbox_permissions: "require_escalated"` with `exec_command`).
-  - **Port 8080 conflict**: Podman container `src_searxng_1` might bind host port 8080. Prefer a separate backend on an available port and override `CYPRESS_baseUrl`. If temporarily stopping the container is necessary, restore it after testing.
+  - **Port collisions**: Port 8090 is configured as the standard E2E port to avoid colliding with default services on 8080 (such as searxng or other dev servers). Override `CYPRESS_baseUrl` if running against another port.
   - Run specific spec: `source ~/.nvm/nvm.sh && nvm use >/dev/null && unset ELECTRON_RUN_AS_NODE && npx cypress run --spec test/cypress/e2e/share.cy.ts`.
   - Full suite: `source ~/.nvm/nvm.sh && nvm use >/dev/null && unset ELECTRON_RUN_AS_NODE && npm run cypress:run`.
   - Overriding target server: Pass `CYPRESS_baseUrl=http://localhost:8081` to run Cypress specs against another running instance (such as the smoke test server on port 8081).
