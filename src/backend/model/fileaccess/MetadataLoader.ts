@@ -15,6 +15,8 @@ import {Utils} from '../../../common/Utils';
 import {FFmpegFactory, FfprobeData} from '../FFmpegFactory';
 import {ExtensionDecorator} from '../extension/ExtensionDecorator';
 import {DateTags} from './MetadataCreationDate';
+import {ProjectPath} from '../../ProjectPath';
+import {SafePath} from './SafePath';
 
 const {imageSizeFromFile} = require('image-size/fromFile');
 const LOG_TAG = '[MetadataLoader]';
@@ -29,8 +31,20 @@ export class MetadataLoader {
     fileSize: 0,
   };
 
+  private static async readSidecar(sidecarPath: string, options?: {[key: string]: boolean}): Promise<any> {
+    try {
+      const safePath = await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, sidecarPath));
+      return await exifr.sidecar(safePath, options);
+    } catch (err) {
+      Logger.silly(LOG_TAG, 'Skipping inaccessible or invalid sidecar: ' + sidecarPath);
+      return undefined;
+    }
+  }
+
+  /** Requires an absolute source path within ImageFolder. */
   @ExtensionDecorator(e => e.gallery.MetadataLoader.loadVideoMetadata)
   public static async loadVideoMetadata(fullPath: string): Promise<VideoMetadata> {
+    fullPath = await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, fullPath));
     const metadata: VideoMetadata = {
       size: {
         width: 1,
@@ -155,7 +169,7 @@ export class MetadataLoader {
 
         for (const sidecarPath of sidecarPaths) {
           if (fs.existsSync(sidecarPath)) {
-            const sidecarData: any = await exifr.sidecar(sidecarPath);
+            const sidecarData: any = await MetadataLoader.readSidecar(sidecarPath);
             if (sidecarData !== undefined) {
               // sidecar should not change the video dimension
               MetadataLoader.mapMetadata(metadata, sidecarData, false);
@@ -175,8 +189,10 @@ export class MetadataLoader {
     return metadata;
   }
 
+  /** Requires an absolute source path within ImageFolder. */
   @ExtensionDecorator(e => e.gallery.MetadataLoader.loadPhotoMetadata)
   public static async loadPhotoMetadata(fullPath: string): Promise<PhotoMetadata> {
+    fullPath = await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, fullPath));
     const metadata: PhotoMetadata = {
       size: {width: 0, height: 0},
       creationDate: 0,
@@ -251,7 +267,7 @@ export class MetadataLoader {
 
           for (const sidecarPath of sidecarPaths) {
             if (fs.existsSync(sidecarPath)) {
-              const sidecarData: any = await exifr.sidecar(sidecarPath, exifrOptions);
+              const sidecarData: any = await MetadataLoader.readSidecar(sidecarPath, exifrOptions);
               if (sidecarData !== undefined) {
                 //note that since side cars are loaded last, data loaded here overwrites embedded metadata (in Pigallery2, not in the actual files)
                 // sidecar should not change the image dimension

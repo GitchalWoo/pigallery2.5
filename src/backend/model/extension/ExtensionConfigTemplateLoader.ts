@@ -1,9 +1,10 @@
 import {PrivateConfigClass} from '../../../common/config/private/PrivateConfigClass';
 import * as fs from 'fs';
-import * as path from 'path';
+import {ExtensionPath} from './ExtensionPath';
 import {ServerExtensionsEntryConfig} from '../../../common/config/private/subconfigs/ServerExtensionsConfig';
 import {ProjectPath} from '../../ProjectPath';
 import {Utils} from '../../../common/Utils';
+import {Logger} from '../../Logger';
 
 
 /**
@@ -36,7 +37,7 @@ export class ExtensionConfigTemplateLoader {
       throw new Error('Unknown extensions folder.');
     }
 
-    const extPath = path.join(ProjectPath.ExtensionFolder, extFolder);
+    const extPath = ExtensionPath.folder(extFolder);
     if (!fs.existsSync(extPath) || !fs.statSync(extPath).isDirectory()) {
       throw new Error(`Extension folder ${extFolder} does not exist.`);
     }
@@ -55,6 +56,12 @@ export class ExtensionConfigTemplateLoader {
 
       this.setTemplatesToConfig(config);
     }
+  }
+
+  /** Remove cached discovery state when a newly installed extension is rolled back. */
+  public forgetExtension(extFolder: string): void {
+    this.extensionTemplates = this.extensionTemplates.filter(ext => ext.folder !== extFolder);
+    this.extensionList = this.extensionList.filter(folder => folder !== extFolder);
   }
 
   public loadExtensionTemplates(config: PrivateConfigClass) {
@@ -76,9 +83,13 @@ export class ExtensionConfigTemplateLoader {
 
       for (let i = 0; i < this.extensionList.length; ++i) {
         const extFolder = this.extensionList[i];
-        const template = this.loadSingleExtensionTemplate(extFolder);
-        if (template) {
-          this.extensionTemplates.push(template);
+        try {
+          const template = this.loadSingleExtensionTemplate(extFolder);
+          if (template) {
+            this.extensionTemplates.push(template);
+          }
+        } catch (err) {
+          Logger.warn('[ExtensionConfigTemplateLoader]', `Skipping invalid extension template: ${extFolder}`, err.message);
         }
       }
     }
@@ -96,18 +107,18 @@ export class ExtensionConfigTemplateLoader {
       throw new Error('Unknown extensions folder.');
     }
 
-    const extPath = path.join(ProjectPath.ExtensionFolder, extFolder);
-    const configExtPath = path.join(extPath, 'config.js');
-    const serverExtPath = path.join(extPath, 'server.js');
+    const extPath = ExtensionPath.folder(extFolder);
+    const configExtPath = ExtensionPath.optionalEntry(extPath, 'config.js');
+    const serverExtPath = ExtensionPath.optionalEntry(extPath, 'server.js');
 
     // if server.js is missing, it's not a valid extension
-    if (!fs.existsSync(serverExtPath)) {
+    if (!serverExtPath) {
       return null;
     }
 
     let template: { folder: string, template?: { new(): unknown } } = {folder: extFolder};
 
-    if (fs.existsSync(configExtPath)) {
+    if (configExtPath) {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const extCfg = require(configExtPath);
       if (typeof extCfg?.initConfig === 'function') {
@@ -124,10 +135,18 @@ export class ExtensionConfigTemplateLoader {
 
   private getExtensionFolders() {
     const list = (fs
-      .readdirSync(ProjectPath.ExtensionFolder))
-      .filter((f): boolean =>
-        fs.statSync(path.join(ProjectPath.ExtensionFolder, f)).isDirectory()
-      );
+      .readdirSync(ProjectPath.ExtensionFolder, {withFileTypes: true}))
+      .filter(entry => !entry.name.startsWith('.') && (entry.isDirectory() || entry.isSymbolicLink()))
+      .filter(entry => {
+        try {
+          ExtensionPath.folder(entry.name);
+          return true;
+        } catch (err) {
+          Logger.warn('[ExtensionConfigTemplateLoader]', `Skipping unsafe extension folder: ${entry.name}`, err.message);
+          return false;
+        }
+      })
+      .map(entry => entry.name);
     list.sort();
     return list;
   }
