@@ -9,9 +9,15 @@ import {Logger} from '../../Logger';
 
 const LOG_TAG = '[SessionManager]';
 
+// Permission-scoped caches need collision-resistant keys. Keep 128 bits of
+// SHA-256 output as lowercase hex to fit the existing varchar(32) columns.
+// This provides 64-bit generic collision resistance, not full SHA-256 strength.
+const hashProjectionKey = (value: string): string =>
+  crypto.createHash('sha256').update(value).digest('hex').slice(0, 32);
+
 export class SessionManager {
 
-  public static readonly NO_PROJECTION_KEY = crypto.createHash('md5').update('No Key').digest('hex');
+  public static readonly NO_PROJECTION_KEY = hashProjectionKey('No Key');
 
   public buildAllowListForSharing(sharing: SharingEntity): SearchQueryDTO {
     const creatorQuery = this.getQueryForUser(sharing.creator);
@@ -30,7 +36,7 @@ export class SessionManager {
 
   public createProjectionKey(q: SearchQueryDTO) {
     const canonical = SearchQueryUtils.stringifyForComparison(q);
-    return crypto.createHash('md5').update(canonical).digest('hex');
+    return hashProjectionKey(canonical);
   }
 
   public static isTimeDependent(q: SearchQueryDTO): boolean {

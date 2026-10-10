@@ -17,6 +17,10 @@ import {SearchQueryTypes, TextSearch} from '../../../../../src/common/entities/S
 import {ObjectManagers} from '../../../../../src/backend/model/ObjectManagers';
 import {MediaDTO} from '../../../../../src/common/entities/MediaDTO';
 import {Utils} from '../../../../../src/common/Utils';
+import {ProjectedAlbumCacheEntity} from '../../../../../src/backend/model/database/enitites/album/ProjectedAlbumCacheEntity';
+import {SavedSearchEntity} from '../../../../../src/backend/model/database/enitites/album/SavedSearchEntity';
+import {ProjectedPersonCacheEntity} from '../../../../../src/backend/model/database/enitites/person/ProjectedPersonCacheEntity';
+import {PersonEntry} from '../../../../../src/backend/model/database/enitites/person/PersonEntry';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const chai = require('chai');
@@ -39,6 +43,50 @@ describe('ProjectedCacheManager', (sqlHelper: DBTestHelper) => {
     connection = await SQLConnection.getConnection();
     pcm = new ProjectedCacheManager();
   };
+
+  describe('projection hash upgrade', () => {
+    beforeEach(setup);
+    afterEach(sqlHelper.clearDB);
+
+    it('prunes legacy keys from all projected caches at startup and preserves current entries', async () => {
+      await ObjectManagers.getInstance().init();
+      const directory = await connection.getRepository(DirectoryEntity).findOneBy({
+        name: sqlHelper.testGalleyEntities.dir.name,
+        path: sqlHelper.testGalleyEntities.dir.path
+      });
+      const album = await connection.getRepository(SavedSearchEntity).save({
+        name: 'hash-upgrade', searchQuery: {type: SearchQueryTypes.any_text, value: ''} as TextSearch
+      });
+      const person = await connection.getRepository(PersonEntry).save({name: 'hash-upgrade'});
+      const legacyKey = '26b85f16832ca3a27b70f5af28c98534'; // Previous MD5 of 'No Key'.
+      const currentKey = SessionManager.NO_PROJECTION_KEY;
+      const caches = [
+        {entity: ProjectedDirectoryCacheEntity, relation: {directory, mediaCount: 0}},
+        {entity: ProjectedAlbumCacheEntity, relation: {album}},
+        {entity: ProjectedPersonCacheEntity, relation: {person}}
+      ];
+
+      for (const {entity, relation} of caches) {
+        const repo = connection.getRepository(entity);
+        await repo.save(repo.create({...relation, projectionKey: legacyKey, valid: true}));
+        if (!await repo.countBy({projectionKey: currentKey})) {
+          await repo.save(repo.create({...relation, projectionKey: currentKey, valid: true}));
+        }
+      }
+
+      await pcm.init();
+      for (const {entity} of caches) {
+        const repo = connection.getRepository(entity);
+        expect(await repo.countBy({projectionKey: legacyKey})).to.equal(0);
+        expect(await repo.countBy({projectionKey: currentKey})).to.be.greaterThan(0);
+      }
+      // Repeated startup must preserve the current cache namespace too.
+      await pcm.init();
+      for (const {entity} of caches) {
+        expect(await connection.getRepository(entity).countBy({projectionKey: currentKey})).to.be.greaterThan(0);
+      }
+    });
+  });
 
   describe('ProjectedCacheManager.invalidateDirectoryCache', () => {
     beforeEach(setup);

@@ -19,6 +19,28 @@ describe = DBTestHelper.describe(); // fake it so the IDE plays nicely (recogniz
 
 describe('SessionManager', (sqlHelper: DBTestHelper) => {
   describe = tmpDescribe;
+  describe('projection keys', () => {
+    it('keeps the SHA-256 no-projection key within the existing column width', () => {
+      expect(SessionManager.NO_PROJECTION_KEY).to.equal('f4b9f37058397b082c3699920b007065');
+    });
+
+    it('shares keys for reordered equivalent queries but separates permission scopes', () => {
+      const sm = new SessionManager();
+      const directory = {type: SearchQueryTypes.directory, value: 'private'} as TextSearch;
+      const keyword = {type: SearchQueryTypes.keyword, value: 'family'} as TextSearch;
+      const query = {type: SearchQueryTypes.AND, list: [directory, keyword]} as ANDSearchQuery;
+      const reordered = {list: [{value: 'family', type: SearchQueryTypes.keyword}, directory], type: SearchQueryTypes.AND} as ANDSearchQuery;
+      const otherScope = {type: SearchQueryTypes.AND, list: [directory, {...keyword, value: 'public'}]} as ANDSearchQuery;
+
+      const key = sm.createProjectionKey(query);
+      expect(sm.createProjectionKey(directory)).to.equal('89039d9f5530956922990ebf6551940a');
+      expect(key).to.match(/^[a-f0-9]{32}$/);
+      expect(sm.createProjectionKey(reordered)).to.equal(key);
+      expect(sm.createProjectionKey(otherScope)).to.not.equal(key);
+      expect(key).to.not.equal(SessionManager.NO_PROJECTION_KEY);
+    });
+  });
+
   describe('buildContext', () => {
 
     // Reset ObjectManagers before each test
@@ -422,4 +444,3 @@ describe('SessionManager', (sqlHelper: DBTestHelper) => {
     });
   });
 });
-
