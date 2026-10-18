@@ -426,30 +426,32 @@ export class AuthenticationMWs {
     return !context.projectionQuery || Object.keys(context.projectionQuery).length === 0;
   }
 
+  private static getSharingKey(req: Request): string {
+    return (req.query[QueryParams.gallery.sharingKey_query] as string) ||
+      (req.params[QueryParams.gallery.sharingKey_params] as string);
+  }
+
   private static async getSharingUser(req: Request): Promise<SessionUser> {
     if (
-      Config.Sharing.enabled === true &&
-      (!!req.query[QueryParams.gallery.sharingKey_query] ||
-        !!req.params[QueryParams.gallery.sharingKey_params])
+      Config.Sharing.enabled === false || !(typeof AuthenticationMWs.getSharingKey(req) === 'string' && AuthenticationMWs.getSharingKey(req) !== '')
     ) {
-      const sharingKey: string =
-        (req.query[QueryParams.gallery.sharingKey_query] as string) ||
-        (req.params[QueryParams.gallery.sharingKey_params] as string);
-      const sharing = await ObjectManagers.getInstance().SharingManager.findOne(sharingKey);
-      if (!sharing || sharing.expires < Date.now()) {
-        return null;
-      }
-
-      // no 'free login' if passwords are required, or it is set
-      if (
-        Config.Sharing.passwordRequired === true ||
-        sharing.password
-      ) {
-        return null;
-      }
-
-      return ObjectManagers.getInstance().SessionManager.createSharingUser(sharing);
+      return null;
     }
-    return null;
+
+    const sharingKey: string = AuthenticationMWs.getSharingKey(req);
+    const sharing = await ObjectManagers.getInstance().SharingManager.findOne(sharingKey);
+    if (!sharing || sharing.expires < Date.now()) {
+      return null;
+    }
+
+    // no 'free login' if passwords are required, or it is set
+    if (
+      Config.Sharing.passwordRequired === true ||
+      sharing.password
+    ) {
+      return null;
+    }
+
+    return ObjectManagers.getInstance().SessionManager.createSharingUser(sharing);
   }
 }
