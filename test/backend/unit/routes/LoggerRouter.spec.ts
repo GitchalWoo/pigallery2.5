@@ -16,11 +16,11 @@ describe('LoggerRouter - AUD9 redaction', () => {
   });
 
   it('should redact sharing key in URL path', () => {
-    const rawUrl = '/pgapi/share/secretShareKey123/key';
+    const rawUrl = '/pgapi/share/secretShareKey123/publicInfo';
     const sanitized = LoggerRouter.sanitizeUrl(rawUrl);
 
     expect(sanitized).to.not.include('secretShareKey123');
-    expect(sanitized).to.equal('/pgapi/share/***REDACTED***/key');
+    expect(sanitized).to.equal('/pgapi/share/***REDACTED***/publicInfo');
   });
 
   it('should preserve non-sensitive URLs intact', () => {
