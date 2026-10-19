@@ -209,6 +209,12 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     this.stopSlideShow();
     this.fullScreenService?.OnFullScreenChange?.off(this.onFsChange);
     this.mediaElement?.cancelActiveRequest();
+    // Destroyed while open (e.g. browser history jump to another page): release what
+    // showLigthbox() took, or the next page can no longer be scrolled.
+    if (this.status !== LightboxStates.Closed) {
+      this.fullScreenService.exitFullScreen();
+      this.overlayService.hideOverlay('lightbox');
+    }
     if (this.subscription.photosChange != null) {
       this.subscription.photosChange.unsubscribe();
     }
