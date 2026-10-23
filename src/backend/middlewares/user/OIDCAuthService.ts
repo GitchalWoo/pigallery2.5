@@ -127,7 +127,7 @@ export class OIDCAuthService {
           id: null as any,
           name: matchedName,
           password: await PasswordHelper.cryptPasswordAsync(rnd),
-          role: UserRoles.Guest,
+          role: Config.Users.oidc.autoCreateUserRole ?? UserRoles.Guest,
           oidcIssuer: issuer,
           oidcSubject: subject
         };
