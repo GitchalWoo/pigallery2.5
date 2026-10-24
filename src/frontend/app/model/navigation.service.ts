@@ -7,6 +7,7 @@ import {NavigationLinkTypes} from '../../../common/config/public/ClientConfig';
 import {firstValueFrom} from 'rxjs';
 import {AuthenticationService} from './network/authentication.service';
 import {UserRoles} from '../../../common/entities/UserDTO';
+import {SearchQueryUtils} from '../../../common/SearchQueryUtils';
 
 @Injectable()
 export class NavigationService {
@@ -90,7 +91,12 @@ export class NavigationService {
           case NavigationLinkTypes.faces:
             return this.router.navigate(['faces']);
           case NavigationLinkTypes.search:
-            return this.router.navigate(['search', JSON.stringify(link.SearchQuery)]);
+            // a search link without a query has nowhere to go, try the next link
+            if (link.SearchQuery) {
+              return this.router.navigate(['search', SearchQueryUtils.urlify(link.SearchQuery)]);
+            }
+            console.error('Navbar search link has no query, skipping it.');
+            continue;
           case NavigationLinkTypes.timeline:
             return this.router.navigate(['timeline']);
           default:
