@@ -1,5 +1,5 @@
 import {Config} from '../../../common/config/private/Config';
-import {Request, Response} from 'express';
+import {Request} from 'express';
 import * as client from 'openid-client';
 import * as crypto from 'crypto';
 import {UserDTO, UserRoles} from '../../../common/entities/UserDTO';
@@ -8,7 +8,6 @@ import {ObjectManagers} from '../../model/ObjectManagers';
 import {SQLConnection} from '../../model/database/SQLConnection';
 import {UserEntity} from '../../model/database/enitites/UserEntity';
 import {PasswordHelper} from '../../model/PasswordHelper';
-import {AuthenticationMWs} from './AuthenticationMWs';
 
 export class OIDCAuthService {
   private static configPromise: Promise<client.Configuration> | null = null;
@@ -17,7 +16,11 @@ export class OIDCAuthService {
     this.configPromise = null;
   }
 
-  public static async login(req: Request, res: Response): Promise<void> {
+  /**
+   * Step 1 of the OIDC authorization code flow: the URL of the authentication request at the provider.
+   * The provider sends the authentication response back to Users.oidc.redirectUri.
+   */
+  public static async getAuthenticationRequestUrl(req: Request): Promise<string> {
     const config = await this.getConfig();
     const state = client.randomState();
     const verifier = client.randomPKCECodeVerifier();
@@ -33,10 +36,14 @@ export class OIDCAuthService {
       code_challenge: challenge,
       code_challenge_method: 'S256'
     });
-    res.redirect(authUrl.href);
+    return authUrl.href;
   }
 
-  public static async callback(req: Request, res: Response): Promise<void> {
+  /**
+   * Step 2 of the OIDC authorization code flow: validates the authentication response,
+   * exchanges its code for the tokens and returns with the user of their claims.
+   */
+  public static async getUserFromAuthenticationResponse(req: Request): Promise<UserDTO> {
     const storedOidc = req.session.oidc;
     const params = req.query; // code, state
     if (!storedOidc?.state || params.state !== storedOidc?.state) {
@@ -141,14 +148,9 @@ export class OIDCAuthService {
       throw new ErrorDTO(ErrorCodes.CREDENTIAL_NOT_FOUND, 'User not found');
     }
 
-    await AuthenticationMWs.startSession(req, user, true);
     // cleanup
     delete (req.session as any).oidc;
-    // redirect to root or previously stored path
-    const redirectUrl = Config.Server.urlBase
-      ? ('/' + Config.Server.urlBase.replace(/^\/+|\/+$/g, '') + '/')
-      : '/';
-    res.redirect(redirectUrl);
+    return user;
   }
 
   private static async getConfig(): Promise<client.Configuration> {

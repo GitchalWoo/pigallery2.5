@@ -2,6 +2,7 @@
 import {expect} from 'chai';
 import {Config} from '../../../../src/common/config/private/Config';
 import {OIDCAuthService} from '../../../../src/backend/middlewares/user/OIDCAuthService';
+import {OIDCMWs} from '../../../../src/backend/middlewares/user/OIDCMWs';
 import {ObjectManagers} from '../../../../src/backend/model/ObjectManagers';
 import {UserDTO, UserRoles} from '../../../../src/common/entities/UserDTO';
 import {ErrorCodes, ErrorDTO} from '../../../../src/common/entities/Error';
@@ -95,9 +96,8 @@ describe('OIDCAuthService', () => {
     it('should throw when OIDC is disabled', async () => {
       Config.Users.oidc.enabled = false;
       const req = createMockReq();
-      const {res} = createMockRes();
       try {
-        await OIDCAuthService.login(req, res);
+        await OIDCAuthService.getAuthenticationRequestUrl(req);
         expect.fail('Should have thrown');
       } catch (err: any) {
         expect(err.message).to.equal('OIDC is not enabled');
@@ -107,9 +107,8 @@ describe('OIDCAuthService', () => {
     it('should throw when issuerUrl is empty', async () => {
       Config.Users.oidc.issuerUrl = '';
       const req = createMockReq();
-      const {res} = createMockRes();
       try {
-        await OIDCAuthService.login(req, res);
+        await OIDCAuthService.getAuthenticationRequestUrl(req);
         expect.fail('Should have thrown');
       } catch (err: any) {
         expect(err.message).to.equal('OIDC issuerUrl is not configured');
@@ -117,21 +116,19 @@ describe('OIDCAuthService', () => {
     });
   });
 
-  describe('login', () => {
-    it('should generate PKCE challenge, state, store in session, and redirect to authorization URL', async () => {
+  describe('getAuthenticationRequestUrl', () => {
+    it('should generate PKCE challenge, state, store in session, and return authorization URL', async () => {
       const req = createMockReq();
-      const {res, getRedirectUrl} = createMockRes();
 
-      await OIDCAuthService.login(req, res);
+      const redirectUrl = await OIDCAuthService.getAuthenticationRequestUrl(req);
 
       expect(req.session.oidc).to.be.an('object');
       expect(req.session.oidc.state).to.be.a('string').and.not.empty;
       expect(req.session.oidc.verifier).to.be.a('string').and.not.empty;
 
-      const redirectUrl = getRedirectUrl();
       expect(redirectUrl).to.be.a('string');
 
-      const parsedUrl = new URL(redirectUrl!);
+      const parsedUrl = new URL(redirectUrl);
       expect(parsedUrl.pathname).to.equal('/auth');
       expect(parsedUrl.searchParams.get('client_id')).to.equal('test-client-id');
       expect(parsedUrl.searchParams.get('response_type')).to.equal('code');
@@ -142,13 +139,12 @@ describe('OIDCAuthService', () => {
     });
   });
 
-  describe('callback - validation and error cases', () => {
+  describe('getUserFromAuthenticationResponse - validation and error cases', () => {
     it('should throw GENERAL_ERROR when session has no oidc state', async () => {
       const req = createMockReq({query: {code: 'mock-code', state: 'some-state'}});
-      const {res} = createMockRes();
 
       try {
-        await OIDCAuthService.callback(req, res);
+        await OIDCAuthService.getUserFromAuthenticationResponse(req);
         expect.fail('Should have thrown');
       } catch (err: any) {
         expect(err).to.be.instanceOf(ErrorDTO);
@@ -162,10 +158,9 @@ describe('OIDCAuthService', () => {
         session: {oidc: {state: 'state-aaa', verifier: 'ver-aaa'}},
         query: {code: 'mock-code', state: 'state-bbb'}
       });
-      const {res} = createMockRes();
 
       try {
-        await OIDCAuthService.callback(req, res);
+        await OIDCAuthService.getUserFromAuthenticationResponse(req);
         expect.fail('Should have thrown');
       } catch (err: any) {
         expect(err).to.be.instanceOf(ErrorDTO);
@@ -179,17 +174,15 @@ describe('OIDCAuthService', () => {
 
       // Initiate login to set session oidc state & verifier
       const loginReq = createMockReq();
-      const {res: loginRes} = createMockRes();
-      await OIDCAuthService.login(loginReq, loginRes);
+      await OIDCAuthService.getAuthenticationRequestUrl(loginReq);
 
       const cbReq = createMockReq({
         session: loginReq.session,
         query: {code: 'mock-code', state: loginReq.session.oidc.state}
       });
-      const {res: cbRes} = createMockRes();
 
       try {
-        await OIDCAuthService.callback(cbReq, cbRes);
+        await OIDCAuthService.getUserFromAuthenticationResponse(cbReq);
         expect.fail('Should have thrown');
       } catch (err: any) {
         expect(err).to.be.instanceOf(ErrorDTO);
@@ -207,17 +200,15 @@ describe('OIDCAuthService', () => {
       });
 
       const loginReq = createMockReq();
-      const {res: loginRes} = createMockRes();
-      await OIDCAuthService.login(loginReq, loginRes);
+      await OIDCAuthService.getAuthenticationRequestUrl(loginReq);
 
       const cbReq = createMockReq({
         session: loginReq.session,
         query: {code: 'mock-code', state: loginReq.session.oidc.state}
       });
-      const {res: cbRes} = createMockRes();
 
       try {
-        await OIDCAuthService.callback(cbReq, cbRes);
+        await OIDCAuthService.getUserFromAuthenticationResponse(cbReq);
         expect.fail('Should have thrown');
       } catch (err: any) {
         expect(err).to.be.instanceOf(ErrorDTO);
@@ -235,17 +226,15 @@ describe('OIDCAuthService', () => {
       });
 
       const loginReq = createMockReq();
-      const {res: loginRes} = createMockRes();
-      await OIDCAuthService.login(loginReq, loginRes);
+      await OIDCAuthService.getAuthenticationRequestUrl(loginReq);
 
       const cbReq = createMockReq({
         session: loginReq.session,
         query: {code: 'mock-code', state: loginReq.session.oidc.state}
       });
-      const {res: cbRes} = createMockRes();
 
       try {
-        await OIDCAuthService.callback(cbReq, cbRes);
+        await OIDCAuthService.getUserFromAuthenticationResponse(cbReq);
         expect.fail('Should have thrown');
       } catch (err: any) {
         expect(err).to.be.instanceOf(ErrorDTO);
@@ -256,8 +245,7 @@ describe('OIDCAuthService', () => {
 
     it('should throw when callback query contains error from IdP', async () => {
       const loginReq = createMockReq();
-      const {res: loginRes} = createMockRes();
-      await OIDCAuthService.login(loginReq, loginRes);
+      await OIDCAuthService.getAuthenticationRequestUrl(loginReq);
 
       const cbReq = createMockReq({
         session: loginReq.session,
@@ -267,10 +255,9 @@ describe('OIDCAuthService', () => {
           state: loginReq.session.oidc.state
         }
       });
-      const {res: cbRes} = createMockRes();
 
       try {
-        await OIDCAuthService.callback(cbReq, cbRes);
+        await OIDCAuthService.getUserFromAuthenticationResponse(cbReq);
         expect.fail('Should have thrown');
       } catch (err: any) {
         expect(err).to.exist;
@@ -279,7 +266,7 @@ describe('OIDCAuthService', () => {
     });
   });
 
-  describe('callback - successful authentication flows', () => {
+  describe('getUserFromAuthenticationResponse - successful authentication flows', () => {
     it('should authenticate existing user matching preferred_username claim', async () => {
       const existingUser: UserDTO = {
         name: 'alice_existing',
@@ -295,18 +282,15 @@ describe('OIDCAuthService', () => {
       });
 
       const loginReq = createMockReq();
-      const {res: loginRes} = createMockRes();
-      await OIDCAuthService.login(loginReq, loginRes);
+      await OIDCAuthService.getAuthenticationRequestUrl(loginReq);
 
       const cbReq = createMockReq({
         session: loginReq.session,
         query: {code: 'mock-code-alice', state: loginReq.session.oidc.state}
       });
-      const {res: cbRes, getRedirectUrl} = createMockRes();
 
-      await OIDCAuthService.callback(cbReq, cbRes);
+      const user = await OIDCAuthService.getUserFromAuthenticationResponse(cbReq);
 
-      expect(getRedirectUrl()).to.equal('/');
       expect(cbReq.session.oidc).to.be.undefined;
       expect(mockOidc.lastTokenRequestBody).to.be.an('object');
       expect(mockOidc.lastTokenRequestBody?.grant_type).to.equal('authorization_code');
@@ -315,10 +299,8 @@ describe('OIDCAuthService', () => {
       expect(mockOidc.lastTokenRequestBody?.client_id).to.equal('test-client-id');
       expect(mockOidc.lastTokenRequestBody?.client_secret).to.equal('test-client-secret');
       expect(mockOidc.lastTokenRequestBody?.code_verifier).to.be.a('string').and.not.empty;
-      expect(cbReq.session.rememberMe).to.be.true;
-      expect(cbReq.session.context).to.be.an('object');
-      expect(cbReq.session.context.user.name).to.equal('alice_existing');
-      expect(cbReq.session.context.user.role).to.equal(UserRoles.User);
+      expect(user.name).to.equal('alice_existing');
+      expect(user.role).to.equal(UserRoles.User);
     });
 
     it('should fallback to email prefix when preferred_username claim is empty', async () => {
@@ -336,19 +318,16 @@ describe('OIDCAuthService', () => {
       });
 
       const loginReq = createMockReq();
-      const {res: loginRes} = createMockRes();
-      await OIDCAuthService.login(loginReq, loginRes);
+      await OIDCAuthService.getAuthenticationRequestUrl(loginReq);
 
       const cbReq = createMockReq({
         session: loginReq.session,
         query: {code: 'mock-code-charlie', state: loginReq.session.oidc.state}
       });
-      const {res: cbRes, getRedirectUrl} = createMockRes();
 
-      await OIDCAuthService.callback(cbReq, cbRes);
+      const user = await OIDCAuthService.getUserFromAuthenticationResponse(cbReq);
 
-      expect(getRedirectUrl()).to.equal('/');
-      expect(cbReq.session.context.user.name).to.equal('charlie');
+      expect(user.name).to.equal('charlie');
     });
 
     it('should auto-create new user with Guest role when autoCreateUser is enabled', async () => {
@@ -361,21 +340,17 @@ describe('OIDCAuthService', () => {
       });
 
       const loginReq = createMockReq();
-      const {res: loginRes} = createMockRes();
-      await OIDCAuthService.login(loginReq, loginRes);
+      await OIDCAuthService.getAuthenticationRequestUrl(loginReq);
 
       const cbReq = createMockReq({
         session: loginReq.session,
         query: {code: 'mock-code-newbie', state: loginReq.session.oidc.state}
       });
-      const {res: cbRes, getRedirectUrl} = createMockRes();
 
-      await OIDCAuthService.callback(cbReq, cbRes);
+      const user = await OIDCAuthService.getUserFromAuthenticationResponse(cbReq);
 
-      expect(getRedirectUrl()).to.equal('/');
-      expect(cbReq.session.context).to.be.an('object');
-      expect(cbReq.session.context.user.name).to.equal('new_guest_user');
-      expect(cbReq.session.context.user.role).to.equal(UserRoles.Guest);
+      expect(user.name).to.equal('new_guest_user');
+      expect(user.role).to.equal(UserRoles.Guest);
 
       // Verify user was persisted in database
       const dbUser = await ObjectManagers.getInstance().UserManager.findOne({name: 'new_guest_user'});
@@ -394,42 +369,23 @@ describe('OIDCAuthService', () => {
       });
 
       const loginReq = createMockReq();
-      const {res: loginRes} = createMockRes();
-      await OIDCAuthService.login(loginReq, loginRes);
+      await OIDCAuthService.getAuthenticationRequestUrl(loginReq);
 
       const cbReq = createMockReq({
         session: loginReq.session,
         query: {code: 'mock-code-corp', state: loginReq.session.oidc.state}
       });
-      const {res: cbRes, getRedirectUrl} = createMockRes();
 
-      await OIDCAuthService.callback(cbReq, cbRes);
+      const user = await OIDCAuthService.getUserFromAuthenticationResponse(cbReq);
 
-      expect(getRedirectUrl()).to.equal('/');
-      expect(cbReq.session.context.user.name).to.equal('corp_user');
+      expect(user.name).to.equal('corp_user');
     });
 
-    it('should redirect to subpath when Config.Server.urlBase is set', async () => {
+    it('should redirect to subpath when Config.Server.urlBase is set', () => {
       Config.Server.urlBase = 'gallery';
-      Config.Users.oidc.autoCreateUser = true;
+      const {res, getRedirectUrl} = createMockRes();
 
-      mockOidc.setClaims({
-        sub: 'subpath-sub',
-        preferred_username: 'subpath_user',
-        email: 'subpath@example.com'
-      });
-
-      const loginReq = createMockReq();
-      const {res: loginRes} = createMockRes();
-      await OIDCAuthService.login(loginReq, loginRes);
-
-      const cbReq = createMockReq({
-        session: loginReq.session,
-        query: {code: 'mock-code-subpath', state: loginReq.session.oidc.state}
-      });
-      const {res: cbRes, getRedirectUrl} = createMockRes();
-
-      await OIDCAuthService.callback(cbReq, cbRes);
+      OIDCMWs.redirectToApp(createMockReq(), res);
 
       expect(getRedirectUrl()).to.equal('/gallery/');
     });
@@ -447,18 +403,16 @@ describe('OIDCAuthService', () => {
       });
 
       const loginReq = createMockReq();
-      const {res: loginRes} = createMockRes();
-      await OIDCAuthService.login(loginReq, loginRes);
+      await OIDCAuthService.getAuthenticationRequestUrl(loginReq);
 
       const cbReq = createMockReq({
         session: loginReq.session,
         query: {code: 'mock-code-custom', state: loginReq.session.oidc.state}
       });
-      const {res: cbRes} = createMockRes();
 
-      await OIDCAuthService.callback(cbReq, cbRes);
+      const user = await OIDCAuthService.getUserFromAuthenticationResponse(cbReq);
 
-      expect(cbReq.session.context.user.name).to.equal('nicky');
+      expect(user.name).to.equal('nicky');
     });
   });
 });

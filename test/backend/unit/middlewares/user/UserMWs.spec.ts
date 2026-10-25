@@ -1,5 +1,6 @@
 import {expect} from 'chai';
 import {UserMWs} from '../../../../../src/backend/middlewares/user/UserMWs';
+import {AuthenticationMWs} from '../../../../../src/backend/middlewares/user/AuthenticationMWs';
 import {ObjectManagers} from '../../../../../src/backend/model/ObjectManagers';
 import {Config} from '../../../../../src/common/config/private/Config';
 import {ErrorCodes, ErrorDTO} from '../../../../../src/common/entities/Error';
@@ -27,9 +28,12 @@ describe('UserMWs session updates', () => {
       deleteUser: async (id: number) => ({id}),
       changeRole: async (id: number, role: number) => ({id, role, password: 'stored-hash'}),
       updateSettings: async (id: number, settings: unknown) => ({id, settings}),
-      findOne: async () => ({id: 1, name: 'updated', password: 'stored-hash'}),
+      findOne: async ({id}: {id: number}) => ({id, name: 'updated', role: UserRoles.Admin, password: 'stored-hash'}),
     };
-    (managers as any).SessionManager = {buildContext: async (user: any): Promise<any> => ({user})};
+    (managers as any).SessionManager = {
+      buildContext: async (user: any): Promise<any> => ({user}),
+      getSessionStamp: async (): Promise<string> => 'fresh-stamp',
+    };
     (managers as any).ProjectedCacheManager = {cleanupNonExistingProjections: async (): Promise<void> => undefined};
   });
 
@@ -38,34 +42,51 @@ describe('UserMWs session updates', () => {
     Config.Users.authenticationRequired = originalAuthenticationRequired;
   });
 
-  it('clears only the deleted current user session', async () => {
-    const current: any = {params: {id: '4'}, session: {context: {user: {id: 4}}}};
-    await invoke(UserMWs.deleteUser, current);
+  it('delegates user deletion to UserManager without mutating req.session directly', async () => {
+    const deletedIds: number[] = [];
+    (managers as any).UserManager.deleteUser = async (id: number) => {
+      deletedIds.push(id);
+      return {id};
+    };
+    const req: any = {params: {id: '4'}, session: {context: {user: {id: 4}}}};
+    await invoke(UserMWs.deleteUser, req);
     expect(errors[0]).to.equal(undefined);
-    expect(current.session.context).to.equal(undefined);
-
-    const other: any = {params: {id: '5'}, session: {context: {user: {id: 4}}}};
-    await invoke(UserMWs.deleteUser, other);
-    expect(errors[0]).to.equal(undefined);
-    expect(other.session.context.user.id).to.equal(4);
+    expect(deletedIds).to.deep.equal([4]);
   });
 
-  it('rebuilds the current user session after a role change without password and preserves the sharing key', async () => {
-    const req: any = {params: {id: '4'}, body: {newRole: UserRoles.Admin}, session: {context: {user: {id: 4, usedSharingKey: 'share-key'}}}};
+  it('refreshes the current user session via AuthenticationMWs.refreshSession after a role change without password', async () => {
+    const req: any = {
+      params: {id: '4'},
+      body: {newRole: UserRoles.Admin},
+      session: {context: {user: {id: 4}}, rememberMe: true},
+      sessionOptions: {},
+    };
     await invoke(UserMWs.changeRole, req);
     expect(errors[0]).to.equal(undefined);
-    expect(req.session.context.user).to.include({id: 4, role: UserRoles.Admin, password: '', usedSharingKey: 'share-key'});
+    await invoke(AuthenticationMWs.refreshSession, req);
+    expect(errors[0]).to.equal(undefined);
+    expect(req.session.context.user).to.include({id: 4, role: UserRoles.Admin});
+    expect(req.session.context.user.password).to.equal(undefined);
+    expect(req.session.stamp).to.equal('fresh-stamp');
   });
 
-  it('refreshes current user settings context and cleans obsolete projections', async () => {
+  it('cleans obsolete projections on own settings update and refreshes session via AuthenticationMWs.refreshSession', async () => {
     let cleanupCalls = 0;
     (managers as any).ProjectedCacheManager.cleanupNonExistingProjections = async () => { cleanupCalls++; };
-    const req: any = {params: {id: '1'}, body: {settings: {public: true}}, session: {context: {user: {id: 1}}}};
+    const req: any = {
+      params: {id: '1'},
+      body: {settings: {public: true}},
+      session: {context: {user: {id: 1}}},
+      sessionOptions: {},
+    };
     await invoke(UserMWs.updateSettings, req);
+    expect(errors[0]).to.equal(undefined);
+    expect(cleanupCalls).to.equal(1);
+    await invoke(AuthenticationMWs.refreshSession, req);
     expect(errors[0]).to.equal(undefined);
     expect(req.session.context.user).to.include({id: 1, name: 'updated'});
     expect(req.session.context.user.password).to.equal(undefined);
-    expect(cleanupCalls).to.equal(1);
+    expect(req.session.stamp).to.equal('fresh-stamp');
   });
 
   it('rejects management when authentication is disabled', async () => {
