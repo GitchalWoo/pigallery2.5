@@ -7,6 +7,7 @@ import {DeleteResult, SelectQueryBuilder} from 'typeorm';
 import {UserDTO} from '../../../common/entities/UserDTO';
 import {SearchQueryDTO} from '../../../common/entities/SearchQueryDTO';
 import {SearchQueryUtils} from '../../../common/SearchQueryUtils';
+import {ObjectManagers} from '../ObjectManagers';
 
 export class SharingManager {
   private static async removeExpiredLink(): Promise<DeleteResult> {
@@ -25,6 +26,7 @@ export class SharingManager {
       .getRepository(SharingEntity)
       .findOneBy({sharingKey});
     await connection.getRepository(SharingEntity).remove(sharing);
+    ObjectManagers.getInstance().SessionManager.invalidateSessionCache();
   }
 
   async listAll(): Promise<SharingEntity[]> {
@@ -76,7 +78,9 @@ export class SharingManager {
       SearchQueryUtils.validateSearchQuery(sharing.defaultSearchView);
       sharing.defaultSearchView = SearchQueryUtils.sortQuery(sharing.defaultSearchView);
     }
-    return connection.getRepository(SharingEntity).save(sharing);
+    const ret = await connection.getRepository(SharingEntity).save(sharing);
+    ObjectManagers.getInstance().SessionManager.invalidateSessionCache();
+    return ret;
   }
 
   async updateSharing(
@@ -112,6 +116,8 @@ export class SharingManager {
     }
     sharing.expires = inSharing.expires;
 
-    return connection.getRepository(SharingEntity).save(sharing);
+    const ret = await connection.getRepository(SharingEntity).save(sharing);
+    ObjectManagers.getInstance().SessionManager.invalidateSessionCache();
+    return ret;
   }
 }

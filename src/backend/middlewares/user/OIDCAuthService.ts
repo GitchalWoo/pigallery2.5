@@ -8,6 +8,7 @@ import {ObjectManagers} from '../../model/ObjectManagers';
 import {SQLConnection} from '../../model/database/SQLConnection';
 import {UserEntity} from '../../model/database/enitites/UserEntity';
 import {PasswordHelper} from '../../model/PasswordHelper';
+import {AuthenticationMWs} from './AuthenticationMWs';
 
 export class OIDCAuthService {
   private static configPromise: Promise<client.Configuration> | null = null;
@@ -121,6 +122,7 @@ export class OIDCAuthService {
         existingUserByName.oidcIssuer = issuer;
         existingUserByName.oidcSubject = subject;
         user = await userRepo.save(existingUserByName);
+        ObjectManagers.getInstance().SessionManager.invalidateSessionCache();
       } else if (Config.Users.oidc.autoCreateUser) {
         const rnd = crypto.randomBytes(16).toString('hex');
         const newUser: UserDTO = {
@@ -139,10 +141,7 @@ export class OIDCAuthService {
       throw new ErrorDTO(ErrorCodes.CREDENTIAL_NOT_FOUND, 'User not found');
     }
 
-    const safeUser = Object.assign({}, user);
-    delete (safeUser as any).password;
-    req.session.context = await ObjectManagers.getInstance().SessionManager.buildContext(safeUser as any);
-    req.session.rememberMe = true;
+    await AuthenticationMWs.startSession(req, user, true);
     // cleanup
     delete (req.session as any).oidc;
     // redirect to root or previously stored path

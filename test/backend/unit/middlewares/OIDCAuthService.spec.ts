@@ -24,6 +24,7 @@ interface MockResponseResult {
 function createMockReq(overrides: Record<string, any> = {}): any {
   return {
     session: {},
+    sessionOptions: {},
     query: {},
     ...overrides
   };
