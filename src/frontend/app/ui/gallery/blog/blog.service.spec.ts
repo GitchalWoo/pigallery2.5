@@ -1,5 +1,5 @@
 import {TestBed} from '@angular/core/testing';
-import {BlogService} from './blog.service';
+import {BlogService, type GroupedMarkdown} from './blog.service';
 import {NetworkService} from '../../../model/network/network.service';
 import {ContentService} from '../content.service';
 import {MDFilesFilterPipe} from '../../../pipes/MDFilesFilterPipe';
@@ -9,6 +9,11 @@ import {DirectoryPathDTO} from '../../../../../common/entities/DirectoryDTO';
 
 describe('BlogService', () => {
   let service: BlogService;
+  // the private parsing steps of the service
+  const internals = () => service as unknown as {
+    splitMarkDown: (file: MDFileDTO, dates: number[], firstMedia: number) => Promise<GroupedMarkdown[]>,
+    parseMarkdownSections: (markdown: string) => { date: Date | null; text: string }[],
+  };
   let mockNetworkService: { getText: any };
   let mockGalleryService: any;
   let mockMdFilesFilterPipe: any;
@@ -79,6 +84,25 @@ describe('BlogService', () => {
       expect(result[0].date).toBeNull();
       expect(result[0].file).toBe(file);
       expect(result[0].textShort).toBe(markdown.substring(0, 200));
+    });
+
+    it('should remove date tags and comments when no date groups exist', async () => {
+      const file = createMockMDFile('test.md', Date.UTC(2025, 1, 1));
+      const markdown = '<!-- comment -->\n# Intro\n\n<!-- @pg-date 2025-02-01 -->\n## Day 1\n\nContent.';
+      mockNetworkService.getText.mockResolvedValue(markdown);
+
+      const result = await internals().splitMarkDown(file, [], 0);
+
+      expect(result.length).toBe(1);
+      expect(result[0].text).toBe('# Intro\n\n\n## Day 1\n\nContent.');
+    });
+
+    it('should return empty array for comment-only markdown', async () => {
+      const file = createMockMDFile('test.md', Date.UTC(2025, 1, 1));
+      mockNetworkService.getText.mockResolvedValue('<!-- only a comment -->');
+
+      expect(await internals().splitMarkDown(file, [], 0)).toEqual([]);
+      expect(await internals().splitMarkDown(file, [Date.UTC(2025, 1, 1)], 0)).toEqual([]);
     });
 
     it('should place undated markdown at top (date=null) when not a search result', async () => {
@@ -345,6 +369,16 @@ This is dated.`;
       expect(sections.length).toBe(1);
       expect(sections[0].date).toBeNull();
       expect(sections[0].text).toContain('Content');
+    });
+
+    it('should remove standalone comments but keep comments inside text', () => {
+      const markdown = '<!-- comment -->\n# Intro\n<!-- multi\nline -->\nUse `<!-- @pg-date <ISO_DATE> -->` tags.\n' +
+        '<!-- @pg-date 2025-02-01 -->\n<!-- another -->  \n## Day 1';
+      const sections = internals().parseMarkdownSections(markdown);
+
+      expect(sections.length).toBe(2);
+      expect(sections[0].text).toBe('# Intro\n\nUse `<!-- @pg-date <ISO_DATE> -->` tags.');
+      expect(sections[1].text).toBe('## Day 1');
     });
   });
 
