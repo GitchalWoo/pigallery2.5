@@ -29,7 +29,7 @@ import {ObjectManagers} from '../ObjectManagers';
 import {DatabaseType} from '../../../common/config/private/PrivateConfig';
 import {Utils} from '../../../common/Utils';
 import {FileEntity} from './enitites/FileEntity';
-import {foldText, SQL_COLLATE} from './enitites/EntityUtils';
+import {foldText, sqlFoldsText, SQL_COLLATE} from './enitites/EntityUtils';
 import {GroupSortByTypes, SortByTypes, SortingMethod} from '../../../common/entities/SortingMethods';
 import {SessionContext} from '../SessionContext';
 import {GalleryManager} from './GalleryManager';
@@ -54,29 +54,13 @@ export class SearchManager {
   // before that row was ever inspected for a match at all.
   private static readonly AUTOCOMPLETE_CANDIDATE_LIMIT = 200;
 
-  /**
-   * SQLite's LIKE ignores SQL_COLLATE and the case of non-English letters. With Database.sqlite.accentInsensitiveSearch
-   * both sides are folded instead: lowercase and without accents (#1309). It makes text search several times slower.
-   */
-  private static foldsText(): boolean {
-    return Config.Database.type === DatabaseType.sqlite && !!Config.Database.sqlite?.accentInsensitiveSearch;
-  }
-
-  /**
-   * Whether the text conditions of like() ignore the accents: MySQL's SQL_COLLATE does, SQLite only with foldsText().
-   * Checks of the same texts without DB need to follow it (e.g. DirectoryAccess).
-   */
-  public static ignoresAccents(): boolean {
-    return Config.Database.type === DatabaseType.mysql || SearchManager.foldsText();
-  }
-
   // The value of a param of like()
   private static likeValue(value: string): string {
-    return SearchManager.foldsText() ? foldText(value)! : value;
+    return sqlFoldsText() ? foldText(value)! : value;
   }
 
   /**
-   * A text condition that ignores the accents and the case as far as the DB can, see foldsText().
+   * A text condition that ignores the accents and the case as far as the DB can, see sqlFoldsText().
    * @param escape '\' escapes the wildcards of the value (MySQL does it by default, SQLite only with ESCAPE)
    * @param wrap an SQL expression around the compared text (not around the IS NOT NULL check)
    */
@@ -85,7 +69,7 @@ export class SearchManager {
     const wrap = options.wrap ?? ((expr: string): string => expr);
     if (Config.Database.type === DatabaseType.sqlite) {
       const esc = options.escape ? ' ESCAPE \'\\\'' : '';
-      if (!SearchManager.foldsText()) {
+      if (!sqlFoldsText()) {
         return `${wrap(field)} ${op} :${param}${esc}`;
       }
       // most captions, keywords and persons are empty: those rows need no call of the JS function (idea from #1218).
@@ -1182,7 +1166,7 @@ export class SearchManager {
                 const globPattern = convertGlobToLike((query as TextSearch).value);
 
                 textParam['CtextC' + queryId] = likeValue(`%,${globPattern},%`);
-                if (SearchManager.foldsText()) {
+                if (sqlFoldsText()) {
                   // with a comma on both ends one pattern covers all four cases: one fold() call per row instead of four
                   qb[whereFN](
                     likeExpr(fieldName, 'CtextC', (expr): string => `(',' || ${expr} || ',')`),
