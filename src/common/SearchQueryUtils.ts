@@ -13,6 +13,7 @@ import {
 } from './entities/SearchQueryDTO';
 import {SearchQueryParser} from './SearchQueryParser';
 import {Utils} from './Utils';
+import {foldChar} from './TextFold';
 
 export const SearchQueryUtils = {
   negate: (query: SearchQueryDTO): SearchQueryDTO => {
@@ -203,6 +204,15 @@ export const SearchQueryUtils = {
     return parts.join('/');
   },
   /**
+   * The directory path as the directory searches compare it: normalized, lower case and with runs of spaces collapsed
+   * (the SQL search collapses them too, see SearchManager; a double space in a name is usually a typo #1309).
+   * @param foldAccents also removes the accents, where the SQL search ignores them (see SearchManager.ignoresAccents)
+   */
+  comparableDirectoryPath: (dirPath: string, foldAccents = false): string => {
+    const p = SearchQueryUtils.normalizeDirectoryPath(dirPath).toLowerCase().replace(/ {2,}/g, ' ');
+    return foldAccents ? p.replace(/\P{ASCII}/gu, foldChar) : p;
+  },
+  /**
    * Matches a relative directory path against a directory search, without any DB access.
    * It follows the semantic of the SQL directory search (see SearchManager):
    *  - exact_match: the path equals to the value
@@ -210,11 +220,11 @@ export const SearchQueryUtils = {
    *  - globMatch: the whole path matches the glob (* matches any characters, including '/', ? matches one character)
    *    A trailing '/*' means the directory itself and everything below it (e.g.: 'a/*' matches 'a', 'a/b', 'a/b/c').
    *    Use '/?*' to match only below a directory.
-   * Matching is case-insensitive.
+   * Matching is case-insensitive, and ignores the accents with foldAccents.
    */
-  matchDirectorySearch: (dirPath: string, search: DirectorySearch): boolean => {
-    const p = SearchQueryUtils.normalizeDirectoryPath(dirPath).toLowerCase();
-    const value = SearchQueryUtils.normalizeDirectoryPath(search.value).toLowerCase();
+  matchDirectorySearch: (dirPath: string, search: DirectorySearch, foldAccents = false): boolean => {
+    const p = SearchQueryUtils.comparableDirectoryPath(dirPath, foldAccents);
+    const value = SearchQueryUtils.comparableDirectoryPath(search.value, foldAccents);
     let match: boolean;
     switch (search.matchType ?? TextSearchQueryMatchTypes.like) {
       case TextSearchQueryMatchTypes.exact_match:
@@ -244,11 +254,11 @@ export const SearchQueryUtils = {
    * E.g.: exact 'a/b' -> ['a', 'b'], glob 'a/b/*' -> ['a', 'b'], glob 'a/b*' -> ['a'].
    * Returns null if the matches can be anywhere (like and negated searches).
    */
-  getDirectorySearchAnchor: (search: DirectorySearch): string[] => {
+  getDirectorySearchAnchor: (search: DirectorySearch, foldAccents = false): string[] | null => {
     if (search.negate) {
       return null;
     }
-    const segments = SearchQueryUtils.normalizeDirectoryPath(search.value).toLowerCase().split('/')
+    const segments = SearchQueryUtils.comparableDirectoryPath(search.value, foldAccents).split('/')
       .filter(s => s !== '');
     switch (search.matchType ?? TextSearchQueryMatchTypes.like) {
       case TextSearchQueryMatchTypes.exact_match:
@@ -287,11 +297,11 @@ export const SearchQueryUtils = {
    * For globs it can be true for a directory that also matches the entry itself (e.g.: 'a' for 'a/*'),
    * so check if the directory is allowed first.
    */
-  isDirectoryAnchoredParent: (dirPath: string, list: DirectorySearch[]): boolean => {
-    const p = SearchQueryUtils.normalizeDirectoryPath(dirPath).toLowerCase().split('/')
+  isDirectoryAnchoredParent: (dirPath: string, list: DirectorySearch[], foldAccents = false): boolean => {
+    const p = SearchQueryUtils.comparableDirectoryPath(dirPath, foldAccents).split('/')
       .filter(s => s !== '');
     return (list || []).some(d => {
-      const anchor = SearchQueryUtils.getDirectorySearchAnchor(d);
+      const anchor = SearchQueryUtils.getDirectorySearchAnchor(d, foldAccents);
       if (anchor === null || p.length > anchor.length) {
         return false;
       }
@@ -307,8 +317,8 @@ export const SearchQueryUtils = {
   /**
    * Returns true if the directory matches any entry of the list.
    */
-  matchDirectoryList: (dirPath: string, list: DirectorySearch[]): boolean => {
-    return (list || []).some(d => SearchQueryUtils.matchDirectorySearch(dirPath, d));
+  matchDirectoryList: (dirPath: string, list: DirectorySearch[], foldAccents = false): boolean => {
+    return (list || []).some(d => SearchQueryUtils.matchDirectorySearch(dirPath, d, foldAccents));
   },
   /**
    * Converts a directory allow / block list to a single search query.

@@ -426,6 +426,35 @@ describe('SearchQueryDTOUtils.matchDirectorySearch', () => {
     expect(match('Photos/Public', 'photos/public', TextSearchQueryMatchTypes.exact_match)).to.be.true;
   });
 
+  // like the SQL search on MySQL, and on SQLite with accentInsensitiveSearch
+  it('should ignore accents if asked', () => {
+    const exact = TextSearchQueryMatchTypes.exact_match;
+    const glob = TextSearchQueryMatchTypes.globMatch;
+    const dq = (value: string, matchType?: TextSearchQueryMatchTypes): DirectorySearch =>
+      ({type: SearchQueryTypes.directory, value, matchType});
+    expect(match('photos/Fête', 'fete')).to.be.false;
+    expect(SearchQueryUtils.matchDirectorySearch('photos/Fête', dq('fete'), true)).to.be.true;
+    expect(SearchQueryUtils.matchDirectorySearch('photos/fete', dq('PHOTOS/FÊTE', exact), true)).to.be.true;
+    expect(SearchQueryUtils.matchDirectorySearch('Jánosi út/sub', dq('janosi ut/*', glob), true)).to.be.true;
+    expect(SearchQueryUtils.matchDirectorySearch('photos/fate', dq('fête'), true)).to.be.false;
+    expect(SearchQueryUtils.matchDirectoryList('photos/Fête', [dq('fete')], true)).to.be.true;
+    expect(SearchQueryUtils.getDirectorySearchAnchor(dq('Fête/Été/*', glob), true)).to.deep.equal(['fete', 'ete']);
+    expect(SearchQueryUtils.isDirectoryAnchoredParent('fete', [dq('Fête/sub', exact)])).to.be.false;
+    expect(SearchQueryUtils.isDirectoryAnchoredParent('fete', [dq('Fête/sub', exact)], true)).to.be.true;
+  });
+
+  // like the SQL search: the parser collapses double spaces, they are usually a typo (#1309)
+  it('should collapse runs of spaces', () => {
+    expect(match('photos/summer  trip   2024', 'photos/summer trip 2024', TextSearchQueryMatchTypes.exact_match)).to.be.true;
+    expect(match('photos/summer trip 2024', 'photos/summer  trip 2024', TextSearchQueryMatchTypes.exact_match)).to.be.true;
+    expect(match('photos/summer  trip/sub', 'summer trip')).to.be.true;
+    expect(match('photos/summer  trip/sub', 'photos/summer trip/*', TextSearchQueryMatchTypes.globMatch)).to.be.true;
+    expect(match('photos/summertrip', 'photos/summer trip', TextSearchQueryMatchTypes.exact_match)).to.be.false;
+    expect(SearchQueryUtils.isDirectoryAnchoredParent('photos/summer  trip',
+      [{type: SearchQueryTypes.directory, value: 'photos/summer trip/sub', matchType: TextSearchQueryMatchTypes.exact_match}]))
+      .to.be.true;
+  });
+
   it('should negate', () => {
     expect(match('photos/public', 'photos/public', TextSearchQueryMatchTypes.exact_match, true)).to.be.false;
     expect(match('photos/other', 'photos/public', TextSearchQueryMatchTypes.exact_match, true)).to.be.true;
