@@ -11,6 +11,10 @@ import {TestHelper} from '../../../TestHelper';
 import {default as chaiHttp, request} from 'chai-http';
 import {ErrorCodes} from '../../../../src/common/entities/Error';
 import {UserRoles} from '../../../../src/common/entities/UserDTO';
+import {ObjectManagers} from '../../../../src/backend/model/ObjectManagers';
+import {SearchQueryUtils} from '../../../../src/common/SearchQueryUtils';
+import {SearchQueryTypes, TextSearch} from '../../../../src/common/entities/SearchQueryDTO';
+import * as fs from 'fs';
 
 process.env.NODE_ENV = 'test';
 chai.should();
@@ -225,6 +229,49 @@ describe('GalleryRouter', (sqlHelper: DBTestHelper) => {
       expect(result.body.error).to.not.be.equal(null);
       expect(result.body.result).to.be.equal(null);
       expect(result.body.error.code).to.be.equal(ErrorCodes.PATH_ERROR);
+    });
+  });
+
+  describe('random photo link of the gallery', async () => {
+    // the "Random link" dialog builds the link from the shortened query of the search page urls (#1313)
+    before(async () => {
+      await sqlHelper.initDB();
+      const folder = path.join(TestHelper.TMP_DIR, 'random-link-gallery');
+      fs.mkdirSync(folder, {recursive: true});
+      fs.copyFileSync(path.join(__dirname, '../../assets/exiftool.jpg'), path.join(folder, 'abbey.jpg'));
+      Config.Users.authenticationRequired = false;
+      Config.Media.folder = folder;
+      Config.Media.tempFolder = path.join(TestHelper.TMP_DIR, 'random-link-temp');
+      ProjectPath.reset();
+      server = new Server(false);
+      await server.onStarted.wait();
+      await ObjectManagers.getInstance().IndexingManager.indexDirectory('.', true);
+    });
+    after(async () => {
+      Config.Users.authenticationRequired = true;
+      await tearDown();
+    });
+
+    const get = (url: string) => (request.execute(server.Server) as SuperAgentStatic)
+      .get(Config.Server.apiPath + url);
+
+    it('should answer a photo of the shortened query', async () => {
+      const res = await get('/gallery/random/' +
+        encodeURIComponent(SearchQueryUtils.urlify({type: SearchQueryTypes.file_name, value: 'abbey'} as TextSearch)));
+      (res.should as any).have.status(200);
+      expect(res.headers['content-type']).to.equal('image/jpeg');
+    });
+
+    it('should still answer a photo of the full JSON query', async () => {
+      const res = await get('/gallery/random/' +
+        encodeURIComponent(JSON.stringify({type: SearchQueryTypes.file_name, value: 'abbey'} as TextSearch)));
+      (res.should as any).have.status(200);
+      expect(res.headers['content-type']).to.equal('image/jpeg');
+    });
+
+    it('should reject a query that is not JSON', async () => {
+      const res = await get('/gallery/random/not-json');
+      expect(res.body.error.code).to.equal(ErrorCodes.INPUT_ERROR);
     });
   });
 
