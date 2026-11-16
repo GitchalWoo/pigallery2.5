@@ -295,3 +295,10 @@ describe('SearchQueryDTOUtils.urlify', () => {
     assertValid(q);
   });
 });
+
+describe('SearchQueryDTOUtils.negate', () => {
+  it('should negate a date pattern (e.g. in a block list)', () => {
+    const q: DatePatternSearch = {type: SearchQueryTypes.date_pattern, daysLength: 0, frequency: DatePatternFrequency.every_year};
+    expect(SearchQueryUtils.negate(q)).to.deep.equal({...q, negate: true});
+  });
+});

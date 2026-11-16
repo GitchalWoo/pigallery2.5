@@ -308,9 +308,9 @@ export class SearchQueryParser {
 
 
       const value =
-        matcher === 'date'
+        matcher === this.keywords.date
           ? '(\\d{4}(?:-\\d{1,2})?(?:-\\d{1,2})?)' // YYYY-MM or YYYY-MM-DD
-          : '(\\d+)';                     // number
+          : '(\\d+(?:\\.\\d+)?)';         // number, also with decimals (e.g. Mpx)
       /**
        * Matching:
        * rating:4..6
@@ -394,10 +394,11 @@ export class SearchQueryParser {
     }
 
 
-    if (new RegExp('^\\d*-' + this.keywords.kmFrom + '!?:').test(str)) {
-      let from = str.slice(
-        new RegExp('^\\d*-' + this.keywords.kmFrom + '!?:').exec(str)[0].length
-      );
+    const kmFromMatch = new RegExp('^(\\d*(?:\\.\\d+)?)-' + this.keywords.kmFrom + '!?:').exec(str);
+    if (kmFromMatch) {
+      // the distance can have decimals (e.g. 0.5-km-from:...)
+      const distance = parseFloat(kmFromMatch[1]) || 0;
+      let from = str.slice(kmFromMatch[0].length);
       if (
         (from.charAt(0) === '(' && from.charAt(from.length - 1) === ')') ||
         (from.charAt(0) === '"' && from.charAt(from.length - 1) === '"')
@@ -413,7 +414,7 @@ export class SearchQueryParser {
         const longitude = parseFloat(coordMatch[2]);
         return {
           type: SearchQueryTypes.distance,
-          distance: intFromRegexp(str),
+          distance,
           from: {
             GPSData: {
               latitude,
@@ -421,7 +422,7 @@ export class SearchQueryParser {
             }
           },
           // only add negate if the value is true
-          ...(new RegExp('^\\d*-' + this.keywords.kmFrom + '!:').test(str) && {
+          ...(kmFromMatch[0].endsWith('!:') && {
             negate: true,
           }),
         } as DistanceSearch;
@@ -430,10 +431,10 @@ export class SearchQueryParser {
       // If not coordinates, treat as location text
       return {
         type: SearchQueryTypes.distance,
-        distance: intFromRegexp(str),
+        distance,
         from: {value: from},
         // only add negate if the value is true
-        ...(new RegExp('^\\d*-' + this.keywords.kmFrom + '!:').test(str) && {
+        ...(kmFromMatch[0].endsWith('!:') && {
           negate: true,
         }),
       } as DistanceSearch;
