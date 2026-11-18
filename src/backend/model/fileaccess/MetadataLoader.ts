@@ -21,7 +21,33 @@ import {SafePath} from './SafePath';
 const {imageSizeFromFile} = require('image-size/fromFile');
 const LOG_TAG = '[MetadataLoader]';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ExifData = any; // exifr's typings miss what is used here (e.g. exr.file)
+
 sharp.cache(false);
+
+// exifr (unmaintained) leaves its FileHandle open whenever reading or parsing throws (e.g. on an empty file).
+// Node 26 turns a FileHandle that the garbage collector closes into an uncaught error that crashes the app (#1408),
+// so it gets closed on every error here and in MetadataLoader.parseExif().
+const ExifrFsReader = exifr.fileReaders.get('fs');
+exifr.fileReaders.set('fs', class extends ExifrFsReader {
+  async read(): Promise<void> {
+    try {
+      await super.read();
+    } catch (err) {
+      await this['close']();
+      throw err;
+    }
+  }
+
+  // exifr calls fileHandle.stat(path). Node 26 rejects the string as `options`, so every chunked read throws.
+  async open(): Promise<void> {
+    if (this['fh'] === undefined) {
+      this['fh'] = await this['fs'].open(this['input'], 'r');
+      this['size'] = (await this['fh'].stat()).size;
+    }
+  }
+});
 
 export class MetadataLoader {
 
@@ -38,6 +64,19 @@ export class MetadataLoader {
     } catch (err) {
       Logger.silly(LOG_TAG, 'Skipping inaccessible or invalid sidecar: ' + sidecarPath);
       return undefined;
+    }
+  }
+
+  /**
+   * Same as exifr.parse(), but always closes the file, also when parsing throws.
+   */
+  private static async parseExif(fullPath: string, options: Record<string, boolean>): Promise<ExifData> {
+    const exr: ExifData = new exifr.Exifr(options); // exifr's typings miss exr.file
+    try {
+      await exr.read(fullPath);
+      return await exr.parse();
+    } finally {
+      await exr.file?.close();
     }
   }
 
@@ -245,13 +284,13 @@ export class MetadataLoader {
 
       try {
         try {
-          let exif = await exifr.parse(fullPath, exifrOptions);
+          let exif = await MetadataLoader.parseExif(fullPath, exifrOptions);
           if (MetadataLoader.isOnlyErrors(exif)) {
             // exifr reads files in chunks and fails on segments that start right before the end of the first chunk,
             // losing all metadata (https://github.com/MikeKovarik/exifr/issues/141). Reading the whole file works.
             // (options.chunked is documented, but missing from exifr's typings)
             const wholeFile: Record<string, boolean> = {...exifrOptions, chunked: false};
-            exif = await exifr.parse(fullPath, wholeFile);
+            exif = await MetadataLoader.parseExif(fullPath, wholeFile);
             if (MetadataLoader.isOnlyErrors(exif)) {
               // let the sharp fallback below try it
               throw new Error('exifr could not parse ' + fullPath);
