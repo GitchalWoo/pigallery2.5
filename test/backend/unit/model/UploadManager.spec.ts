@@ -6,6 +6,7 @@ import {UploadManager} from '../../../../src/backend/model/UploadManager';
 import {ProjectPath} from '../../../../src/backend/ProjectPath';
 import {Config} from '../../../../src/common/config/private/Config';
 import {ObjectManagers} from '../../../../src/backend/model/ObjectManagers';
+import {DirectoryNotFound} from '../../../../src/backend/exceptions/DirectoryNotFound';
 
 declare const describe: any;
 declare const before: any;
@@ -19,6 +20,10 @@ describe('UploadManager', () => {
   before(async () => {
     if (!fs.existsSync(testDir)) {
       fs.mkdirSync(testDir, {recursive: true});
+    }
+    // upload never creates folders: the target folders of the tests exist
+    for (const dir of ['test_subdir', 'multi_test', 'no_config_dir', 'exists_test', 'race_test']) {
+      fs.mkdirSync(path.join(testDir, dir), {recursive: true});
     }
     Config.Media.folder = testDir;
     Config.Upload.enabled = true;
@@ -148,6 +153,30 @@ describe('UploadManager', () => {
     expect(errors.length).to.equal(1);
     expect(errors[0].filename).to.equal('exists.jpg');
     expect(errors[0].error).to.contain('already exists');
+    // only the name: the path on the disk is not the client's business
+    expect(errors[0].error).to.not.contain(testDir);
+  });
+
+  it('should not create a missing folder', async () => {
+    const file: any = {
+      originalname: 'missing.jpg',
+      buffer: Buffer.from('content')
+    };
+    await assert.rejects(uploadManager.saveFiles('missing_dir/sub', [file]), (e: Error) => {
+      expect(e).to.be.instanceOf(DirectoryNotFound);
+      return true;
+    });
+    await assert.rejects(uploadManager.saveFile('missing_dir', file), DirectoryNotFound);
+    expect(fs.existsSync(path.join(testDir, 'missing_dir'))).to.be.false;
+  });
+
+  it('should not upload into a file as a folder', async () => {
+    fs.writeFileSync(path.join(testDir, 'not_a_dir.jpg'), 'content');
+    const file: any = {
+      originalname: 'inside.jpg',
+      buffer: Buffer.from('content')
+    };
+    await assert.rejects(uploadManager.saveFiles('not_a_dir.jpg', [file]), DirectoryNotFound);
   });
 
   it('should reject path traversal in directory parameter (S5)', async () => {
