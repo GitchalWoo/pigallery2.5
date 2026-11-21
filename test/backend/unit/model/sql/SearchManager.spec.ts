@@ -886,7 +886,7 @@ describe('SearchManager', (sqlHelper: DBTestHelper) => {
       const DAY = 24 * 60 * 60 * 1000;
       // the parser and the query builder give midnight (UTC) of the day, compared to the local time of the photo
       const dayOf = (m: PhotoDTO | VideoDTO): number =>
-        Math.floor((m.metadata.creationDate + 2 * 60 * 60 * 1000) / DAY) * DAY;
+        Math.floor(Utils.getTimeMS(m.metadata.creationDate, m.metadata.creationDateOffset, Config.Gallery.ignoreTimestampOffset) / DAY) * DAY;
 
       // date=<day of p2>
       let query = ({min: dayOf(p2), max: dayOf(p2), type: SearchQueryTypes.date} as DateSearch);
