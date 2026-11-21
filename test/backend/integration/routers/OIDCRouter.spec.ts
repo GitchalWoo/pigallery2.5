@@ -9,6 +9,7 @@ import {default as chaiHttp, request} from 'chai-http';
 import {DBTestHelper} from '../../DBTestHelper';
 import {MockOIDCServer} from '../../unit/middlewares/MockOIDCServer';
 import {OIDCAuthService} from '../../../../src/backend/middlewares/user/OIDCAuthService';
+import {RateLimiter} from '../../../../src/backend/middlewares/RateLimiter';
 import {RouteTestingHelper} from './RouteTestingHelper';
 
 process.env.NODE_ENV = 'test';
@@ -30,6 +31,7 @@ describe('OIDCRouter', () => {
   });
 
   const setUp = async () => {
+    RateLimiter.reset();
     OIDCAuthService.reset();
     await sqlHelper.initDB();
     server = new Server(false);
