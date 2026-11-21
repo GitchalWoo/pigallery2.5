@@ -39,10 +39,30 @@ export async function localizeBundles(outputPath) {
     // Restore EJS template delimiters so Express/EJS evaluates them at request time.
     html = html.replace(/&lt;%([\s\S]*?)%&gt;/g, (_, expr) => `<%${expr.replaceAll('&amp;', '&')}%>`);
     const bundles = (await readdir(dir)).filter(name => /^main(?:[.-].*)?\.js$/.test(name));
+    const renames = [];
     for (const name of bundles) {
       const localizedName = `${folder.name}.${name}`;
       await rename(path.join(dir, name), path.join(dir, localizedName));
-      html = html.replaceAll(`src="${name}"`, `src="${localizedName}"`);
+      html = html
+        .replaceAll(`src="${name}"`, `src="${localizedName}"`)
+        .replaceAll(`href="${name}"`, `href="${localizedName}"`);
+      renames.push([name, localizedName]);
+    }
+    if (renames.length) {
+      // Angular 22.3 / rolldown lazy chunks import shared symbols back from `./main-<hash>.js`.
+      // Rewrite those relative module specifiers to match the localized main bundle filename.
+      const jsFiles = (await readdir(dir)).filter(name => name.endsWith('.js'));
+      for (const jsFile of jsFiles) {
+        const jsPath = path.join(dir, jsFile);
+        const content = await readFile(jsPath, 'utf8');
+        let updated = content;
+        for (const [oldName, newName] of renames) {
+          updated = updated
+            .replaceAll(`"./${oldName}"`, `"./${newName}"`)
+            .replaceAll(`'./${oldName}'`, `'./${newName}'`);
+        }
+        if (updated !== content) await writeFile(jsPath, updated);
+      }
     }
     if (bundles.length || html !== originalHtml) await writeFile(indexPath, html);
   }

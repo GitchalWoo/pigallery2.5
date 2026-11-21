@@ -4,6 +4,7 @@ import {Config} from '../../../../src/common/config/private/Config';
 import {Server} from '../../../../src/backend/server';
 import {UserDTO, UserRoles} from '../../../../src/common/entities/UserDTO';
 import * as fs from 'fs';
+import * as path from 'path';
 import {SQLConnection} from '../../../../src/backend/model/database/SQLConnection';
 import {ObjectManagers} from '../../../../src/backend/model/ObjectManagers';
 import {Utils} from '../../../../src/common/Utils';
@@ -296,6 +297,40 @@ describe('PublicRouter', () => {
 
       // Restore original configuration
       Config.Server.svgIcon = originalIcon;
+    });
+  });
+
+  describe('Frontend bundle integrity', () => {
+    beforeEach(setUp);
+    afterEach(tearDown);
+
+    it('serves index.html without escaped EJS tags and resolves all script and lazy-chunk module imports', async () => {
+      const indexRes = await (request.execute(server.Server) as SuperAgentStatic).get('/');
+      indexRes.should.have.status(200);
+      expect(indexRes.text).to.not.include('&lt;%');
+      expect(indexRes.text).to.not.include('<%= ');
+
+      const scriptSrcs = Array.from(indexRes.text.matchAll(/<script[^>]+src="([^"]+\.js)"/g), m => m[1]);
+      expect(scriptSrcs.length).to.be.greaterThan(0);
+
+      const localeDir = path.join(ProjectPath.FrontendFolder, 'en');
+      const jsFiles = fs.readdirSync(localeDir).filter(f => f.endsWith('.js'));
+      expect(jsFiles.length).to.be.greaterThan(0);
+
+      const referencedModules = new Set<string>(scriptSrcs);
+      for (const jsFile of jsFiles) {
+        const content = fs.readFileSync(path.join(localeDir, jsFile), 'utf8');
+        for (const match of content.matchAll(/(?:from|import\s*\(|import)\s*["']\.\/([^"']+\.js)["']/g)) {
+          referencedModules.add(match[1]);
+        }
+      }
+
+      for (const mod of referencedModules) {
+        expect(fs.existsSync(path.join(localeDir, mod)), `Missing referenced module ${mod} in dist/en`).to.be.true;
+        const modRes = await (request.execute(server.Server) as SuperAgentStatic).get('/' + mod);
+        modRes.should.have.status(200);
+        expect(modRes.headers['content-type']).to.match(/javascript/);
+      }
     });
   });
 
