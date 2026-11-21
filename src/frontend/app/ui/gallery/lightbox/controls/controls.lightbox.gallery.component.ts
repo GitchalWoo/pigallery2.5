@@ -1,7 +1,7 @@
 import {Component, ElementRef, EventEmitter, HostListener, Input, type OnChanges, type OnDestroy, Output, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import {MediaDTOUtils} from '../../../../../../common/entities/MediaDTO';
 import {FullScreenService} from '../../fullscreen.service';
-import {type LightboxItem} from '../LightboxSource';
+import {type LightboxItem} from '../lightbox.gallery.component';
 import {interval, Subscription} from 'rxjs';
 import {filter, skip} from 'rxjs/operators';
 import {type PhotoDTO} from '../../../../../../common/entities/PhotoDTO';
@@ -47,12 +47,14 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
   @Output() toggleFullScreen = new EventEmitter();
   @Output() nextPhoto = new EventEmitter();
   @Output() previousPhoto = new EventEmitter();
-  @Input() navigation = {hasPrev: true, hasNext: true};
+  @Input() navigation: {hasPrev: boolean; hasNext: boolean; nextLoops?: boolean} = {hasPrev: true, hasNext: true};
   @Input() activePhoto: LightboxItem;
   @Input() mediaElement: GalleryLightboxMediaComponent;
   @Input() photoFrameDim = {width: 1, height: 1, aspect: 1};
   @Input() slideShowRunning: boolean;
   public readonly facesEnabled = Config.Faces.enabled;
+  public readonly nextTitle = $localize`key: right arrow`;
+  public readonly restartTitle = $localize`Start over from the first photo (key: right arrow)`;
   public zoom = 1;
   public playBackDurations = [1, 2, 5, 10, 15, 20, 30, 60];
   public controllersDimmed = false;

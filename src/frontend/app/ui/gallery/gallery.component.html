@@ -1,4 +1,4 @@
-<app-gallery-lightbox #lightbox></app-gallery-lightbox>
+<app-gallery-lightbox #lightbox [grid]="grid()"></app-gallery-lightbox>
 <app-frame [showSearch]="showSearchBar" [showShare]="showShare">
 
   <ng-container navbar>
@@ -66,10 +66,7 @@
           </div>
         }
         <app-gallery-grid [mediaGroups]="$safeNavigationMigration(directoryContent?.mediaGroups)"
-          [mediaIdFn]="mediaIdFn"
-          (mediaOpen)="openMedia($event)"
-          (missingMedia)="closeMissingMedia()"
-        [lightbox]="lightbox"></app-gallery-grid>
+          [mediaIdFn]="mediaIdFn"></app-gallery-grid>
       }
     </div>
   }

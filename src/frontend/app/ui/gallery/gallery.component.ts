@@ -1,4 +1,4 @@
-import {Component, HostListener, type OnDestroy, type OnInit, ViewChild, ChangeDetectionStrategy, signal} from '@angular/core';
+import {Component, HostListener, type OnDestroy, type OnInit, ChangeDetectionStrategy, signal, viewChild} from '@angular/core';
 import {AuthenticationService} from '../../model/network/authentication.service';
 import {ActivatedRoute, type Params, Router} from '@angular/router';
 import {ContentService} from './content.service';
@@ -59,8 +59,7 @@ import {type MediaDTO} from '../../../../common/entities/MediaDTO';
 ]
 })
 export class GalleryComponent implements OnInit, OnDestroy {
-  @ViewChild(GalleryGridComponent, {static: false})
-  grid: GalleryGridComponent;
+  readonly grid = viewChild(GalleryGridComponent);
 
   public showSearchBar = false;
   public showShare = false;
@@ -118,17 +117,6 @@ export class GalleryComponent implements OnInit, OnDestroy {
 
   readonly mediaIdFn = (media: MediaDTO): string =>
     this.queryService.getMediaStringId(media);
-
-  openMedia(media: MediaDTO): void {
-    this.router.navigate([], {
-      queryParams: this.queryService.getParams({media}),
-    }).catch(console.error);
-  }
-
-  closeMissingMedia(): void {
-    this.router.navigate([], {queryParams: this.queryService.getParams()})
-      .catch(console.error);
-  }
 
   get ContentWrapper(): ContentWrapperWithError {
     return this.contentLoader.content.value;
