@@ -717,32 +717,31 @@ export class SearchManager {
         }
 
 
+        // dates are searched by whole days: the parser and the query builder give the max as midnight of the last day,
+        // so the range ends right before the next day starts
+        let maxRelation = '<=';
+        if (query.type === SearchQueryTypes.date && typeof max !== 'undefined') {
+          max += 24 * 60 * 60 * 1000;
+          maxRelation = '<';
+        }
+
         return new Brackets((q): unknown => {
-
-
-          const textParam: { [key: string]: unknown } = {};
-          if (min === max) {
-            textParam['eql' + queryId] = min;
-            q.where(
-              `${field} ${timeOffset} = :eql${queryId}`,
-              textParam
-            );
-            return q;
-          }
-          const minRelation = (query as NegatableSearchQuery).negate ? '<' : '>=';
-          const maxRelation = (query as NegatableSearchQuery).negate ? '>' : '<=';
-
+          const negate = (query as NegatableSearchQuery).negate === true;
+          const textParam: Record<string, unknown> = {};
+          // reminder: !(a && b) = (!a || !b)
+          const whereFN = negate ? 'orWhere' : 'andWhere';
           if (typeof min !== 'undefined') {
             textParam['min' + queryId] = min;
             q.where(
-              `${field} ${timeOffset} ${minRelation} :min${queryId}`,
+              `${field} ${timeOffset} ${negate ? '<' : '>='} :min${queryId}`,
               textParam
             );
           }
           if (typeof max !== 'undefined') {
             textParam['max' + queryId] = max;
-            q.andWhere(
-              `${field} ${timeOffset} ${maxRelation} :max${queryId}`,
+            const relation = negate ? (maxRelation === '<' ? '>=' : '>') : maxRelation;
+            q[typeof min !== 'undefined' ? whereFN : 'where'](
+              `${field} ${timeOffset} ${relation} :max${queryId}`,
               textParam
             );
           }
@@ -1009,10 +1008,16 @@ export class SearchManager {
       const whereFN = (query as TextSearch).negate ? 'andWhere' : 'orWhere';
       const whereFNRev = (query as TextSearch).negate ? 'orWhere' : 'andWhere';
 
+      // A double space in a name is usually a typo, and the search query parser collapses it (#1309),
+      // so runs of spaces are collapsed on both sides. The three REPLACEs collapse up to 8 spaces.
+      const collapseSpaces = (fieldName: string): string =>
+        `REPLACE(REPLACE(REPLACE(${fieldName}, '  ', ' '), '  ', ' '), '  ', ' ')`;
+      const textValue = (query as TextSearch).value.replace(/ {2,}/g, ' ');
+
       const getLikeExpr = (fieldName: string, paramName: string): string => {
         const op = (query as TextSearch).negate ? 'NOT LIKE' : 'LIKE';
         const esc = Config.Database.type === DatabaseType.sqlite ? ' ESCAPE \'\\\'' : '';
-        return `${fieldName} ${op} :${paramName}${queryId}${esc} COLLATE ${SQL_COLLATE}`;
+        return `${collapseSpaces(fieldName)} ${op} :${paramName}${queryId}${esc} COLLATE ${SQL_COLLATE}`;
       };
 
       // A nullable column needs its NULL rows put back when the expression is
@@ -1037,16 +1042,14 @@ export class SearchManager {
         );
       };
 
-      const textParam: { [key: string]: unknown } = {};
-      textParam['text' + queryId] = createMatchString(
-        (query as TextSearch).value
-      );
+      const textParam: Record<string, unknown> = {};
+      textParam['text' + queryId] = createMatchString(textValue);
 
       if (
         query.type === SearchQueryTypes.any_text ||
         query.type === SearchQueryTypes.directory
       ) {
-        const dirPathStr = (query as TextSearch).value.replace(
+        const dirPathStr = textValue.replace(
           new RegExp('\\\\', 'g'),
           '/'
         );
@@ -1293,7 +1296,12 @@ export class SearchManager {
       TextSearchQueryTypes.includes(query.type) &&
       (query as TextSearch).matchType !== TextSearchQueryMatchTypes.globMatch
     ) {
-      (query as TextSearch).value = (query as TextSearch).value.replace(/([*?])/g, '\\$1');
+      if (typeof (query as TextSearch).value !== 'string') {
+        throw new Error(
+          `Invalid search query: ${SearchQueryTypes[query.type]}(type: ${query.type}) query should contain 'value' property. Query got: ${JSON.stringify(query)}`
+        );
+      }
+      (query as TextSearch).value = (query as TextSearch).value.replace(/([\\*?])/g, '\\$1');
       if ((query as TextSearch).matchType != TextSearchQueryMatchTypes.exact_match) {
         (query as TextSearch).value = `*${(query as TextSearch).value}*`;
       }

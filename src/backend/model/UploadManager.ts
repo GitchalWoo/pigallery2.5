@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import {SafePath} from './fileaccess/SafePath';
 import {SupportedFormats} from '../../common/SupportedFormats';
 import {FileAlreadyExists} from '../exceptions/FileAlreadyExists';
+import {DirectoryNotFound} from '../exceptions/DirectoryNotFound';
 import {ObjectManagers} from './ObjectManagers';
 import {DiskManager} from './fileaccess/DiskManager';
 import {Config} from '../../common/config/private/Config';
@@ -22,6 +23,7 @@ export class UploadManager {
     }
     const relativeDir = directory || '';
     const fullDirPath = SafePath.resolve(ProjectPath.ImageFolder, relativeDir);
+    await UploadManager.assertDirectoryExists(relativeDir);
 
     if (Config.Upload.enforcedDirectoryConfig === true) {
       let hasUploadConf = false;
@@ -65,8 +67,9 @@ export class UploadManager {
     }
 
     const relativeFile = path.relative(ProjectPath.ImageFolder, SafePath.resolve(fullDirPath, basename));
+    // upload never creates folders, only saves to existing ones
+    await UploadManager.assertDirectoryExists(relativeDir);
     const fullFilePath = await SafePath.resolveForWrite(ProjectPath.ImageFolder, relativeFile);
-    await fs.promises.mkdir(fullDirPath, {recursive: true});
 
     // Exclusive creation rejects existing files and final-component symlinks.
     // An open failure must never trigger cleanup of a file we did not create.
@@ -75,7 +78,8 @@ export class UploadManager {
       handle = await fs.promises.open(fullFilePath, 'wx');
     } catch (err) {
       if (err.code === 'EEXIST') {
-        throw new FileAlreadyExists('File already exists: ' + fullFilePath, basename);
+        // only the name: the path on the disk is not the client's business
+        throw new FileAlreadyExists('File already exists: ' + basename, basename);
       }
       throw err;
     }
@@ -93,6 +97,25 @@ export class UploadManager {
         // Preserve the write error if cleanup fails or the parent is no longer safe.
       }
       throw err;
+    }
+  }
+
+  /**
+   * The folder must exist inside ImageFolder. A missing folder (or a file in its place) is DirectoryNotFound;
+   * other errors (e.g. a symlink that escapes ImageFolder) fail as they are.
+   */
+  private static async assertDirectoryExists(relativeDir: string): Promise<void> {
+    let fullDirPath: string;
+    try {
+      fullDirPath = await SafePath.resolveExisting(ProjectPath.ImageFolder, relativeDir);
+    } catch (err) {
+      if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+        throw new DirectoryNotFound('Directory not found');
+      }
+      throw err;
+    }
+    if (!(await fs.promises.stat(fullDirPath)).isDirectory()) {
+      throw new DirectoryNotFound('Directory not found');
     }
   }
 

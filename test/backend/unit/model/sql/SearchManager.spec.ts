@@ -857,6 +857,91 @@ describe('SearchManager', (sqlHelper: DBTestHelper) => {
         metaFile: [],
         resultOverflow: false
       } as SearchResultDTO));
+
+      // rating!:1..2
+      query = ({min: 1, max: 2, negate: true, type: SearchQueryTypes.rating} as RatingSearch);
+      expect(Utils.clone(await sm.search(DBTestHelper.defaultSession, query)))
+        .to.deep.equalInAnyOrder(removeDir({
+        searchQuery: query,
+        directories: [],
+        media: [pFaceLess],
+        metaFile: [],
+        resultOverflow: false
+      } as SearchResultDTO));
+
+      // rating!=2
+      query = ({min: 2, max: 2, negate: true, type: SearchQueryTypes.rating} as RatingSearch);
+      expect(Utils.clone(await sm.search(DBTestHelper.defaultSession, query)))
+        .to.deep.equalInAnyOrder(removeDir({
+        searchQuery: query,
+        directories: [],
+        media: [p, pFaceLess],
+        metaFile: [],
+        resultOverflow: false
+      } as SearchResultDTO));
+    });
+
+    it('should search date by whole days', async () => {
+      const sm = new SearchManager();
+      const DAY = 24 * 60 * 60 * 1000;
+      // the parser and the query builder give midnight (UTC) of the day, compared to the local time of the photo
+      const dayOf = (m: PhotoDTO | VideoDTO): number =>
+        Math.floor((m.metadata.creationDate + 2 * 60 * 60 * 1000) / DAY) * DAY;
+
+      // date=<day of p2>
+      let query = ({min: dayOf(p2), max: dayOf(p2), type: SearchQueryTypes.date} as DateSearch);
+      expect(Utils.clone(await sm.search(DBTestHelper.defaultSession, query)))
+        .to.deep.equalInAnyOrder(removeDir({
+        searchQuery: query,
+        directories: [],
+        media: [p2],
+        metaFile: [],
+        resultOverflow: false
+      } as SearchResultDTO));
+
+      // date!=<day of p2>
+      query = ({min: dayOf(p2), max: dayOf(p2), negate: true, type: SearchQueryTypes.date} as DateSearch);
+      expect(Utils.clone(await sm.search(DBTestHelper.defaultSession, query)))
+        .to.deep.equalInAnyOrder(removeDir({
+        searchQuery: query,
+        directories: [],
+        media: [p, pFaceLess, p4, v],
+        metaFile: [],
+        resultOverflow: false
+      } as SearchResultDTO));
+
+      // date:<day of v>..<day of p2> includes both ends
+      query = ({min: dayOf(v), max: dayOf(p2), type: SearchQueryTypes.date} as DateSearch);
+      expect(Utils.clone(await sm.search(DBTestHelper.defaultSession, query)))
+        .to.deep.equalInAnyOrder(removeDir({
+        searchQuery: query,
+        directories: [],
+        media: [p2, v],
+        metaFile: [],
+        resultOverflow: false
+      } as SearchResultDTO));
+
+      // date<=<day of p2>
+      query = ({max: dayOf(p2), type: SearchQueryTypes.date} as DateSearch);
+      expect(Utils.clone(await sm.search(DBTestHelper.defaultSession, query)))
+        .to.deep.equalInAnyOrder(removeDir({
+        searchQuery: query,
+        directories: [],
+        media: [p2, v, p4, pFaceLess],
+        metaFile: [],
+        resultOverflow: false
+      } as SearchResultDTO));
+
+      // date!:<day of v>..<day of p2>
+      query = ({min: dayOf(v), max: dayOf(p2), negate: true, type: SearchQueryTypes.date} as DateSearch);
+      expect(Utils.clone(await sm.search(DBTestHelper.defaultSession, query)))
+        .to.deep.equalInAnyOrder(removeDir({
+        searchQuery: query,
+        directories: [],
+        media: [p, pFaceLess, p4],
+        metaFile: [],
+        resultOverflow: false
+      } as SearchResultDTO));
     });
 
 
@@ -2297,4 +2382,85 @@ describe('SearchManager', (sqlHelper: DBTestHelper) => {
     });
   });
 
+  // #1309: the search query parser collapses double spaces (they are usually a typo),
+  // so a search with single spaces has to find the names that have more spaces on the disk
+  describe('names with double spaces', () => {
+    const names = async (query: TextSearch): Promise<string[]> =>
+      (await new SearchManager().search(DBTestHelper.defaultSession, query)).media.map(m => m.name.split('_')[0]).sort();
+    const dirNames = async (query: TextSearch): Promise<string[]> =>
+      (await new SearchManager().search(DBTestHelper.defaultSession, query)).directories.map(d => d.name).sort();
+
+    before(async () => {
+      await sqlHelper.initDB();
+      const root = TestHelper.getDirectoryEntry(null, '.');
+      const trip = TestHelper.getDirectoryEntry(root, 'summer  trip   2024');
+      const other = TestHelper.getDirectoryEntry(root, 'winter trip');
+      const sunset = TestHelper.getRandomizedPhotoEntry(trip, 'beach  sunset');
+      sunset.metadata.caption = 'sunset  over    the sea';
+      TestHelper.getRandomizedPhotoEntry(other, 'snow');
+      await DBTestHelper.persistTestDir(root);
+      await ObjectManagers.getInstance().init();
+    });
+
+    after(async () => {
+      // restore the default gallery of this spec
+      await setUpSqlDB();
+    });
+
+    it('should find a directory', async () => {
+      expect(await dirNames({type: SearchQueryTypes.directory, value: 'summer trip 2024'} as TextSearch))
+        .to.deep.equal(['summer  trip   2024']);
+      expect(await names({type: SearchQueryTypes.directory, value: 'summer trip 2024'} as TextSearch)).to.deep.equal(['beach  sunset']);
+      expect(await names({
+        type: SearchQueryTypes.directory,
+        value: 'summer trip 2024',
+        matchType: TextSearchQueryMatchTypes.exact_match
+      } as TextSearch)).to.deep.equal(['beach  sunset']);
+      expect(await names({type: SearchQueryTypes.directory, value: 'summer trip 2024', negate: true} as TextSearch))
+        .to.deep.equal(['snow']);
+    });
+
+    it('should find a file name, a caption and any text', async () => {
+      expect(await names({type: SearchQueryTypes.file_name, value: 'beach sunset'} as TextSearch)).to.deep.equal(['beach  sunset']);
+      expect(await names({type: SearchQueryTypes.caption, value: 'sunset over the sea'} as TextSearch)).to.deep.equal(['beach  sunset']);
+      expect(await names({type: SearchQueryTypes.any_text, value: 'sunset over'} as TextSearch)).to.deep.equal(['beach  sunset']);
+    });
+
+    it('should find the names with a query that has double spaces', async () => {
+      // e.g. a query of the API or of a block list, that did not go through the parser
+      expect(await names({type: SearchQueryTypes.file_name, value: 'beach  sunset'} as TextSearch)).to.deep.equal(['beach  sunset']);
+      expect(await names({type: SearchQueryTypes.directory, value: 'summer  trip   2024'} as TextSearch)).to.deep.equal(['beach  sunset']);
+    });
+  });
+
+  // '\' is the escape character of glob searches, so a plain text search has to escape it
+  describe('text with a backslash', () => {
+    const names = async (value: string, matchType?: TextSearchQueryMatchTypes): Promise<string[]> =>
+      (await new SearchManager().search(DBTestHelper.defaultSession, {type: SearchQueryTypes.caption, value, matchType} as TextSearch))
+        .media.map(m => m.name.split('_')[0]).sort();
+
+    before(async () => {
+      await sqlHelper.initDB();
+      const root = TestHelper.getDirectoryEntry(null, '.');
+      TestHelper.getRandomizedPhotoEntry(root, 'backslash').metadata.caption = 'C:\\photos\\ of the trip';
+      TestHelper.getRandomizedPhotoEntry(root, 'star').metadata.caption = 'C:\\photos* of the trip';
+      TestHelper.getRandomizedPhotoEntry(root, 'plain').metadata.caption = 'photos of the trip';
+      await DBTestHelper.persistTestDir(root);
+    });
+
+    after(async () => {
+      // restore the default gallery of this spec
+      await setUpSqlDB();
+    });
+
+    it('should find a backslash inside the text', async () => {
+      expect(await names('C:\\photos')).to.deep.equal(['backslash', 'star']);
+      expect(await names('C:\\photos\\ of the trip', TextSearchQueryMatchTypes.exact_match)).to.deep.equal(['backslash']);
+    });
+
+    it('should find a backslash at the end of the text', async () => {
+      // not escaped, it would escape the wildcard that a "like" search adds after it
+      expect(await names('photos\\')).to.deep.equal(['backslash']);
+    });
+  });
 });

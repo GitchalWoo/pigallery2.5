@@ -11,10 +11,40 @@ import {Logger} from '../../Logger';
 import {ContextUser} from '../../model/SessionContext';
 import {SearchQueryUtils} from '../../../common/SearchQueryUtils';
 import {SafePath} from '../../model/fileaccess/SafePath';
+import {NotificationManager} from '../../model/NotifocationManager';
 
 const LOG_TAG = 'AuthenticationMWs';
 
 export class AuthenticationMWs {
+  private static proxyWarningShown = false;
+
+  /**
+   * Logs a failed login in a stable format for fail2ban (see docs/setup/advanced/fail2ban.md):
+   * Failed login from IP `<ip>` <details>
+   * User input in details must be JSON.stringify-ed: a raw newline would start a new log line
+   * that the client controls, e.g. a fake failed login of someone else's IP.
+   */
+  private static logFailedLogin(req: Request, details: string): void {
+    Logger.warn(LOG_TAG, 'Failed login from IP `' + req.ip + '` ' + details);
+  }
+
+  /**
+   * Behind a reverse proxy, req.ip is the proxy's IP unless Server.trustProxy is set,
+   * so fail2ban would only ever see (and ban) the proxy. Tell the admin once.
+   */
+  private static warnIfBehindUntrustedProxy(req: Request): void {
+    if (AuthenticationMWs.proxyWarningShown ||
+      Config.Server.trustProxy !== 'false' ||
+      !req.headers?.['x-forwarded-for']) {
+      return;
+    }
+    AuthenticationMWs.proxyWarningShown = true;
+    const msg = 'The request came through a reverse proxy (it has an X-Forwarded-For header), but Server.trustProxy does not trust it, ' +
+      'so failed logins are logged with the proxy\'s IP (' + req.ip + ') instead of the client\'s. ' +
+      'Set Server.trustProxy (e.g. to "uniquelocal") so tools like fail2ban see the real IP.';
+    Logger.warn(LOG_TAG, msg);
+    NotificationManager.warning(msg);
+  }
 
   private static async validateExistingSession(req: Request): Promise<boolean> {
     if (!req.session?.context?.user) {
@@ -266,6 +296,7 @@ export class AuthenticationMWs {
     if (Config.Sharing.enabled === false) {
       return next();
     }
+    AuthenticationMWs.warnIfBehindUntrustedProxy(req);
     // not enough parameter
     if (
       !req.query[QueryParams.gallery.sharingKey_query] &&
@@ -290,7 +321,7 @@ export class AuthenticationMWs {
             sharing.password) &&
           !await PasswordHelper.comparePasswordAsync(password, sharing.password))
       ) {
-        Logger.warn(LOG_TAG, 'Failed login from IP `' + req.ip + '` with sharing:' + sharing.sharingKey + ', bad password');
+        AuthenticationMWs.logFailedLogin(req, 'with sharing:' + JSON.stringify(sharingKey) + ', bad password');
         res.status(401);
         return next(new ErrorDTO(ErrorCodes.CREDENTIAL_NOT_FOUND));
       }
@@ -328,6 +359,7 @@ export class AuthenticationMWs {
     if (Config.Users.authenticationRequired === false) {
       return res.sendStatus(404);
     }
+    AuthenticationMWs.warnIfBehindUntrustedProxy(req);
 
     // not enough parameters
     if (
@@ -338,7 +370,7 @@ export class AuthenticationMWs {
       req.body.loginCredential.username.length === 0 ||
       req.body.loginCredential.password.length === 0
     ) {
-      Logger.warn(LOG_TAG, 'Failed login from IP `' + req.ip + '` no user or password provided');
+      AuthenticationMWs.logFailedLogin(req, 'no user or password provided');
       return next(
         new ErrorDTO(
           ErrorCodes.INPUT_ERROR,
@@ -365,7 +397,7 @@ export class AuthenticationMWs {
       }
       return next();
     } catch (err) {
-      Logger.warn(LOG_TAG, 'Failed login from IP `' + req.ip + '` for user:' + req.body.loginCredential.username
+      AuthenticationMWs.logFailedLogin(req, 'for user:' + JSON.stringify(req.body.loginCredential.username)
         + ', bad password');
       return next(
         new ErrorDTO(

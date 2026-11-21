@@ -4,6 +4,7 @@ import {
   type DatePatternSearch,
   type DistanceSearch,
   ListSearchQueryTypes,
+  type NegatableSearchQuery,
   type OrientationSearch,
   type RangeSearch,
   RangeSearchQueryTypes,
@@ -127,10 +128,17 @@ export class GallerySearchQueryEntryComponent
     if (this.IsTextQuery) {
       return ['~', '!~', '=', '!=', 'glob', '!glob'];
     }
+    if (this.queryEntry?.type === SearchQueryTypes.orientation) {
+      // orientation has no negation: its opposite is the other orientation
+      return ['='];
+    }
     return ['=', '!=']; //normal negatable query
   }
 
   get SelectedMatchType(): string {
+    if (!this.IsTextQuery) {
+      return (this.queryEntry as NegatableSearchQuery)?.negate ? '!=' : '=';
+    }
     if (this.AsTextQuery.matchType === TextSearchQueryMatchTypes.exact_match) {
       if (this.AsTextQuery.negate) {
         return '!=';
@@ -214,6 +222,13 @@ export class GallerySearchQueryEntryComponent
       ];
     } else {
       delete this.AsListQuery.list;
+    }
+    if (!this.IsTextQuery) {
+      delete this.AsTextQuery.value;
+      delete this.AsTextQuery.matchType;
+    }
+    if (this.IsListQuery || this.queryEntry.type === SearchQueryTypes.orientation) {
+      delete (this.queryEntry as NegatableSearchQuery).negate;
     }
     if (this.queryEntry.type === SearchQueryTypes.distance) {
       this.AsDistanceQuery.distance = 1;

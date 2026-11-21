@@ -132,6 +132,7 @@ describe('UploadRouter', () => {
     });
 
     it('should upload a file to a sub-directory', async () => {
+      fs.mkdirSync(path.join(testDir, 'sub_dir'), {recursive: true});
       const loginRes = await login(server);
       const csrf = extractCsrfToken(loginRes);
       const res = await request.execute(server.Server)
@@ -144,6 +145,20 @@ describe('UploadRouter', () => {
       should.equal(res.body.error, null);
       const savedPath = path.join(testDir, 'sub_dir', 'test2.jpg');
       fs.existsSync(savedPath).should.be.true;
+    });
+
+    it('should not create a missing folder', async () => {
+      const loginRes = await login(server);
+      const csrf = extractCsrfToken(loginRes);
+      const res = await request.execute(server.Server)
+        .post(Config.Server.apiPath + '/upload/missing_dir')
+        .set('Cookie', loginRes.res.headers['set-cookie'])
+        .set(CustomHeaders.csrfToken, csrf)
+        .attach('files', Buffer.from('test image 3'), 'test3.jpg');
+
+      should.not.equal(res.body.error, null);
+      res.body.error.message.should.contain('Directory not found');
+      fs.existsSync(path.join(testDir, 'missing_dir')).should.be.false;
     });
 
     it('should return error for unsupported file', async () => {

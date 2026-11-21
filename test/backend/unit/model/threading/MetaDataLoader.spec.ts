@@ -9,6 +9,7 @@ import {VideoProcessing} from '../../../../../src/backend/model/fileaccess/filep
 import {Config} from '../../../../../src/common/config/private/Config';
 import {ProjectPath} from '../../../../../src/backend/ProjectPath';
 import {DatabaseType} from '../../../../../src/common/config/private/PrivateConfig';
+import {TestHelper} from '../../../../TestHelper';
 
 declare const before: any;
 
@@ -145,6 +146,13 @@ describe('MetadataLoader', () => {
     const expected = require(path.join(__dirname, '/../../../assets/timestamps/big_ben.json'));
     expect(Utils.clone(data)).to.be.deep.equal(expected);
   });
+  it('should load jpg whose XMP segment starts right before the end of exifr\'s first chunk', async () => {
+    // big_ben.jpg with its XMP segment moved to byte 65508 (by an APP4 filler):
+    // exifr's chunked reader returns only errors for it (https://github.com/MikeKovarik/exifr/issues/141)
+    const data = await MetadataLoader.loadPhotoMetadata(path.join(__dirname, '/../../../assets/timestamps/big_ben_xmp_at_64k.jpg'));
+    const expected = require(path.join(__dirname, '/../../../assets/timestamps/big_ben_xmp_at_64k.json'));
+    expect(Utils.clone(data)).to.be.deep.equal(expected);
+  });
   it('should load jpg with timestamps and gps (UTC) and calculate offset +1', async () => {
     const data = await MetadataLoader.loadPhotoMetadata(path.join(__dirname, '/../../../assets/timestamps/big_ben_no_tsoffset_but_gps_utc.jpg'));
     const expected = require(path.join(__dirname, '/../../../assets/timestamps/big_ben_no_tsoffset_but_gps_utc.json'));
@@ -164,6 +172,52 @@ describe('MetadataLoader', () => {
     const data = await MetadataLoader.loadPhotoMetadata(path.join(__dirname, '/../../../assets/timestamps/big_ben_only_time.jpg'));
     const expected = require(path.join(__dirname, '/../../../assets/timestamps/big_ben_only_time.json'));
     expect(Utils.clone(data)).to.be.deep.equal(expected);
+  });
+
+  describe('file handles', () => {
+    // A FileHandle that is left for the garbage collector crashes the app on Node 26 (#1408)
+    const dir = path.join(TestHelper.TMP_DIR, 'metadata_file_handles');
+    const originalOpen = fs.promises.open;
+    let handles: fs.promises.FileHandle[];
+
+    beforeEach(() => {
+      fs.mkdirSync(dir, {recursive: true});
+      handles = [];
+      fs.promises.open = async (...args: Parameters<typeof originalOpen>): Promise<fs.promises.FileHandle> => {
+        const handle = await originalOpen(...args);
+        handles.push(handle);
+        return handle;
+      };
+    });
+
+    afterEach(() => {
+      fs.promises.open = originalOpen;
+      fs.rmSync(dir, {recursive: true, force: true});
+    });
+
+    const expectAllClosed = (): void => {
+      expect(handles.length).to.be.greaterThan(0);
+      expect(handles.map(h => h.fd)).to.deep.equal(handles.map(() => -1));
+    };
+
+    it('should close the file of an empty photo', async () => {
+      const file = path.join(dir, 'empty.jpg');
+      fs.writeFileSync(file, '');
+      await MetadataLoader.loadPhotoMetadata(file);
+      expectAllClosed();
+    });
+
+    it('should close the file of a one byte photo', async () => {
+      const file = path.join(dir, 'one_byte.jpg');
+      fs.writeFileSync(file, 'x');
+      await MetadataLoader.loadPhotoMetadata(file);
+      expectAllClosed();
+    });
+
+    it('should close the file of a photo', async () => {
+      await MetadataLoader.loadPhotoMetadata(path.join(__dirname, '/../../../assets/test image öüóőúéáű-.,.jpg'));
+      expectAllClosed();
+    });
   });
 
   describe('sidecar', () => {
