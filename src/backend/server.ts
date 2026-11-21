@@ -111,15 +111,15 @@ export class Server {
     });
     await ObjectManagers.getInstance().init();
 
-    Router.route(this.app);
-
-    // Get PORT from environment and store in Express.
-    this.app.set('port', Config.Server.port);
-
     // Set express 'trust proxy' setting to extract Remote Client IP
     // from optional reverse proxies trusted headers
     // See https://expressjs.com/en/guide/behind-proxies.html
     this.app.set('trust proxy', Server.getAppTrustProxyConfig());
+
+    Router.route(this.app);
+
+    // Get PORT from environment and store in Express.
+    this.app.set('port', Config.Server.port);
 
     // Create HTTP server.
     this.server = _http.createServer(this.app);

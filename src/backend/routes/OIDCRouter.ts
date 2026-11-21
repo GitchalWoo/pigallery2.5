@@ -14,7 +14,7 @@ export class OIDCRouter {
   }
 
   private static addLogin(app: Express): void {
-    app.get(OIDCRouter.BASE + '/login', async (req: Request, res: Response, next: NextFunction) => {
+    app.get(OIDCRouter.BASE + '/login', RateLimiter.oidcLoginLimiter, async (req: Request, res: Response, next: NextFunction) => {
       try {
         if (!Config.Users.oidc.enabled) {
           return res.status(404).end();

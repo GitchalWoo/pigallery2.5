@@ -10,6 +10,7 @@ import {SupportedFormats} from '../../common/SupportedFormats';
 import {ServerTimingMWs} from '../middlewares/ServerTimingMWs';
 import {MetaFileMWs} from '../middlewares/MetaFileMWs';
 import {Config} from '../../common/config/private/Config';
+import {RateLimiter} from '../middlewares/RateLimiter';
 
 export class GalleryRouter {
   public static route(app: Express): void {
@@ -55,6 +56,7 @@ export class GalleryRouter {
     app.get(
       new RegExp(`^${Config.Server.apiPath}/gallery/zip/(?<searchQueryDTO>.+)$`),
       // common part
+      RateLimiter.zipLimiter,
       AuthenticationMWs.authenticate,
       AuthenticationMWs.authorise(UserRoles.LimitedGuest),
 

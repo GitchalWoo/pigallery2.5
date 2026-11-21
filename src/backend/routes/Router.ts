@@ -15,10 +15,12 @@ import {OIDCRouter} from './OIDCRouter';
 import {UploadRouter} from './UploadRouter';
 import {TimelineRouter} from './TimelineRouter';
 import {CSRFProtection} from '../middlewares/CSRFProtection';
+import {RateLimiter} from '../middlewares/RateLimiter';
 
 export class Router {
   public static route(app: Express): void {
     app.use(VersionMWs.injectAppVersion);
+    app.use(RateLimiter.generalLimiter);
     PublicRouter.route(app);
 
     // Enforce CSRF token on state-changing API requests
