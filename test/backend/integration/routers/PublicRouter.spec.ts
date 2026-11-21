@@ -335,6 +335,16 @@ describe('PublicRouter', () => {
         modRes.should.have.status(200);
         expect(modRes.headers['content-type']).to.match(/javascript/);
       }
+
+      const missingRes = await (request.execute(server.Server) as SuperAgentStatic)
+        .get('/does-not-exist-bundle.js')
+        .set('Accept-Language', 'en');
+      missingRes.should.have.status(404);
+
+      const missingAssetRes = await (request.execute(server.Server) as SuperAgentStatic)
+        .get('/assets/does-not-exist-asset.png')
+        .set('Accept-Language', 'en');
+      missingAssetRes.should.have.status(404);
     });
   });
 
