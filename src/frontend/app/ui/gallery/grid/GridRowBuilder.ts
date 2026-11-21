@@ -1,4 +1,4 @@
-import {type MediaDTO} from '../../../../../common/entities/MediaDTO';
+import {MediaDTO} from '../../../../../common/entities/MediaDTO';
 
 export class GridRowBuilder {
   private photoRow: MediaDTO[] = [];

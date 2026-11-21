@@ -1,16 +1,20 @@
-import {Injectable} from '@angular/core';
+import {Injectable, inject, signal} from '@angular/core';
 import {Config} from '../../../../../common/config/public/Config';
 import {ActivatedRoute, type Params, Router} from '@angular/router';
 import {QueryParams} from '../../../../../common/QueryParams';
 import {Subscription} from 'rxjs';
 import {LightBoxTitleTexts} from '../../../../../common/config/public/ClientConfig';
 import {Utils} from '../../../../../common/Utils';
+import {QueryService} from '../../../model/query.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class LightboxService {
+  private queryService = inject(QueryService);
   private subscription: Subscription;
+  readonly playbackSignal = signal(false);
+  readonly loopSlideshowSignal = signal(Config.Gallery.Lightbox.loopSlideshow);
 
   constructor(private route: ActivatedRoute,
               private router: Router) {
@@ -32,16 +36,16 @@ export class LightboxService {
         }
         const lsValue = params[QueryParams.gallery.lightbox.loopSlideshow];
         if (lsValue !== undefined) {
-          this.loopSlideshow = lsValue === 'true' || lsValue === true;
+          this._loopSlideshow = lsValue === 'true' || lsValue === true;
+          this.loopSlideshowSignal.set(this._loopSlideshow);
         }
         const qpValue = params[QueryParams.gallery.lightbox.captionAlwaysOn];
         if (qpValue !== undefined) {
           this.captionAlwaysOn = qpValue === 'true' || qpValue === true;
         }
         const pbValue = params[QueryParams.gallery.lightbox.playback];
-        if (pbValue !== undefined) {
-          this.playback = pbValue === 'true' || pbValue === true;
-        }
+        this._playback = pbValue === 'true' || pbValue === true;
+        this.playbackSignal.set(this._playback);
 
         const cdValue = params[QueryParams.gallery.lightbox.controllersDimmed];
         if (cdValue !== undefined) {
@@ -89,6 +93,7 @@ export class LightboxService {
 
   set playback(value: boolean) {
     this._playback = value;
+    this.playbackSignal.set(value);
     this.updateQuery(QueryParams.gallery.lightbox.playback, false, value);
   }
 
@@ -122,6 +127,7 @@ export class LightboxService {
 
   set loopSlideshow(value: boolean) {
     this._loopSlideshow = value;
+    this.loopSlideshowSignal.set(value);
     this.updateQuery(QueryParams.gallery.lightbox.loopSlideshow, Config.Gallery.Lightbox.loopSlideshow, value);
   }
 
@@ -220,7 +226,8 @@ export class LightboxService {
         [key]: newValue
       },
       queryParamsHandling: 'merge', // keep existing params
-      replaceUrl: true // optional: avoid pushing to the history stack
+      replaceUrl: true, // optional: avoid pushing to the history stack
+      state: this.queryService.keepLightboxState(),
     }).catch(console.error);
   }
 

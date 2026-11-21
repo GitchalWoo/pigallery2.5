@@ -1,37 +1,6 @@
-<app-gallery-lightbox #lightbox></app-gallery-lightbox>
+<app-gallery-lightbox [grid]="lightboxGrid"></app-gallery-lightbox>
 <app-frame>
-  <div body class="container-fluid app-gallery-body timeline-body" [class.timeline-has-rail]="railYears.length > 0">
-    @if (atMonth || railYears.length > 0) {
-      <div class="d-flex align-items-center gap-2 mt-2">
-        @if (atMonth) {
-          <span class="flex-grow-1" role="status" i18n>Showing from <strong>{{ atMonthName }}</strong></span>
-        }
-        @if (!atMonth) {
-          <span class="flex-grow-1"></span>
-        }
-        @if (atMonth) {
-          <button type="button" class="btn btn-sm btn-outline-secondary"
-          (click)="backToNewest()" i18n>Back to newest</button>
-        }
-        @if (railYears.length > 0) {
-          <select class="form-select form-select-sm d-md-none w-auto"
-            (change)="onPickMonth($event)"
-            aria-label="Jump to month" i18n-aria-label>
-            <option value="" selected i18n>Jump to month</option>
-            @for (year of railYears; track year) {
-              <optgroup [label]="year.year">
-                @for (month of year.months; track month) {
-                  <option [value]="month.key">
-                    {{ month.longName }} ({{ month.count }})
-                  </option>
-                }
-              </optgroup>
-            }
-          </select>
-        }
-      </div>
-    }
-
+  <div body class="container-fluid app-gallery-body timeline-body" [class.timeline-has-rail]="hasSummary">
     @if (store.newDataAvailable) {
       <div class="alert alert-info d-flex align-items-center mt-2" role="status">
         <span class="flex-grow-1" i18n>New photos are available.</span>
@@ -41,11 +10,10 @@
 
     <app-gallery-grid [mediaGroups]="mediaGroups"
       [mediaIdFn]="mediaIdFn"
+      [extraQueryParams]="extraQueryParams"
       [groupHeaderMethod]="headerMethod"
       [showInlineBlog]="false"
-      [revealMediaId]="revealMediaId"
-      (mediaOpen)="openMedia($event)"
-    (missingMedia)="onMissingMedia($event)"></app-gallery-grid>
+      [showScrollLabel]="false"></app-gallery-grid>
 
     <div #sentinel class="timeline-sentinel" aria-hidden="true"></div>
 
@@ -72,26 +40,10 @@
       </div>
     }
 
-    @if (railYears.length > 0) {
-      <nav class="timeline-rail d-none d-md-block"
-        aria-label="Years and months" i18n-aria-label>
-        @for (year of railYears; track year) {
-          <div class="timeline-rail-year">
-            <button type="button" class="btn btn-link timeline-rail-year-label"
-            (click)="jumpToMonth(year.months[0].key)">{{ year.year }}</button>
-            @for (month of year.months; track month) {
-              <button type="button"
-                class="btn btn-link timeline-rail-month"
-                [class.active]="month.key === currentMonthKey"
-                [attr.aria-current]="month.key === currentMonthKey ? 'true' : null"
-                [attr.aria-label]="month.longName + ' (' + month.count + ')'"
-                [title]="month.longName + ' (' + month.count + ')'"
-              (click)="jumpToMonth(month.key)">{{ month.shortName }}</button>
-            }
-          </div>
-        }
-      </nav>
-    }
+    <app-timeline-scrubber
+      [summary]="store.summary"
+      [currentMonthKey]="currentMonthKey"
+      (jumpToMonth)="jumpToMonth($event)" />
   </div>
 </app-frame>
 

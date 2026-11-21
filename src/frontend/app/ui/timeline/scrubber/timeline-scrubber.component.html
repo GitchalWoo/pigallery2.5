@@ -1,0 +1,50 @@
+@if (hasBuckets()) {
+  <div #track
+    class="timeline-scrubber"
+    [class.dragging]="dragging()"
+    role="slider"
+    tabindex="0"
+    aria-orientation="vertical"
+    aria-label="Timeline scrubber" i18n-aria-label
+    [attr.aria-valuemin]="0"
+    [attr.aria-valuemax]="model().buckets.length - 1"
+    [attr.aria-valuenow]="activeIndex()"
+    [attr.aria-valuetext]="activeLabel()"
+    (pointerdown)="onPointerDown($event)"
+    (pointermove)="onPointerMove($event)"
+    (pointerup)="onPointerUp($event)"
+    (pointercancel)="onPointerCancel($event)"
+    (pointerleave)="onPointerLeave($event)"
+    (keydown)="onKeyDown($event)">
+
+    <div class="scrubber-rail" aria-hidden="true"></div>
+
+    @for (tick of model().ticks; track tick.key) {
+      @if (tick.kind === 'year') {
+        <span class="scrubber-year-label d-none d-md-inline"
+          [style.top.%]="tick.fraction * 100"
+          aria-hidden="true">{{ tick.year }}</span>
+        <span class="scrubber-dot scrubber-dot-year"
+          [style.top.%]="tick.fraction * 100"
+          aria-hidden="true"></span>
+      } @else {
+        <span class="scrubber-dot"
+          [style.top.%]="tick.fraction * 100"
+          aria-hidden="true"></span>
+      }
+    }
+
+    @if (activeFraction(); as fraction) {
+      <div class="scrubber-thumb" [style.top.%]="fraction * 100" aria-hidden="true"></div>
+    }
+
+    @if (previewBucket(); as bucket) {
+      <div class="scrubber-pill shadow"
+        [style.top.%]="hoverFraction()! * 100"
+        aria-hidden="true">
+        <span class="scrubber-pill-date">{{ previewLabel() }}</span>
+        <span class="scrubber-pill-count">{{ bucket.count }}</span>
+      </div>
+    }
+  </div>
+}

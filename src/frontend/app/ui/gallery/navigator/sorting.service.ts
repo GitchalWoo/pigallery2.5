@@ -3,7 +3,8 @@ import {DatePipe} from '@angular/common';
 import {GalleryCacheService} from '../cache.gallery.service';
 import {BehaviorSubject, Observable} from 'rxjs';
 import {Config} from '../../../../../common/config/public/Config';
-import {GroupByTypes, type GroupingMethod, SortByTypes, type SortingMethod} from '../../../../../common/entities/SortingMethods';
+import {ScrollLabelModes} from '../../../../../common/config/public/ClientConfig';
+import {GroupByTypes, type GroupingMethod, type SortByDirectionalTypes, SortByTypes, type SortingMethod} from '../../../../../common/entities/SortingMethods';
 import {PG2ConfMap} from '../../../../../common/PG2ConfMap';
 import {type PhotoDTO} from '../../../../../common/entities/PhotoDTO';
 import {map, switchMap} from 'rxjs/operators';
@@ -223,6 +224,36 @@ export class GallerySortingService {
     return () => '';
   }
 
+  private formatMediaDate(m: MediaDTO, format: string): string {
+    if (Config.Gallery.ignoreTimestampOffset === true) {
+      return this.datePipe.transform(m.metadata.creationDate, format, m.metadata.creationDateOffset ? m.metadata.creationDateOffset : 'UTC') || '';
+    }
+    return this.datePipe.transform(m.metadata.creationDate, format, 'UTC') || '';
+  }
+
+  /**
+   * Returns the order the scroll indicator shows and the label of a media in it, or null if there should be no label.
+   * The media are ordered by the grouping and only sorted within the groups,
+   * so the label follows the grouping, or the sorting if there is no grouping.
+   */
+  public getScrollLabelFn(sorting: SortingMethod, grouping: GroupingMethod): ScrollLabelFn | null {
+    const mode = Config.Gallery.NavBar.showScrollLabel;
+    const method = grouping.method === GroupByTypes.NoGrouping ? sorting.method : grouping.method;
+    if (mode === ScrollLabelModes.never || (mode === ScrollLabelModes.date && method !== SortByTypes.Date)) {
+      return null;
+    }
+    switch (method) {
+      case SortByTypes.Date:
+        return {order: method, label: (m: MediaDTO) => m.metadata?.creationDate ? this.formatMediaDate(m, 'MMMM y') : ''};
+      case SortByTypes.Name:
+      case SortByTypes.Rating:
+      case SortByTypes.FileSize:
+      case SortByTypes.PersonCount:
+        return {order: method, label: this.getGroupByNameFn({method, ascending: true})};
+    }
+    return null;
+  }
+
   public applySorting(
     directoryContent: Observable<DirectoryContent>
   ): Observable<GroupedDirectoryContent> {
@@ -316,9 +347,16 @@ export class GallerySortingService {
   }
 }
 
+export interface ScrollLabelFn {
+  order: SortByDirectionalTypes;
+  label: (m: MediaDTO) => string;
+}
+
 export interface MediaGroup {
   name: string;
   date?: Date; // used for blog. It allows to chop off blog to smaller pieces
+  directoryPath?: string; // the directory of the media, when grouped by directory
+  startsNewLine?: boolean; // the grid does not put it on the line of the previous group
   media: MediaDTO[];
 }
 

@@ -220,12 +220,12 @@
   }
   @if (navigation.hasNext && zoom == 1) {
     <div [class.dim-controls]="controllersDimmed" class="navigation-arrow navigation-arrow-right highlight rounded-start"
-      title="key: right arrow" id="rightArrow" i18n-title
+      [title]="navigation.nextLoops ? restartTitle : nextTitle" id="rightArrow"
       role="button"
       (pointerdown)="$event.stopPropagation()"
       (pointerup)="$event.stopPropagation()"
       (click)="nextMediaManuallyTriggered($event)">
-      <ng-icon name="ionChevronForwardOutline"></ng-icon>
+      <ng-icon [name]="navigation.nextLoops ? 'ionReloadOutline' : 'ionChevronForwardOutline'"></ng-icon>
       @if (slideShowRunning) {
         <canvas
         #canvas width="55px" height="55px"></canvas>

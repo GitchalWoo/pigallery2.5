@@ -11,7 +11,6 @@ import {
   groupTimelineByDay,
   parseTimelineMonth,
 } from './timeline-grouping';
-import {TimelineLightboxSource} from './timeline-lightbox.source';
 import {QueryParams} from '../../../../common/QueryParams';
 
 interface Deferred<T> {
@@ -271,19 +270,6 @@ describe('Timeline months', () => {
     item.metadata.creationDateOffset = '+01:00';
     expect(getTimelineMonth(item, true)).toEqual({year: 2017, month: 3});
     expect(getTimelineMonth(item, false)).toEqual({year: 2017, month: 2});
-  });
-});
-
-describe('TimelineLightboxSource', () => {
-  it('keeps the page params (?at) when opening and closing the viewer', () => {
-    const store = {items: [media(1, 10)], changes: new Subject<void>()} as unknown as TimelineStore;
-    const photos = {changes: new Subject<void>(), find: (): undefined => undefined} as never;
-    const source = new TimelineLightboxSource(store, photos, () => ({at: '2015-07'}));
-
-    const id = getTimelineMediaId(store.items[0]);
-    expect(source.queryParams()).toEqual({at: '2015-07'});
-    expect(source.queryParams(store.items[0])).toEqual({at: '2015-07', [QueryParams.gallery.photo]: id});
-    expect(source.indexOfId(id)).toBe(0);
   });
 });
 
