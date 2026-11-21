@@ -342,21 +342,14 @@ html[data-gallery-design="prism"] app-login .login-mobile-brand { display: none;
 
 
 /* app-timeline */
-html[data-gallery-design="prism"] app-timeline .timeline-rail {
+html[data-gallery-design="prism"] app-timeline .timeline-scrubber {
   top: 6rem;
-  right: .65rem;
-  padding: .5rem .3rem;
-  border: 1px solid var(--pg-stroke);
-  border-radius: 1rem;
+}
+html[data-gallery-design="prism"] app-timeline .scrubber-pill {
   background: var(--pg-surface);
+  border-color: var(--pg-stroke);
   box-shadow: var(--pg-shadow);
 }
-html[data-gallery-design="prism"] app-timeline .timeline-rail-month.active {
-  color: var(--pg-accent);
-  background: rgba(var(--pg-accent-rgb), .12);
-  border-radius: .4rem;
-}
-@media (min-width: 768px) { html[data-gallery-design="prism"] app-timeline .timeline-has-rail { padding-right: calc(5.5rem + var(--gallery-page-gutter) - 2px); } }
 
 
 /* Shared Bootstrap controls */
