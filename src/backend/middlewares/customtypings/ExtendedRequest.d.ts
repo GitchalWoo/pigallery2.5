@@ -17,6 +17,8 @@ declare global {
         rememberMe?: boolean;
         expires: number;
         csrfSecret?: string;
+        // see SessionManager.getSessionStamp
+        stamp?: string;
         oidc?: {
           state: string;
           verifier: string;

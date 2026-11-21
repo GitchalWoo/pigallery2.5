@@ -1,7 +1,8 @@
-import {Express, NextFunction, Request, Response} from 'express';
+import {Express} from 'express';
 import {Config} from '../../common/config/private/Config';
-import {OIDCAuthService} from '../middlewares/user/OIDCAuthService';
 import {RateLimiter} from '../middlewares/RateLimiter';
+import {AuthenticationMWs} from '../middlewares/user/AuthenticationMWs';
+import {OIDCMWs} from '../middlewares/user/OIDCMWs';
 
 export class OIDCRouter {
   private static get BASE(): string {
@@ -14,31 +15,21 @@ export class OIDCRouter {
   }
 
   private static addLogin(app: Express): void {
-    app.get(OIDCRouter.BASE + '/login', RateLimiter.oidcLoginLimiter, async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        if (!Config.Users.oidc.enabled) {
-          return res.status(404).end();
-        }
-        await OIDCAuthService.login(req, res);
-        return next();
-      } catch (err) {
-        return next(err);
-      }
-    });
+    app.get(
+      OIDCRouter.BASE + '/login',
+      RateLimiter.oidcLoginLimiter,
+      OIDCMWs.isEnabled,
+      OIDCMWs.redirectToProvider
+    );
   }
 
   private static addCallback(app: Express): void {
-    app.get(OIDCRouter.BASE + '/callback', RateLimiter.oidcCallbackLimiter, async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        if (!Config.Users.oidc.enabled) {
-          return res.status(404).end();
-        }
-        await OIDCAuthService.callback(req, res);
-        return next();
-      } catch (err) {
-        return next(err);
-      }
-    });
-
+    app.get(
+      OIDCRouter.BASE + '/callback',
+      RateLimiter.oidcCallbackLimiter,
+      OIDCMWs.isEnabled,
+      AuthenticationMWs.oidcLogin,
+      OIDCMWs.redirectToApp
+    );
   }
 }

@@ -8,10 +8,10 @@ import {Utils} from '../../../common/Utils';
 import {QueryParams} from '../../../common/QueryParams';
 import * as path from 'path';
 import {Logger} from '../../Logger';
-import {ContextUser} from '../../model/SessionContext';
-import {SearchQueryUtils} from '../../../common/SearchQueryUtils';
+import {SessionUser, SessionContext} from '../../model/SessionContext';
 import {SafePath} from '../../model/fileaccess/SafePath';
 import {NotificationManager} from '../../model/NotifocationManager';
+import {OIDCAuthService} from './OIDCAuthService';
 
 const LOG_TAG = 'AuthenticationMWs';
 
@@ -46,52 +46,6 @@ export class AuthenticationMWs {
     NotificationManager.warning(msg);
   }
 
-  private static async validateExistingSession(req: Request): Promise<boolean> {
-    if (!req.session?.context?.user) {
-      return false;
-    }
-    // Check session expiration
-    if (req.session.expires && req.session.expires < Date.now()) {
-      return false;
-    }
-
-    const sessionUser = req.session.context.user;
-    if (typeof sessionUser === 'object' && sessionUser !== null) {
-      if (sessionUser.id != null && sessionUser.role !== UserRoles.LimitedGuest) {
-        // Validate registered user against database
-        try {
-          const dbUser = await ObjectManagers.getInstance().UserManager.findOne({id: sessionUser.id});
-          if (!dbUser || dbUser.role !== sessionUser.role) {
-            return false;
-          }
-          // Sync any updated restrictions
-          if (SearchQueryUtils.stringifyForComparison(sessionUser.allowQuery) !== SearchQueryUtils.stringifyForComparison(dbUser.allowQuery) ||
-              SearchQueryUtils.stringifyForComparison(sessionUser.blockQuery) !== SearchQueryUtils.stringifyForComparison(dbUser.blockQuery) ||
-              sessionUser.overrideAllowBlockList !== dbUser.overrideAllowBlockList) {
-            sessionUser.allowQuery = dbUser.allowQuery;
-            sessionUser.blockQuery = dbUser.blockQuery;
-            sessionUser.overrideAllowBlockList = dbUser.overrideAllowBlockList;
-            req.session.context = await ObjectManagers.getInstance().SessionManager.buildContext(sessionUser);
-          }
-        } catch {
-          return false;
-        }
-      } else if (sessionUser.role === UserRoles.LimitedGuest && sessionUser.usedSharingKey) {
-        // Validate share link against database
-        try {
-          const sharing = await ObjectManagers.getInstance().SharingManager.findOne(sessionUser.usedSharingKey);
-          if (!sharing || sharing.expires < Date.now()) {
-            return false;
-          }
-        } catch {
-          return false;
-        }
-      }
-    }
-
-    return true;
-  }
-
   public static async tryAuthenticate(
     req: Request,
     res: Response,
@@ -102,21 +56,12 @@ export class AuthenticationMWs {
       req.session.context = await ObjectManagers.getInstance().SessionManager.buildContext(user);
       return next();
     }
-    if (typeof req.session?.context !== 'undefined') {
-      const isValid = await AuthenticationMWs.validateExistingSession(req);
-      if (!isValid) {
-        delete req.session.context;
-        delete req.session.expires;
-        delete req.session.rememberMe;
-      } else {
-        return next();
-      }
-    }
     try {
+      // the page rendering uses the session user too
+      await AuthenticationMWs.restoreSession(req);
       const user = await AuthenticationMWs.getSharingUser(req);
       if (user) {
-        req.session.context = await ObjectManagers.getInstance().SessionManager.buildContext(user);
-        return next();
+        await AuthenticationMWs.startSession(req, user);
       }
       // eslint-disable-next-line no-empty
     } catch (err) {
@@ -136,31 +81,14 @@ export class AuthenticationMWs {
       return next();
     }
 
-    // if already authenticated, validate against DB and expiration
-    if (typeof req.session.context !== 'undefined') {
-      const isValid = await AuthenticationMWs.validateExistingSession(req);
-      if (!isValid) {
-        delete req.session.context;
-        delete req.session.expires;
-        delete req.session.rememberMe;
-        res.status(401);
-        return next(
-          new ErrorDTO(ErrorCodes.NOT_AUTHENTICATED, 'Session revoked or expired')
-        );
+    try {
+      // if already authenticated, do not try to use sharing authentication
+      if (await AuthenticationMWs.restoreSession(req)) {
+        return next();
       }
-
-      // fix context. projectionQuery gets lost in the session between calls
-      if (req.session?.context && req.session.context?.user?.projectionKey && (!req.session.context?.projectionQuery || Object.keys(req.session.context?.projectionQuery || {}).length === 0)) {
-        req.session.context = await ObjectManagers.getInstance().SessionManager.buildContext(req.session.context.user);
-      }
-      // auto extend session if rememberMe is set
-      if (req.session.rememberMe) {
-        req.sessionOptions.expires = new Date(
-          Date.now() + Config.Server.sessionTimeout
-        );
-        req.session.expires = req.sessionOptions.expires.getTime();
-      }
-      return next();
+    } catch (err) {
+      res.status(500);
+      return next(new ErrorDTO(ErrorCodes.INTERNAL, null, err));
     }
 
     let user;
@@ -179,7 +107,7 @@ export class AuthenticationMWs {
 
 
     try {
-      req.session.context = await ObjectManagers.getInstance().SessionManager.buildContext(user);
+      await AuthenticationMWs.startSession(req, user);
     } catch (err) {
       res.status(500);
       return next(new ErrorDTO(ErrorCodes.INTERNAL, null, err));
@@ -326,14 +254,7 @@ export class AuthenticationMWs {
         return next(new ErrorDTO(ErrorCodes.CREDENTIAL_NOT_FOUND));
       }
 
-      const user = {
-        name: 'Guest',
-        role: UserRoles.LimitedGuest,
-        usedSharingKey: sharing.sharingKey,
-        overrideAllowBlockList: true,
-        allowQuery: ObjectManagers.getInstance().SessionManager.buildAllowListForSharing(sharing)
-      } as ContextUser;
-      req.session.context = await ObjectManagers.getInstance().SessionManager.buildContext(user);
+      await AuthenticationMWs.startSession(req, ObjectManagers.getInstance().SessionManager.createSharingUser(sharing));
       return next();
     } catch (err) {
       return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, null, err));
@@ -380,21 +301,11 @@ export class AuthenticationMWs {
     }
     try {
       // let's find the user
-      const user = Utils.clone(
-        await ObjectManagers.getInstance().UserManager.findOne({
-          name: req.body.loginCredential.username,
-          password: req.body.loginCredential.password,
-        })
-      );
-      delete user.password;
-      req.session.context = await ObjectManagers.getInstance().SessionManager.buildContext(user);
-      req.session.rememberMe = req.body.loginCredential.rememberMe;
-      if (req.session.rememberMe) {
-        req.sessionOptions.expires = new Date(
-          Date.now() + Config.Server.sessionTimeout
-        );
-        req.session.expires = req.sessionOptions.expires.getTime();
-      }
+      const user = await ObjectManagers.getInstance().UserManager.findOne({
+        name: req.body.loginCredential.username,
+        password: req.body.loginCredential.password,
+      });
+      await AuthenticationMWs.startSession(req, user, req.body.loginCredential.rememberMe);
       return next();
     } catch (err) {
       AuthenticationMWs.logFailedLogin(req, 'for user:' + JSON.stringify(req.body.loginCredential.username)
@@ -409,12 +320,113 @@ export class AuthenticationMWs {
     }
   }
 
+  public static async oidcLogin(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const user = await OIDCAuthService.getUserFromAuthenticationResponse(req);
+      await AuthenticationMWs.startSession(req, user, true);
+      return next();
+    } catch (err) {
+      return next(err);
+    }
+  }
+
+  /**
+   * Starts the session again from the current DB row of its user,
+   * so changing the own user (e.g.: the password) does not end the session. Use it after user changes.
+   */
+  public static async refreshSession(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    const id = req.session.context?.user?.id;
+    if (typeof id !== 'number') {
+      return next();
+    }
+    try {
+      const user = await ObjectManagers.getInstance().UserManager.findOne({id});
+      if (user) {
+        await AuthenticationMWs.startSession(req, user, req.session.rememberMe);
+      }
+      return next();
+    } catch (err) {
+      return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, null, err));
+    }
+  }
+
   public static logout(req: Request, res: Response, next: NextFunction): void {
     delete req.session.context;
+    delete req.session.stamp;
+    delete req.session.rememberMe;
+    delete req.session.expires;
     return next();
   }
 
-  private static async getSharingUser(req: Request): Promise<ContextUser> {
+  /**
+   * Logs in the user (or sharing guest) for this session.
+   * Only "remember me" sessions survive closing the browser.
+   */
+  private static async startSession(req: Request, user: SessionUser, rememberMe = false): Promise<void> {
+    const sm = ObjectManagers.getInstance().SessionManager;
+    const sessionUser = Utils.clone(user);
+    delete sessionUser.password;
+    req.session.context = await sm.buildContext(sessionUser);
+    req.session.stamp = await sm.getSessionStamp(sessionUser);
+    req.session.rememberMe = rememberMe;
+    AuthenticationMWs.extendSession(req);
+  }
+
+  /**
+   * The session is stored in the cookie. It ends if it timed out or its user or sharing got deleted or changed
+   * (see SessionManager.getSessionStamp).
+   * Returns false if there is no session (anymore).
+   */
+  private static async restoreSession(req: Request): Promise<boolean> {
+    const context = req.session.context;
+    if (typeof context === 'undefined') {
+      return false;
+    }
+    if (!context?.user || !(req.session.expires > Date.now()) || !req.session.stamp ||
+      req.session.stamp !== await ObjectManagers.getInstance().SessionManager.getSessionStamp(context.user)) {
+      delete req.session.context;
+      delete req.session.stamp;
+      delete req.session.rememberMe;
+      delete req.session.expires;
+      return false;
+    }
+    // fix context. projectionQuery gets lost in the session between calls
+    if (AuthenticationMWs.isContextBroken(context)) {
+      req.session.context = await ObjectManagers.getInstance().SessionManager.buildContext(context.user);
+    }
+    AuthenticationMWs.extendSession(req);
+    return true;
+  }
+
+  /**
+   * Sessions expire after Server.sessionTimeout of inactivity.
+   */
+  private static extendSession(req: Request): void {
+    req.session.expires = Date.now() + Config.Server.sessionTimeout;
+    if (req.session.rememberMe) {
+      req.sessionOptions.expires = new Date(req.session.expires);
+    }
+  }
+
+  /**
+   * Returns true if the prebuilt queries of the context got lost (e.g.: during session serialization)
+   */
+  private static isContextBroken(context: SessionContext): boolean {
+    if (!context.user?.projectionKey) {
+      return false; // context was never built
+    }
+    return !context.projectionQuery || Object.keys(context.projectionQuery).length === 0;
+  }
+
+  private static async getSharingUser(req: Request): Promise<SessionUser> {
     if (
       Config.Sharing.enabled === true &&
       (!!req.query[QueryParams.gallery.sharingKey_query] ||
@@ -436,13 +448,7 @@ export class AuthenticationMWs {
         return null;
       }
 
-      return {
-        name: 'Guest',
-        role: UserRoles.LimitedGuest,
-        usedSharingKey: sharing.sharingKey,
-        overrideAllowBlockList: true,
-        allowQuery: ObjectManagers.getInstance().SessionManager.buildAllowListForSharing(sharing)
-      } as ContextUser;
+      return ObjectManagers.getInstance().SessionManager.createSharingUser(sharing);
     }
     return null;
   }

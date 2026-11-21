@@ -6,6 +6,7 @@ import {FindOptionsWhere} from 'typeorm';
 import {UserSettingsDTO} from '../../../common/entities/UserSettingsDTO';
 import {SearchQueryUtils} from '../../../common/SearchQueryUtils';
 import {Config} from '../../../common/config/private/Config';
+import {ObjectManagers} from '../ObjectManagers';
 
 export class UserManager {
 
@@ -38,13 +39,18 @@ export class UserManager {
       SearchQueryUtils.validateSearchQuery(user.blockQuery, 'User blockQuery');
     }
     user.password = await PasswordHelper.cryptPasswordAsync(user.password);
-    return connection.getRepository(UserEntity).save(user);
+    const ret = await connection.getRepository(UserEntity).save(user);
+    ObjectManagers.getInstance().SessionManager.invalidateSessionCache();
+    return ret;
   }
 
   public async deleteUser(id: number): Promise<UserEntity> {
     const connection = await SQLConnection.getConnection();
     const user = await connection.getRepository(UserEntity).findOneBy({id});
-    return await connection.getRepository(UserEntity).remove(user);
+    const ret = await connection.getRepository(UserEntity).remove(user);
+    // ends the sessions of the user and of its sharings
+    ObjectManagers.getInstance().SessionManager.invalidateSessionCache();
+    return ret;
   }
 
   public async changeRole(id: number, newRole: UserRoles): Promise<UserEntity> {
@@ -52,7 +58,9 @@ export class UserManager {
     const userRepository = connection.getRepository(UserEntity);
     const user = await userRepository.findOneBy({id});
     user.role = newRole;
-    return userRepository.save(user);
+    const ret = await userRepository.save(user);
+    ObjectManagers.getInstance().SessionManager.invalidateSessionCache();
+    return ret;
   }
 
   public async updateSettings(id: number, settings: UserSettingsDTO): Promise<UserEntity> {
@@ -86,7 +94,9 @@ export class UserManager {
       user.password = await PasswordHelper.cryptPasswordAsync(settings.newPassword);
     }
 
-    return userRepository.save(user);
+    const ret = await userRepository.save(user);
+    ObjectManagers.getInstance().SessionManager.invalidateSessionCache();
+    return ret;
   }
 
   getUnAuthenticatedUser(): UserDTO {
