@@ -35,6 +35,16 @@ describe('UserManager', (sqlHelper: DBTestHelper) => {
 
     afterEach(sqlHelper.clearDB);
 
+    it('checks the current target role in every management write', async () => {
+      const manager = new UserManager();
+      await manager.changeRole(testUser.id, UserRoles.Developer);
+      await expect(manager.changeRole(testUser.id, UserRoles.User, UserRoles.Admin)).to.be.rejectedWith(Error);
+      await expect(manager.updateSettings(testUser.id, {newPassword: 'changed'}, UserRoles.Admin)).to.be.rejectedWith(Error);
+      await expect(manager.deleteUser(testUser.id, UserRoles.Admin)).to.be.rejectedWith(Error);
+      const user = await manager.findOne({name: testUser.name, password: testUser.password});
+      expect(user.role).to.equal(UserRoles.Developer);
+    });
+
     describe('findOne', () => {
       it('should return when passwords and name is also set', async () => {
         // Create a basic user with no queries

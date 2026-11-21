@@ -10,6 +10,8 @@ import {QueryParams} from '../../../../src/common/QueryParams';
 import {Utils} from '../../../../src/common/Utils';
 import {SuperAgentStatic} from 'superagent';
 import {RouteTestingHelper} from './RouteTestingHelper';
+import {RateLimiter} from '../../../../src/backend/middlewares/RateLimiter';
+import {CookieNames} from '../../../../src/common/CookieNames';
 import {ErrorCodes} from '../../../../src/common/entities/Error';
 import {DatabaseType} from '../../../../src/common/config/private/PrivateConfig';
 import {ProjectPath} from '../../../../src/backend/ProjectPath';
@@ -33,8 +35,13 @@ describe('UserRouter', () => {
   };
   const {password, ...expectedUser} = testUser;
   let server: Server;
-  const setUp = async () => {
-    await sqlHelper.initDB()
+  const setUp = async (albumRole: UserRoles = undefined) => {
+    RateLimiter.reset();
+    await sqlHelper.initDB();
+    if (albumRole !== undefined) {
+      Config.Users.authenticationRequired = true;
+      Config.Album.readAccessMinRole = albumRole;
+    }
 
     server = new Server(false);
     await server.onStarted.wait();
@@ -83,6 +90,70 @@ describe('UserRouter', () => {
 
   });
 
+
+  describe('management role limits', () => {
+    let previousAlbumRole: UserRoles;
+    let previousAuth: boolean;
+
+    beforeEach(async () => {
+      previousAlbumRole = Config.Album.readAccessMinRole;
+      previousAuth = Config.Users.authenticationRequired;
+      await setUp(UserRoles.Admin);
+    });
+
+    afterEach(async () => {
+      Config.Album.readAccessMinRole = previousAlbumRole;
+      Config.Users.authenticationRequired = previousAuth;
+      await tearDown();
+    });
+
+    const headersFor = async (username: string, password: string) => {
+      const loginResult = await request.execute(server.Server).post(Config.Server.apiPath + '/user/login')
+        .send({loginCredential: {username, password}});
+      loginResult.should.have.status(200);
+      const cookies = (loginResult.headers['set-cookie'] as unknown as string[]).map(cookie => cookie.split(';')[0]);
+      const token = cookies.find(cookie => cookie.startsWith(CookieNames.csrfToken + '=')).split('=')[1];
+      return {Cookie: cookies.join('; '), 'X-CSRF-TOKEN': token};
+    };
+
+    it('guards changes and deletion of higher-role accounts while allowing administration of lower roles', async () => {
+      const manager = ObjectManagers.getInstance().UserManager;
+      await manager.createUser({name: 'manager', role: UserRoles.Admin, password: 'pass'} as UserDTO);
+      const developer = await manager.createUser({name: 'developer', role: UserRoles.Developer, password: 'pass'} as UserDTO);
+      const headers = await headersFor('manager', 'pass');
+      const api = () => request.execute(server.Server);
+      const userUrl = Config.Server.apiPath + '/user/';
+      for (const operation of [
+        () => api().post(userUrl + developer.id + '/role').send({newRole: UserRoles.Admin}),
+        () => api().post(userUrl + developer.id + '/settings').send({settings: {newPassword: 'changed'}}),
+        () => api().delete(userUrl + developer.id)
+      ]) {
+        const result = await operation().set(headers);
+        should.equal(result.body.error?.code, ErrorCodes.NOT_AUTHORISED);
+        result.should.have.status(401);
+      }
+      const allowed = await api().post(userUrl + testUser.id + '/role').send({newRole: UserRoles.Admin}).set(headers);
+      should.equal(allowed.body.error, null);
+      should.equal((await manager.findOne({id: testUser.id})).role, UserRoles.Admin);
+      should.equal((await manager.findOne({id: developer.id})).role, UserRoles.Developer);
+    });
+
+    it('requires the configured role to list albums and Admin to write albums', async () => {
+      const headers = await headersFor(testUser.name, testUser.password);
+      const api = () => request.execute(server.Server);
+      const albums = Config.Server.apiPath + '/albums';
+      for (const operation of [() => api().get(albums), () => api().put(albums + '/saved-searches'), () => api().delete(albums + '/1')]) {
+        const result = await operation().set(headers);
+        result.should.have.status(401);
+        should.equal(result.body.error?.code, ErrorCodes.NOT_AUTHORISED);
+      }
+      await ObjectManagers.getInstance().UserManager.createUser({name: 'manager', role: UserRoles.Admin, password: 'pass'} as UserDTO);
+      const adminHeaders = await headersFor('manager', 'pass');
+      const allowed = await api().get(albums).set(adminHeaders);
+      should.equal(allowed.body.error, null);
+      allowed.should.have.status(200);
+    });
+  });
 
   describe('/GET user/me', () => {
     beforeEach(setUp);

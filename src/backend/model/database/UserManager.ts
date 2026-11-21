@@ -2,7 +2,7 @@ import {UserDTO, UserRoles} from '../../../common/entities/UserDTO';
 import {UserEntity} from './enitites/UserEntity';
 import {SQLConnection} from './SQLConnection';
 import {PasswordHelper} from '../PasswordHelper';
-import {FindOptionsWhere} from 'typeorm';
+import {FindOptionsWhere, LessThanOrEqual} from 'typeorm';
 import {UserSettingsDTO} from '../../../common/entities/UserSettingsDTO';
 import {SearchQueryUtils} from '../../../common/SearchQueryUtils';
 import {Config} from '../../../common/config/private/Config';
@@ -44,59 +44,59 @@ export class UserManager {
     return ret;
   }
 
-  public async deleteUser(id: number): Promise<UserEntity> {
+  public async deleteUser(id: number, maxRole = UserRoles.Developer): Promise<UserEntity> {
     const connection = await SQLConnection.getConnection();
     const user = await connection.getRepository(UserEntity).findOneBy({id});
-    const ret = await connection.getRepository(UserEntity).remove(user);
+    const result = await connection.getRepository(UserEntity).delete({id, role: LessThanOrEqual(maxRole)});
+    if (!result.affected) throw new Error('User cannot be deleted');
     // ends the sessions of the user and of its sharings
     ObjectManagers.getInstance().SessionManager.invalidateSessionCache();
-    return ret;
+    return user;
   }
 
-  public async changeRole(id: number, newRole: UserRoles): Promise<UserEntity> {
+  public async changeRole(id: number, newRole: UserRoles, maxRole = UserRoles.Developer): Promise<UserEntity> {
     const connection = await SQLConnection.getConnection();
     const userRepository = connection.getRepository(UserEntity);
-    const user = await userRepository.findOneBy({id});
-    user.role = newRole;
-    const ret = await userRepository.save(user);
+    const result = await userRepository.update({id, role: LessThanOrEqual(maxRole)}, {role: newRole});
+    if (!result.affected) throw new Error('User role cannot be changed');
     ObjectManagers.getInstance().SessionManager.invalidateSessionCache();
-    return ret;
+    return userRepository.findOneByOrFail({id});
   }
 
-  public async updateSettings(id: number, settings: UserSettingsDTO): Promise<UserEntity> {
+  public async updateSettings(id: number, settings: UserSettingsDTO, maxRole = UserRoles.Developer): Promise<UserEntity> {
     const connection = await SQLConnection.getConnection();
     const userRepository = connection.getRepository(UserEntity);
-    const user = await userRepository.findOneBy({id});
-
-    if (!user) {
-      throw new Error('User not found');
-    }
+    const changes: Partial<UserEntity> = {};
 
     if (typeof settings.overrideAllowBlockList !== 'undefined') {
-      user.overrideAllowBlockList = settings.overrideAllowBlockList;
+      changes.overrideAllowBlockList = settings.overrideAllowBlockList;
     }
 
     if (typeof settings.allowQuery !== 'undefined') {
       if (settings.allowQuery) {
         SearchQueryUtils.validateSearchQuery(settings.allowQuery, 'User allowQuery');
       }
-      user.allowQuery = settings.allowQuery ?? null;
+      changes.allowQuery = settings.allowQuery ?? null;
     }
 
     if (typeof settings.blockQuery !== 'undefined') {
       if (settings.blockQuery) {
         SearchQueryUtils.validateSearchQuery(settings.blockQuery, 'User blockQuery');
       }
-      user.blockQuery = settings.blockQuery ?? null;
+      changes.blockQuery = settings.blockQuery ?? null;
     }
 
     if (settings.newPassword && settings.newPassword.length > 0) {
-      user.password = await PasswordHelper.cryptPasswordAsync(settings.newPassword);
+      changes.password = await PasswordHelper.cryptPasswordAsync(settings.newPassword);
     }
 
-    const ret = await userRepository.save(user);
+    const target = {id, role: LessThanOrEqual(maxRole)};
+    if (Object.keys(changes).length) {
+      const result = await userRepository.update(target, changes);
+      if (!result.affected) throw new Error('User settings cannot be changed');
+    }
     ObjectManagers.getInstance().SessionManager.invalidateSessionCache();
-    return ret;
+    return userRepository.findOneByOrFail(target);
   }
 
   getUnAuthenticatedUser(): UserDTO {

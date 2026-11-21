@@ -19,7 +19,7 @@ export class AlbumRouter {
         [Config.Server.apiPath + '/albums'],
         // common part
         AuthenticationMWs.authenticate,
-        AuthenticationMWs.authorise(UserRoles.User),
+        AuthenticationMWs.authorise(Math.max(UserRoles.User, Config.Album.readAccessMinRole)),
         VersionMWs.injectGalleryVersion,
 
         // specific part
