@@ -25,6 +25,21 @@ test('localized bundles match each index and repeat safely without touching asse
   }
 });
 
+test('localizeBundles restores EJS delimiters escaped inside HTML attributes', async t => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pg-ejs-'));
+  t.after(() => rm(dir, {recursive: true, force: true}));
+  await mkdir(path.join(dir, 'en'));
+  await writeFile(
+    path.join(dir, 'en', 'index.html'),
+    '<html data-gallery-design="&lt;%= a &amp;&amp; b ? \'prism\' : \'legacy\' %&gt;"><head><base href="&lt;%= urlBase %&gt;/"></head></html>'
+  );
+  await localizeBundles(dir);
+  assert.equal(
+    await readFile(path.join(dir, 'en', 'index.html'), 'utf8'),
+    '<html data-gallery-design="<%= a && b ? \'prism\' : \'legacy\' %>"><head><base href="<%= urlBase %>/"' + '></head></html>'
+  );
+});
+
 const source = {
   name: 'pigallery2',
   dependencies: {sharp: '0.35.5'},

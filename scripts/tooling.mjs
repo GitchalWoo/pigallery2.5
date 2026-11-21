@@ -33,13 +33,18 @@ export async function localizeBundles(outputPath) {
       if (error.code === 'ENOENT') continue;
       throw error;
     }
+    const originalHtml = html;
+    // Angular 22.3's parse5 HTML rewriter escapes `<` and `>` inside attribute values
+    // (e.g. `data-gallery-design="&lt;%= ... %&gt;"`, `<base href="&lt;%= ... %&gt;/">`).
+    // Restore EJS template delimiters so Express/EJS evaluates them at request time.
+    html = html.replace(/&lt;%([\s\S]*?)%&gt;/g, (_, expr) => `<%${expr.replaceAll('&amp;', '&')}%>`);
     const bundles = (await readdir(dir)).filter(name => /^main(?:[.-].*)?\.js$/.test(name));
     for (const name of bundles) {
       const localizedName = `${folder.name}.${name}`;
       await rename(path.join(dir, name), path.join(dir, localizedName));
       html = html.replaceAll(`src="${name}"`, `src="${localizedName}"`);
     }
-    if (bundles.length) await writeFile(indexPath, html);
+    if (bundles.length || html !== originalHtml) await writeFile(indexPath, html);
   }
 }
 
