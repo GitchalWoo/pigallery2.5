@@ -181,6 +181,11 @@ html[data-gallery-design="prism"] app-gallery-directory:focus-within { transform
 
 
 /* app-gallery-grid */
+html[data-gallery-design="prism"] app-gallery-grid-scroll-label .scroll-label {
+  background: var(--pg-surface);
+  border-color: var(--pg-stroke);
+  box-shadow: var(--pg-shadow);
+}
 html[data-gallery-design="prism"] app-gallery-grid .media-group h6 {
   margin-top: 0;
   font-size: 1.5rem;

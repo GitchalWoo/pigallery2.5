@@ -1,7 +1,6 @@
 # Timeline implementation plan
 
-Status: partially implemented. See "Work split and status" for per-task
-progress.
+Status: Milestones 1–2 and proportional Timeline Scrubber + virtualized grid (`GridLayout`/`GridScroller`/`GridScrollWindow`/`LightboxGrid`) are implemented and verified (2026-11-21). See "Work split and status" for per-task progress.
 
 ## Goal
 

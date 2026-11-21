@@ -122,7 +122,7 @@ export class GalleryLightboxComponent implements OnDestroy {
   readonly slideShowRunning = this.lightboxService.playbackSignal;
   readonly transcodeNeedVideos = SupportedFormats.TranscodeNeed.Videos;
 
-  private static readonly MAX_EMPTY_PAGES = 10;
+  private static readonly MAX_EMPTY_PAGES = 50;
   private readonly queryParams = toSignal(this.route.queryParams, {initialValue: {} as Params});
   // the open photo, from the URL
   private readonly photoId = computed((): string | null => (this.queryParams()[QueryParams.gallery.photo] as string) || null);
@@ -165,6 +165,7 @@ export class GalleryLightboxComponent implements OnDestroy {
 
   private infoPanelMaxWidth = 1000;
   private iPvisibilityTimer: number | null = null;
+  private openingTimer: number | null = null;
   // the string id of the photo that is shown or being revealed
   private shownId: string | null = null;
   // the photo that was not found, so its toast shows once
@@ -209,6 +210,8 @@ export class GalleryLightboxComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.navigationId++;
     this.openCloseId++;
+    this.clearOpeningTimer();
+    this.mediaElement()?.cancelActiveRequest?.();
     this.wakeLockService.releaseWakeLock().catch(console.error);
     // Stop running animations, so their finish can't fire later and release a newer lightbox's scroll lock.
     this.photoPlayer?.cancel();
@@ -220,6 +223,13 @@ export class GalleryLightboxComponent implements OnDestroy {
     }
     if (this.iPvisibilityTimer != null) {
       clearTimeout(this.iPvisibilityTimer);
+    }
+  }
+
+  private clearOpeningTimer(): void {
+    if (this.openingTimer !== null) {
+      clearTimeout(this.openingTimer);
+      this.openingTimer = null;
     }
   }
 
@@ -428,16 +438,20 @@ export class GalleryLightboxComponent implements OnDestroy {
 
   private openLightbox(gridMedia: GridMedia, rect: Dimension): void {
     const openCloseId = ++this.openCloseId;
+    this.clearOpeningTimer();
     this.status.set(LightboxStates.Opening);
     this.animating.set(true);
+    const finishOpening = (): void => {
+      if (openCloseId !== this.openCloseId || this.status() !== LightboxStates.Opening) {
+        return;
+      }
+      this.clearOpeningTimer();
+      this.animating.set(false);
+      this.status.set(LightboxStates.Open);
+    };
     this.animatePhoto(rect, this.calcLightBoxPhotoDimension(gridMedia.media))
-      .addEventListener('finish', (): void => {
-        if (openCloseId !== this.openCloseId) {
-          return;
-        }
-        this.animating.set(false);
-        this.status.set(LightboxStates.Open);
-      });
+      .addEventListener('finish', finishOpening);
+    this.openingTimer = window.setTimeout(finishOpening, 500);
     this.animateLightbox({...rect, top: rect.top - PageHelper.ScrollY}, this.fullFrame());
 
     // disable scroll
@@ -452,6 +466,8 @@ export class GalleryLightboxComponent implements OnDestroy {
   private async hideLightbox(): Promise<void> {
     const navigationId = ++this.navigationId;
     this.shownId = null;
+    this.clearOpeningTimer();
+    this.mediaElement()?.cancelActiveRequest?.();
     if (this.status() === LightboxStates.Closed) {
       return; // closed before it opened: the pending open is cancelled
     }
@@ -603,23 +619,22 @@ export class GalleryLightboxComponent implements OnDestroy {
   }
 
   private calcLightBoxPhotoDimension(photo: MediaDTO): Dimension {
+    const frame = this.photoFrameDim();
+    const rawW = photo?.metadata?.size?.width;
+    const rawH = photo?.metadata?.size?.height;
+    if (!rawW || !rawH || rawW <= 0 || rawH <= 0 || frame.width <= 0 || frame.height <= 0) {
+      return {top: 0, left: 0, width: Math.max(frame.width, 0), height: Math.max(frame.height, 0)} as Dimension;
+    }
     let width: number;
     let height: number;
-    const frame = this.photoFrameDim();
-    const photoAspect = photo.metadata.size.width / photo.metadata.size.height;
+    const photoAspect = rawW / rawH;
     const windowAspect = frame.aspect;
     if (photoAspect < windowAspect) {
-      width = Math.round(
-        photo.metadata.size.width *
-        (frame.height / photo.metadata.size.height)
-      );
+      width = Math.round(rawW * (frame.height / rawH));
       height = frame.height;
     } else {
       width = frame.width;
-      height = Math.round(
-        photo.metadata.size.height *
-        (frame.width / photo.metadata.size.width)
-      );
+      height = Math.round(rawH * (frame.width / rawW));
     }
     const top = frame.height / 2 - height / 2;
     const left = frame.width / 2 - width / 2;
