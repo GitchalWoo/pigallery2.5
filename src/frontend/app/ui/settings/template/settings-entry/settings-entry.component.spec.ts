@@ -1,3 +1,5 @@
+import {UserRoles} from '../../../../../../common/entities/UserDTO';
+import type {AuthenticationService} from '../../../../model/network/authentication.service';
 import {describe, expect, it, vi} from 'vitest';
 import {SettingsEntryComponent} from './settings-entry.component';
 import {ThemeConfig} from '../../../../../../common/config/public/ClientConfig';
@@ -5,7 +7,7 @@ import {PRISM_THEME} from '../../../../../../common/config/public/PrismTheme';
 
 describe('Prism selection in saved theme configurations', () => {
   const setup = (themes: ThemeConfig[]) => {
-    const component = new SettingsEntryComponent(null, null, null);
+    const component = new SettingsEntryComponent(null, null, null, null);
     component.state = {
       rootConfig: {__state: {availableThemes: {value: themes, arrayType: ThemeConfig}}}
     } as any;
@@ -45,7 +47,7 @@ describe('Prism selection in saved theme configurations', () => {
   });
 
   it('handles theme controls before settings state is bound', () => {
-    const component = new SettingsEntryComponent(null, null, null);
+    const component = new SettingsEntryComponent(null, null, null, null);
     component.onChange = vi.fn();
     expect(component.AvailableThemes.map(theme => theme.key)).toEqual(['default', 'prism']);
     expect(component.SelectedThemeSettings).toEqual({theme: 'N/A'});
@@ -63,4 +65,16 @@ describe('Prism selection in saved theme configurations', () => {
     expect(component.onChange).toHaveBeenCalledWith('prism');
   });
 
+});
+
+describe('role settings', () => {
+  it('limits even cached role options to the current user', () => {
+    let role = UserRoles.Admin;
+    const auth = {isAuthorized: (required: UserRoles) => role >= required};
+    const component = new SettingsEntryComponent(null, null, null, auth as AuthenticationService);
+    const state = {isEnumType: true, type: UserRoles, tags: {uiOptions: [UserRoles.Admin, UserRoles.Developer]}} as any;
+    expect(component.getOptionsView(state).map(option => option.key)).toEqual([UserRoles.Admin]);
+    role = UserRoles.Developer;
+    expect(component.getOptionsView(state).map(option => option.key)).toEqual([UserRoles.Admin, UserRoles.Developer]);
+  });
 });

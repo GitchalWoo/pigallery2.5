@@ -4,7 +4,19 @@ import {ObjectManagers} from '../../model/ObjectManagers';
 import {Utils} from '../../../common/Utils';
 import {Config} from '../../../common/config/private/Config';
 
+import {UserRoles} from '../../../common/entities/UserDTO';
+
 export class UserMWs {
+  private static grantableRole(req: Request, value: unknown): UserRoles | null {
+    // HTML selects submit their enum keys as strings.
+    const role = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
+    if (typeof role === 'number' && Number.isInteger(role) &&
+        role >= UserRoles.Guest && role <= UserRoles.Developer && role <= req.session?.context?.user?.role) {
+      return role;
+    }
+    return null;
+  }
+
   public static async createUser(
     req: Request,
     res: Response,
@@ -20,10 +32,13 @@ export class UserMWs {
       return next();
     }
 
+    const user = req.body.newUser;
+    const role = UserMWs.grantableRole(req, user?.role);
+    if (role === null || user.id != null || Array.isArray(user)) {
+      return next(new ErrorDTO(ErrorCodes.USER_CREATION_ERROR, 'Invalid user or role above your own.'));
+    }
     try {
-      await ObjectManagers.getInstance().UserManager.createUser(
-        req.body.newUser
-      );
+      await ObjectManagers.getInstance().UserManager.createUser({...user, role});
       return next();
     } catch (err) {
       return next(new ErrorDTO(ErrorCodes.USER_CREATION_ERROR, null, err));
@@ -73,10 +88,14 @@ export class UserMWs {
       return next();
     }
 
+    const role = UserMWs.grantableRole(req, req.body.newRole);
+    if (role === null) {
+      return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Invalid role or role above your own.'));
+    }
     try {
       await ObjectManagers.getInstance().UserManager.changeRole(
         parseInt(req.params.id as string, 10),
-        req.body.newRole
+        role
       );
       return next();
     } catch (err) {

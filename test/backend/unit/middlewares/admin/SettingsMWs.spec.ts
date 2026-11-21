@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-expressions,@typescript-eslint/no-unused-expressions */
 import {expect} from 'chai';
-import {ErrorDTO} from '../../../../../src/common/entities/Error';
+import {ErrorCodes, ErrorDTO} from '../../../../../src/common/entities/Error';
 import {ObjectManagers} from '../../../../../src/backend/model/ObjectManagers';
 import {SettingsMWs} from '../../../../../src/backend/middlewares/admin/SettingsMWs';
 import {ServerUserConfig} from '../../../../../src/common/config/private/PrivateConfig';
@@ -29,7 +29,7 @@ describe('Settings middleware', (sqlHelper: DBTestHelper) => {
 
   it('should save empty enforced users settings', (done: (err?: any) => void) => {
     const req: any = {
-      session: {},
+      session: {context: {user: {role: UserRoles.Admin}}},
       sessionOptions: {},
       query: {},
       params: {},
@@ -56,7 +56,7 @@ describe('Settings middleware', (sqlHelper: DBTestHelper) => {
   it('should save enforced users settings', (done: (err?: any) => void) => {
 
     const req: any = {
-      session: {},
+      session: {context: {user: {role: UserRoles.Admin}}},
       sessionOptions: {},
       query: {},
       params: {},
@@ -97,4 +97,16 @@ describe('Settings middleware', (sqlHelper: DBTestHelper) => {
   });
 
 
+  it('rejects assigning Developer through nested or enforced-user settings', async () => {
+    for (const settings of [
+      {oidc: {autoCreateUserRole: UserRoles.Developer}},
+      {enforcedUsers: [{name: 'protected', role: UserRoles.Developer}]}
+    ]) {
+      const req: any = {session: {context: {user: {role: UserRoles.Admin}}}, body: {settingsPath: 'Users', settings}};
+      let error: ErrorDTO;
+      await SettingsMWs.updateSettings(req, null, err => {error = err;});
+      expect(error?.code).to.equal(ErrorCodes.SETTINGS_ERROR);
+      expect(error.message.toString()).to.include('above your own');
+    }
+  });
 });

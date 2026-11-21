@@ -42,6 +42,24 @@ describe('UserMWs session updates', () => {
     Config.Users.authenticationRequired = originalAuthenticationRequired;
   });
 
+  it('rejects invalid or excessive grants before writing and accepts numeric select values', async () => {
+    const created: any[] = [];
+    (managers as any).UserManager.createUser = async (user: any) => created.push(user);
+    const session = {context: {user: {role: UserRoles.Admin}}};
+    for (const role of [UserRoles.Developer, '5', 'Admin', null, false, 3.5, -1]) {
+      await invoke(UserMWs.createUser, {session, body: {newUser: {role}}});
+      expect(errors[0]?.code).to.equal(ErrorCodes.USER_CREATION_ERROR);
+      await invoke(UserMWs.changeRole, {session, params: {id: '4'}, body: {newRole: role}});
+      expect(errors[0]?.code).to.equal(ErrorCodes.INPUT_ERROR);
+    }
+    await invoke(UserMWs.createUser, {session, body: {newUser: {id: 4, role: UserRoles.User}}});
+    expect(errors[0]?.code).to.equal(ErrorCodes.USER_CREATION_ERROR);
+    expect(created).to.deep.equal([]);
+    await invoke(UserMWs.createUser, {session, body: {newUser: {role: String(UserRoles.Admin)}}});
+    expect(errors[0]).to.equal(undefined);
+    expect(created).to.deep.equal([{role: UserRoles.Admin}]);
+  });
+
   it('delegates user deletion to UserManager without mutating req.session directly', async () => {
     const deletedIds: number[] = [];
     (managers as any).UserManager.deleteUser = async (id: number) => {
@@ -58,7 +76,7 @@ describe('UserMWs session updates', () => {
     const req: any = {
       params: {id: '4'},
       body: {newRole: UserRoles.Admin},
-      session: {context: {user: {id: 4}}, rememberMe: true},
+      session: {context: {user: {id: 4, role: UserRoles.Admin}}, rememberMe: true},
       sessionOptions: {},
     };
     await invoke(UserMWs.changeRole, req);
@@ -98,7 +116,7 @@ describe('UserMWs session updates', () => {
 
   it('converts manager failures without replacing the session context', async () => {
     (managers as any).UserManager.changeRole = async () => { throw new Error('write failed'); };
-    const originalContext = {user: {id: 1, role: UserRoles.User}};
+    const originalContext = {user: {id: 1, role: UserRoles.Admin}};
     const req: any = {params: {id: '1'}, body: {newRole: UserRoles.Admin}, session: {context: originalContext}};
     await invoke(UserMWs.changeRole, req);
     expect(errors[0]).to.be.instanceOf(ErrorDTO);
