@@ -303,9 +303,11 @@ export class ClientAlbumConfig {
   @ConfigProperty({
     type: UserRoles, tags: {
       name: $localize`Albums listing right`,
-      priority: ConfigPriority.underTheHood
+      priority: ConfigPriority.underTheHood,
+      uiOptions: [UserRoles.User, UserRoles.Admin, UserRoles.Developer],
+      uiResetNeeded: {server: true}
     },
-    description: $localize`Required minimum right to show the albums tab.`
+    description: $localize`Required minimum right to list albums.`
   })
   readAccessMinRole: UserRoles = UserRoles.User;
 }

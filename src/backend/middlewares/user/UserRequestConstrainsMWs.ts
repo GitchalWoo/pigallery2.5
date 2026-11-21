@@ -24,6 +24,24 @@ export class UserRequestConstrainsMWs {
     return next();
   }
 
+  public static async notAboveOwnRole(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const rawId = req.params?.id;
+    if (typeof rawId !== 'string' || !/^\d+$/.test(rawId) || Number(rawId) > 0xffffffff) {
+      return next();
+    }
+    try {
+      const target = await ObjectManagers.getInstance().UserManager.findOne({id: Number(rawId)});
+      const ownRole = req.session?.context?.user?.role;
+      if (!target || !Number.isInteger(ownRole) || target.role > ownRole) {
+        res.status(401);
+        return next(new ErrorDTO(ErrorCodes.NOT_AUTHORISED));
+      }
+      return next();
+    } catch (err) {
+      return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, null, err));
+    }
+  }
+
   public static notSelfRequest(
       req: Request,
       res: Response,
