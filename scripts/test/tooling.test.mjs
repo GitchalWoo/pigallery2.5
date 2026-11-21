@@ -11,18 +11,34 @@ test('localized bundles match each index and repeat safely without touching asse
   t.after(() => rm(dir, {recursive: true, force: true}));
   for (const locale of ['en', 'pl']) {
     await mkdir(path.join(dir, locale));
-    await writeFile(path.join(dir, locale, 'index.html'), '<link rel="modulepreload" href="chunk-ABC.js"><script src="main-ABC.js" type="module"></script><script src="polyfills-ABC.js" type="module"></script>');
+    await writeFile(path.join(dir, locale, 'index.html'), '<link rel="modulepreload" href="main-ABC.js"><script src="main-ABC.js" type="module"></script><script src="polyfills-ABC.js" type="module"></script>');
     await writeFile(path.join(dir, locale, 'main-ABC.js'), 'import "./chunk-ABC.js";');
-    await writeFile(path.join(dir, locale, 'chunk-ABC.js'), 'export const value = 1;');
+    await writeFile(path.join(dir, locale, 'chunk-ABC.js'), 'import {a} from "./main-ABC.js"; import "./main-ABC.js"; export const value = a;');
   }
   await mkdir(path.join(dir, 'assets'));
   await localizeBundles(dir);
   await localizeBundles(dir);
   for (const locale of ['en', 'pl']) {
-    assert.equal(await readFile(path.join(dir, locale, 'index.html'), 'utf8'), `<link rel="modulepreload" href="chunk-ABC.js"><script src="${locale}.main-ABC.js" type="module"></script><script src="polyfills-ABC.js" type="module"></script>`);
+    assert.equal(await readFile(path.join(dir, locale, 'index.html'), 'utf8'), `<link rel="modulepreload" href="${locale}.main-ABC.js"><script src="${locale}.main-ABC.js" type="module"></script><script src="polyfills-ABC.js" type="module"></script>`);
     assert.equal(await readFile(path.join(dir, locale, `${locale}.main-ABC.js`), 'utf8'), 'import "./chunk-ABC.js";');
+    assert.equal(await readFile(path.join(dir, locale, 'chunk-ABC.js'), 'utf8'), `import {a} from "./${locale}.main-ABC.js"; import "./${locale}.main-ABC.js"; export const value = a;`);
     assert.deepEqual((await readdir(path.join(dir, locale))).sort(), [`${locale}.main-ABC.js`, 'chunk-ABC.js', 'index.html'].sort());
   }
+});
+
+test('localizeBundles restores EJS delimiters escaped inside HTML attributes', async t => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pg-ejs-'));
+  t.after(() => rm(dir, {recursive: true, force: true}));
+  await mkdir(path.join(dir, 'en'));
+  await writeFile(
+    path.join(dir, 'en', 'index.html'),
+    '<html data-gallery-design="&lt;%= a &amp;&amp; b ? \'prism\' : \'legacy\' %&gt;"><head><base href="&lt;%= urlBase %&gt;/"></head></html>'
+  );
+  await localizeBundles(dir);
+  assert.equal(
+    await readFile(path.join(dir, 'en', 'index.html'), 'utf8'),
+    '<html data-gallery-design="<%= a && b ? \'prism\' : \'legacy\' %>"><head><base href="<%= urlBase %>/"' + '></head></html>'
+  );
 });
 
 const source = {
