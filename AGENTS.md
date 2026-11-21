@@ -3,12 +3,14 @@
 ## Main Goal
 
 - Keep this fork as the integration base when bringing in useful upstream changes.
-- Fetch the original repository as an `upstream` remote and fetch only the upstream branches or pull-request refs needed for review.
-- Create local working branches from this fork for candidate changes. Port compatible commits with cherry-picks; when histories or fork-specific changes differ, adapt the patch locally instead of merging the whole upstream branch.
-- Preserve existing fork commits and uncommitted user changes. Validate each port with focused tests before considering it complete.
+- Follow [Upstream-Porting.md](docs/fork-features/Upstream-Porting.md) for conflict rules, commit attribution (`cherry-pick -x` / `adapted from`), mandatory test coverage (Mocha SQLite + MariaDB for backend, Vitest for any hand-adapted frontend code), and container verification.
+- Track upstream `bpatrik/pigallery2` commits and PRs (Ported / Planned / Deferred / Obsolete) in [Upstream-Ledger.md](docs/fork-features/Upstream-Ledger.md). Run `node scripts/upstream-status.mjs --fetch` to check for new upstream commits since the last watermark, and update the ledger in every port PR.
+- Preserve existing fork commits and uncommitted user changes. Validate each port with focused and full tests before considering it complete.
 
 ## Upgrade Status
 
+- Upstream porting rules & workflow: [Upstream-Porting.md](docs/fork-features/Upstream-Porting.md).
+- Upstream commit/PR ledger: [Upstream-Ledger.md](docs/fork-features/Upstream-Ledger.md) (plus non-upstream fork ideas in [Fork-Inclusions.md](docs/fork-features/Fork-Inclusions.md)).
 - Upgrade history and completed step validation are tracked in [UPGRADE_PLAN.md](docs/fork-features/UPGRADE_PLAN.md).
 - Security audit fixes and hardening are tracked in [Security-Updates.md](docs/fork-features/Security-Updates.md).
 - Known debt and post-upgrade modernization items are tracked in [Techdebt.md](docs/fork-features/Techdebt.md).
