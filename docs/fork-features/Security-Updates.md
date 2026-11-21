@@ -136,6 +136,10 @@ Implemented on `hardening/projection-key-sha256`; publication and GitHub CodeQL 
   - Updated npm override `serialize-javascript` to `7.1.4` (GHSA-m5mm-p8h7-m29v / CVE-2026-115897 XSS).
   - Added npm overrides for transitive dependencies: `body-parser: 2.4.0` (GHSA-27r3-jxmh-p828), `fast-uri: 3.1.9` (GHSA-w74x-v6f9-j3xg, GHSA-xhq7-xmqj-769h, GHSA-wjr9-j795-jxcr, GHSA-333x-w4r6-6crp), `undici: 8.12.2` (GHSA-xjj6-f33q-929c, GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472), `vite: 8.3.3` (GHSA-9jrq-w75r-8gcw, GHSA-rq7h-c2jc-7f22, GHSA-vfpm-58rq-9qcg, GHSA-r825-w8mm-5pxw, GHSA-587h-7wmj-h5pm, GHSA-698v-4r3x-3vcv), `zod: 4.6.6` (GHSA-mrhx-c7xc-m3w5), `@modelcontextprotocol/server: 2.3.0`, and `@modelcontextprotocol/core: 2.3.0` (GHSA-jm63-cq47-j5jp, GHSA-46jr-4wx8-v453, GHSA-rvq5-wwqv-78pq).
   - Confirmed 0 vulnerabilities via `npm audit`, passing English frontend build (`npm run build-en`), 25 test suites with 233 passing unit tests (`npm run test-frontend`), 8 passing tooling tests (`npm run test-tooling`), and verified upload router backend tests (`UploadRouter`).
+- **Scheduled OSV remediation (2026-11-21)**:
+  - Updated `fast-xml-parser` to `5.12.1`, Cypress's transitive `systeminformation` to `5.33.23`, and the `glob` override to `14.0.6`.
+  - Updated `typescript-eslint` to `8.73.0` and pinned affected transitive `minimatch` ranges to `11.0.9` via an override. The advisory affects `>=7 <11.0.1`.
+  - OSV Scanner `2.6.0` and `npm audit` both reported zero findings against the updated lockfile. The [November 21 scheduled run](https://github.com/GitchalWoo/pigallery2.5/actions/runs/44857541768) records the original findings.
 - **Frontend Unit Testing Migration to Vitest (F6, 2026-10-08)**:
   - Replaced Karma and Jasmine with `@angular/build:unit-test` powered by Vitest 5 and JSDOM.
   - Removed deprecated `karma`, `karma-*`, `jasmine-core`, and `@types/jasmine`, completely eliminating the legacy `chokidar 3` / `braces` tree.
