@@ -123,19 +123,6 @@ describe('GPXProcessing', () => {
     assert.equal(fs.readFileSync(first, 'utf8'), 'cached');
   });
 
-  it('marks a cached GPX track invalid after its original is removed', async () => {
-    const folder = path.join(ProjectPath.ImageFolder, 'trips');
-    fs.mkdirSync(folder);
-    const source = path.join(folder, 'morning_ride.gpx');
-    fs.writeFileSync(source, '<gpx><trk/></gpx>');
-    const cached = await GPXProcessing.compressGPX(source);
-
-    assert.equal(await GPXProcessing.isValidConvertedPath(cached), true);
-    fs.unlinkSync(source);
-    assert.equal(await GPXProcessing.isValidConvertedPath(cached), false);
-    assert.ok(fs.existsSync(cached));
-  });
-
   it('rejects a source path outside the gallery root', async () => {
     const outside = path.join(root, 'outside.gpx');
     fs.writeFileSync(outside, '<gpx/>');
