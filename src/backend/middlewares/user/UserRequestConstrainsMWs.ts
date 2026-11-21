@@ -27,7 +27,7 @@ export class UserRequestConstrainsMWs {
   public static async notAboveOwnRole(req: Request, res: Response, next: NextFunction): Promise<void> {
     const rawId = req.params?.id;
     if (typeof rawId !== 'string' || !/^\d+$/.test(rawId) || Number(rawId) > 0xffffffff) {
-      return next();
+      return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'User id is missing or not valid.'));
     }
     try {
       const target = await ObjectManagers.getInstance().UserManager.findOne({id: Number(rawId)});

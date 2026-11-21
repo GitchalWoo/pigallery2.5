@@ -6,6 +6,8 @@ import {Config} from '../../../../../src/common/config/private/Config';
 import {ErrorCodes, ErrorDTO} from '../../../../../src/common/entities/Error';
 import {UserRoles} from '../../../../../src/common/entities/UserDTO';
 
+import {UserRequestConstrainsMWs} from '../../../../../src/backend/middlewares/user/UserRequestConstrainsMWs';
+
 describe('UserMWs session updates', () => {
   let managers: ObjectManagers;
   const originals: Record<string, unknown> = {};
@@ -40,6 +42,16 @@ describe('UserMWs session updates', () => {
   afterEach(() => {
     for (const key of Object.keys(originals)) (managers as any)[key] = originals[key];
     Config.Users.authenticationRequired = originalAuthenticationRequired;
+  });
+
+  it('fails closed before querying when the target id is missing or malformed', async () => {
+    let reads = 0;
+    (managers as any).UserManager.findOne = async () => {reads++;};
+    for (const id of [undefined, '', '12suffix', '-1', '4294967296', ['1']]) {
+      await invoke(UserRequestConstrainsMWs.notAboveOwnRole, {params: {id}});
+      expect(errors[0]?.code).to.equal(ErrorCodes.INPUT_ERROR);
+    }
+    expect(reads).to.equal(0);
   });
 
   it('rejects invalid or excessive grants before writing and accepts numeric select values', async () => {
