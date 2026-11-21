@@ -305,7 +305,9 @@ describe('PublicRouter', () => {
     afterEach(tearDown);
 
     it('serves index.html without escaped EJS tags and resolves all script and lazy-chunk module imports', async () => {
-      const indexRes = await (request.execute(server.Server) as SuperAgentStatic).get('/');
+      const indexRes = await (request.execute(server.Server) as SuperAgentStatic)
+        .get('/')
+        .set('Accept-Language', 'en');
       indexRes.should.have.status(200);
       expect(indexRes.text).to.not.include('&lt;%');
       expect(indexRes.text).to.not.include('<%= ');
@@ -327,7 +329,9 @@ describe('PublicRouter', () => {
 
       for (const mod of referencedModules) {
         expect(fs.existsSync(path.join(localeDir, mod)), `Missing referenced module ${mod} in dist/en`).to.be.true;
-        const modRes = await (request.execute(server.Server) as SuperAgentStatic).get('/' + mod);
+        const modRes = await (request.execute(server.Server) as SuperAgentStatic)
+          .get('/' + mod)
+          .set('Accept-Language', 'en');
         modRes.should.have.status(200);
         expect(modRes.headers['content-type']).to.match(/javascript/);
       }
