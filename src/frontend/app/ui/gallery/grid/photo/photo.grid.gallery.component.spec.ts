@@ -7,7 +7,9 @@ import {ThumbnailManagerService} from '../../thumbnailManager.service';
 import {AuthenticationService} from '../../../../model/network/authentication.service';
 import {ExtensionService} from '../../../../model/extension.service';
 import {MediaButtonModalService} from './media-button-modal/media-button-modal.service';
+import {provideRouter} from '@angular/router';
 import {PageHelper} from '../../../../model/page.helper';
+import {QueryService} from '../../../../model/query.service';
 
 class MockThumbnailManagerService {
   mockThumbnail: any = {
@@ -32,6 +34,11 @@ class MockAuthenticationService {
 
 class MockExtensionService {
   UIExtensionConfig: unknown[] = [];
+}
+
+class MockQueryService {
+  getLightboxLink(media: any) { return {queryParams: {p: media?.name || ''}, state: {lightboxClosesWithBack: true, lightboxRevealsInGrid: true}}; }
+  getParams() { return {}; }
 }
 
 class MockMediaButtonModalService {
@@ -68,6 +75,8 @@ describe('GalleryPhotoComponent - Live Photo badge', () => {
         {provide: AuthenticationService, useClass: MockAuthenticationService},
         {provide: ExtensionService, useClass: MockExtensionService},
         {provide: MediaButtonModalService, useClass: MockMediaButtonModalService},
+        {provide: QueryService, useClass: MockQueryService},
+        provideRouter([]),
       ],
     }).compileComponents();
 
@@ -76,9 +85,9 @@ describe('GalleryPhotoComponent - Live Photo badge', () => {
   });
 
   it('should render the LIVE badge for paired Live Photos', () => {
-    component.gridMedia = makeGridMedia({
+    fixture.componentRef.setInput('gridMedia', makeGridMedia({
       liveVideoPath: 'photos/IMG_001_HEVC.MOV',
-    } as any);
+    } as any));
 
     fixture.detectChanges();
 
@@ -88,7 +97,7 @@ describe('GalleryPhotoComponent - Live Photo badge', () => {
   });
 
   it('should not render the LIVE badge for regular photos', () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
 
     fixture.detectChanges();
 
@@ -98,7 +107,7 @@ describe('GalleryPhotoComponent - Live Photo badge', () => {
   });
 
   it('should display loading component while loaded is false', () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     component.loaded = false;
     fixture.detectChanges();
 
@@ -111,7 +120,7 @@ describe('GalleryPhotoComponent - Live Photo badge', () => {
   });
 
   it('should remove loading component and add loaded class when loaded is true', () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     component.loaded = true;
     fixture.detectChanges();
 
@@ -124,7 +133,7 @@ describe('GalleryPhotoComponent - Live Photo badge', () => {
   });
 
   it('should mark loaded as true on onImageLoad()', () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     component.loaded = false;
     fixture.detectChanges();
 
@@ -147,6 +156,8 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
         {provide: AuthenticationService, useClass: MockAuthenticationService},
         {provide: ExtensionService, useClass: MockExtensionService},
         {provide: MediaButtonModalService, useClass: MockMediaButtonModalService},
+        {provide: QueryService, useClass: MockQueryService},
+        provideRouter([]),
       ],
     }).compileComponents();
 
@@ -155,7 +166,7 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
   });
 
   it('should request animated feedback while queued, actively generating, or awaiting decode', () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     mockThumbnailService.mockThumbnail.Available = true;
     mockThumbnailService.mockThumbnail.loading = false;
     mockThumbnailService.mockThumbnail.Error = false;
@@ -170,7 +181,7 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
   });
 
   it('should show static warning on thumbnail service error', () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     mockThumbnailService.mockThumbnail.Available = false;
     mockThumbnailService.mockThumbnail.loading = false;
     mockThumbnailService.mockThumbnail.Error = true;
@@ -184,7 +195,7 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
   });
 
   it('should show static warning on img element error', () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     mockThumbnailService.mockThumbnail.Available = true;
     mockThumbnailService.mockThumbnail.Error = false;
     fixture.detectChanges();
@@ -202,7 +213,7 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
   });
 
   it('should clear local image error when thumbnail receives a new source via OnLoad', () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     mockThumbnailService.mockThumbnail.Available = true;
     mockThumbnailService.mockThumbnail.Src = 'http://example.com/thumb1.jpg';
     fixture.detectChanges();
@@ -216,7 +227,7 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
   });
 
   it('should keep placeholder mounted while decode is pending and remove upon resolution', async () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     fixture.detectChanges();
 
     let resolveDecode: () => void = () => {};
@@ -236,7 +247,7 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
   });
 
   it('should fall back to loaded=true when decode rejects on a valid image', async () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     fixture.detectChanges();
 
     const imgEl = component.imageRef.nativeElement;
@@ -250,7 +261,7 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
   });
 
   it('should not mark loaded=true when decode rejects on an invalid image with naturalWidth 0', async () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     fixture.detectChanges();
 
     const imgEl = component.imageRef.nativeElement;
@@ -264,7 +275,7 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
   });
 
   it('should not mark loaded=true if component was destroyed during decode', async () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     fixture.detectChanges();
 
     let resolveDecode: () => void = () => {};
@@ -284,7 +295,7 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
   });
 
   it('should not mark loaded=true if image element identity changed during decode', async () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     fixture.detectChanges();
 
     let resolveDecode: () => void = () => {};
@@ -308,7 +319,7 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
   });
 
   it('should not mark loaded=true if image source changed during decode', async () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     fixture.detectChanges();
 
     let resolveDecode: () => void = () => {};
@@ -330,7 +341,7 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
   });
 
   it('should not mark loaded=true when old decode resolves after src changed but currentSrc is still old URL', async () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     mockThumbnailService.mockThumbnail.Available = true;
     mockThumbnailService.mockThumbnail.Src = 'http://example.com/thumb-old.jpg';
     fixture.detectChanges();
@@ -370,7 +381,7 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
   });
 
   it('should not mark loaded=true if image errored while decode was pending', async () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     fixture.detectChanges();
 
     let resolveDecode: () => void = () => {};
@@ -391,7 +402,7 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
   });
 
   it('should mark loaded=true in ngAfterViewInit when image is already cached', () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     fixture.detectChanges();
 
     const imgEl = component.imageRef.nativeElement;
@@ -404,7 +415,7 @@ describe('GalleryPhotoComponent - Loading feedback and error handling', () => {
   });
 
   it('should preserve usable preview when replacement thumbnail was loaded even if full thumbnail fails', () => {
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     component.loaded = true; // replacement preview already loaded
     mockThumbnailService.mockThumbnail.Error = true;
     fixture.detectChanges();
@@ -431,12 +442,14 @@ describe('GalleryPhotoComponent - Geometry and Visibility', () => {
         {provide: AuthenticationService, useClass: MockAuthenticationService},
         {provide: ExtensionService, useClass: MockExtensionService},
         {provide: MediaButtonModalService, useClass: MockMediaButtonModalService},
+        {provide: QueryService, useClass: MockQueryService},
+        provideRouter([]),
       ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(GalleryPhotoComponent);
     component = fixture.componentInstance;
-    component.gridMedia = makeGridMedia();
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
     fixture.detectChanges();
   });
 

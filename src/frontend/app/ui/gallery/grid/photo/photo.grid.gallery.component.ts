@@ -1,11 +1,13 @@
-import {Component, ElementRef, Input, type OnDestroy, type OnInit, type AfterViewInit, ViewChild, ChangeDetectionStrategy, ChangeDetectorRef} from '@angular/core';
+import {Component, ElementRef, type OnDestroy, type OnInit, type AfterViewInit, ViewChild, ChangeDetectionStrategy, ChangeDetectorRef, computed, inject, input} from '@angular/core';
 import {type Dimension, type IRenderable} from '../../../../model/IRenderable';
 import {GridMedia} from '../GridMedia';
-import {RouterLink} from '@angular/router';
+import {type Params, RouterLink} from '@angular/router';
 import {Thumbnail, ThumbnailManagerService,} from '../../thumbnailManager.service';
 import {Config} from '../../../../../../common/config/public/Config';
 import {PageHelper} from '../../../../model/page.helper';
+import {type MediaDTO} from '../../../../../../common/entities/MediaDTO';
 import {type PhotoDTO, type PhotoMetadata,} from '../../../../../../common/entities/PhotoDTO';
+import {QueryParams} from '../../../../../../common/QueryParams';
 import {SearchQueryTypes, type TextSearch, TextSearchQueryMatchTypes,} from '../../../../../../common/entities/SearchQueryDTO';
 import {AuthenticationService} from '../../../../model/network/authentication.service';
 import {ExtensionService} from '../../../../model/extension.service';
@@ -17,6 +19,8 @@ import {SafeHtmlPipe} from '../../../../pipes/SafeHTMLPipe';
 import {type IClientMediaButtonConfig} from '../../../../../../common/entities/extension/IClientUIConfig';
 import {Utils} from '../../../../../../common/Utils';
 import {SearchQueryUtils} from '../../../../../../common/SearchQueryUtils';
+import {QueryService} from '../../../../model/query.service';
+import {ScrollRestorationService} from '../../../../model/scroll-restoration.service';
 
 export interface IClientMediaButtonConfigWithBaseApiPath extends IClientMediaButtonConfig {
   extensionBasePath: string;
@@ -36,9 +40,35 @@ export interface IClientMediaButtonConfigWithBaseApiPath extends IClientMediaBut
   ]
 })
 export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit, OnDestroy {
-  @Input() gridMedia: GridMedia;
+  private queryService = inject(QueryService);
+  private scrollRestoration = inject(ScrollRestorationService);
+
+  readonly gridMedia = input.required<GridMedia>();
+  readonly shownBefore = input(false);
+  readonly mediaIdFn = input<((media: MediaDTO) => string) | null>(null);
+  readonly extraQueryParams = input<Params>({});
+  fadeIn = false;
+
   @ViewChild('img', {static: false}) imageRef: ElementRef;
   @ViewChild('photoContainer', {static: true}) container: ElementRef;
+
+  readonly lightboxLink = computed(() => {
+    const media = this.gridMedia().media;
+    const link = this.queryService.getLightboxLink(media);
+    const idFn = this.mediaIdFn();
+    const extra = this.extraQueryParams();
+    if (!idFn && Object.keys(extra).length === 0) {
+      return link;
+    }
+    return {
+      queryParams: {
+        ...link.queryParams,
+        ...extra,
+        ...(idFn ? {[QueryParams.gallery.photo]: idFn(media)} : {}),
+      },
+      state: link.state,
+    };
+  });
 
   thumbnail: Thumbnail;
   keywords: { value: string; type: SearchQueryTypes }[] = null;
@@ -75,19 +105,20 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
   }
 
   get Title(): string {
+    const gm = this.gridMedia();
     if (Config.Gallery.captionFirstNaming === false) {
-      return this.gridMedia.media.name;
+      return gm.media.name;
     }
-    if ((this.gridMedia.media as PhotoDTO).metadata.caption) {
-      if ((this.gridMedia.media as PhotoDTO).metadata.caption.length > 20) {
+    if ((gm.media as PhotoDTO).metadata.caption) {
+      if ((gm.media as PhotoDTO).metadata.caption.length > 20) {
         return (
-          (this.gridMedia.media as PhotoDTO).metadata.caption.substring(0, 17) +
+          (gm.media as PhotoDTO).metadata.caption.substring(0, 17) +
           '...'
         );
       }
-      return (this.gridMedia.media as PhotoDTO).metadata.caption;
+      return (gm.media as PhotoDTO).metadata.caption;
     }
-    return this.gridMedia.media.name;
+    return gm.media.name;
   }
 
   updateMediaButtons(): void {
@@ -109,10 +140,10 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
     });
 
     this.mediaButtons = allButtons.filter(button => {
-      if (this.gridMedia.isVideo() && button.skipVideos) {
+      if (this.gridMedia().isVideo() && button.skipVideos) {
         return false;
       }
-      if (this.gridMedia.isPhoto() && button.skipPhotos) {
+      if (this.gridMedia().isPhoto() && button.skipPhotos) {
         return false;
       }
 
@@ -129,7 +160,7 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
   }
 
   matchesMetadataFilter(filters: { field: string, comparator: '>=' | '<=' | '==', value: string | number }[]): boolean {
-    const metadata = this.gridMedia.media.metadata;
+    const metadata = this.gridMedia().media.metadata;
 
     // All filters must match (AND logic)
     return filters.every(filter => {
@@ -163,7 +194,9 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
   }
 
   ngOnInit(): void {
-    this.thumbnail = this.thumbnailService.getThumbnail(this.gridMedia);
+    this.fadeIn = this.scrollRestoration.restoreTarget() === null && !this.shownBefore();
+    const gm = this.gridMedia();
+    this.thumbnail = this.thumbnailService.getThumbnail(gm);
     this.requestedSrc = this.thumbnail?.Src ?? null;
     this.loadVersion = 0;
     this.thumbnail.OnLoad = () => {
@@ -174,7 +207,7 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
       }
       this.changeDetector.markForCheck();
     };
-    const metadata = this.gridMedia.media.metadata as PhotoMetadata;
+    const metadata = gm.media.metadata as PhotoMetadata;
     if (
       (metadata.keywords && metadata.keywords.length > 0) ||
       (metadata.faces && metadata.faces.length > 0)
@@ -333,13 +366,14 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
   }
 
   getPositionText(): string {
-    if (!this.gridMedia || !this.gridMedia.isPhoto() || !(this.gridMedia.media as PhotoDTO).metadata.positionData) {
+    const gm = this.gridMedia();
+    if (!gm || !gm.isPhoto() || !(gm.media as PhotoDTO).metadata.positionData) {
       return '';
     }
     return ( //not much space in the gridview, so we only deliver city, or state or country
-      (this.gridMedia.media as PhotoDTO).metadata.positionData.city ||
-      (this.gridMedia.media as PhotoDTO).metadata.positionData.state ||
-      (this.gridMedia.media as PhotoDTO).metadata.positionData.country || ''
+      (gm.media as PhotoDTO).metadata.positionData.city ||
+      (gm.media as PhotoDTO).metadata.positionData.state ||
+      (gm.media as PhotoDTO).metadata.positionData.country || ''
     ).trim();
   }
 
@@ -370,9 +404,9 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
     }
 
     if (button.popup) {
-      this.modalService.showModal(button, this.gridMedia);
+      this.modalService.showModal(button, this.gridMedia());
     } else {
-      this.modalService.executeButtonAction(button, this.gridMedia);
+      this.modalService.executeButtonAction(button, this.gridMedia());
     }
   }
 

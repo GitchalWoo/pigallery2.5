@@ -1,51 +1,61 @@
-<div #gridContainer [style.min-height]="containerMinHeight+'px'"
-  [style.width]="renderDelayTimer ? containerWidth+'px' : ''">
-  @if (mediaToRender?.length > 0) {
-    @for (group of mediaToRender; track group) {
-      <div class="d-inline-block media-group">
-        @if (group.name) {
-          @switch (HeaderMethod) {
-            @case (GroupByTypes.Rating) {
-              <div class="mt-4 mb-3">
-                <h6 class="ms-2">
-                  @for (i of [0,1,2,3,4]; track i) {
-                    <ng-icon
-                    [name]="(i < (group.name | parseInt)) ? 'ionStar' : 'ionStarOutline'"></ng-icon>
-                  }
-                </h6>
-              </div>
+<!-- only the lines on and near the screen are rendered, the paddings stand for the others: the page has its full height -->
+<div #gridContainer class="grid-container"
+  [style.width.px]="pinnedWidth()"
+  [style.padding-top.px]="padding().top"
+  [style.padding-bottom.px]="padding().bottom">
+  <div #linesContainer>
+    @for (line of renderedLines(); track line.key) {
+      <div class="grid-line">
+        @for (segment of line.segments; track segment.key) {
+          <!-- a group with a blog is alone on its line: the blog is as wide as the grid, not only as its photos -->
+          <div class="media-group" [class.d-inline-block]="!segment.blog" [class.d-block]="segment.blog">
+            @if (segment.header) {
+              @switch (headerMethod()) {
+                @case (GroupByTypes.Rating) {
+                  <div class="group-header">
+                    <h6 class="ms-2">
+                      @for (i of [0,1,2,3,4]; track i) {
+                        <ng-icon [name]="(i < (segment.group.name | parseInt)) ? 'ionStar' : 'ionStarOutline'" />
+                      }
+                    </h6>
+                  </div>
+                }
+                @case (GroupByTypes.PersonCount) {
+                  <div class="group-header">
+                    <h6 class="ms-2">{{ segment.group.name }}
+                      <ng-icon class="ms-1" name="ionPeopleOutline" />
+                    </h6>
+                  </div>
+                }
+                @default {
+                  <div class="group-header"><h6 class="ms-2">{{ segment.group.name }}</h6></div>
+                }
+              }
             }
-            @case (GroupByTypes.PersonCount) {
-              <div class="mt-4 mb-3">
-                <h6 class="ms-2">{{ group.name }}
-                  <ng-icon class="ms-1" name="ionPeopleOutline"></ng-icon>
-                </h6>
-              </div>
+            @if (showInlineBlog() && segment.header && segment.group.date) {
+              <app-gallery-blog [date]="segment.group.date"
+                [open]="segment.blogOpen"
+                (openChange)="onBlogOpenChange(segment.group.date, $event)" />
             }
-            @default {
-              <div class="mt-4 mb-3"><h6 class="ms-2">{{ group.name }}</h6></div>
-            }
-          }
+            <div class="media-grid">
+              @for (tile of segment.tiles; track tile.gridMedia) {
+                <app-gallery-grid-photo
+                  [gridMedia]="tile.gridMedia"
+                  [shownBefore]="tile.shownBefore"
+                  [mediaIdFn]="mediaIdFn()"
+                  [extraQueryParams]="extraQueryParams()"
+                  [style.width.px]="tile.gridMedia.renderWidth"
+                  [style.height.px]="tile.gridMedia.renderHeight"
+                  [style.margin.px]="IMAGE_MARGIN()" />
+              }
+            </div>
+          </div>
         }
-        @if (showInlineBlog && group.date && (blogService.getMarkDowns(group.date) | async)?.length > 0) {
-          <app-gallery-blog
-            [date]="group.date"
-            [open]="blogOpen">
-          </app-gallery-blog>
-        }
-        <div class="media-grid">
-          @for (gridPhoto of group.media; track gridPhoto) {
-            <app-gallery-grid-photo
-              (click)="photoClicked(gridPhoto.media)"
-              [gridMedia]="gridPhoto"
-              [style.width.px]="gridPhoto.renderWidth"
-              [style.height.px]="gridPhoto.renderHeight"
-              [style.margin.px]="IMAGE_MARGIN">
-            </app-gallery-grid-photo>
-          }
-        </div>
       </div>
     }
-  }
-
+  </div>
 </div>
+
+@if (showScrollLabel()) {
+  <app-gallery-grid-scroll-label [layout]="layout()" [scroller]="scroller" (dragChange)="onScrollHandleDrag($event)" />
+}
