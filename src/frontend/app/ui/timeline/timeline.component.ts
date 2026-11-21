@@ -39,20 +39,7 @@ import {
   type TimelineMonth,
 } from './timeline-grouping';
 import {TimelineLightboxSource} from './timeline-lightbox.source';
-import {type TimelineSummaryDTO} from '../../../../common/entities/TimelineDTO';
-
-export interface TimelineRailMonth {
-  key: string;
-  month: number;
-  count: number;
-  shortName: string;
-  longName: string;
-}
-
-export interface TimelineRailYear {
-  year: number;
-  months: TimelineRailMonth[];
-}
+import {TimelineScrubberComponent} from './scrubber/timeline-scrubber.component';
 
 @Component({
   selector: 'app-timeline',
@@ -63,8 +50,9 @@ export interface TimelineRailYear {
     FrameComponent,
     GalleryGridComponent,
     GalleryLightboxComponent,
-    MediaButtonModalComponent
-]
+    MediaButtonModalComponent,
+    TimelineScrubberComponent,
+  ]
 })
 export class TimelineComponent implements OnInit, AfterViewInit, OnDestroy {
   static readonly AT_PARAM = 'at';
@@ -80,14 +68,11 @@ export class TimelineComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly mediaIdFn = getTimelineMediaId;
   readonly headerMethod = GroupByTypes.Date;
   atMonth: TimelineMonth = null;
-  atMonthName: string = null;
   currentMonthKey: string = null;
-  railYears: TimelineRailYear[] = [];
 
   private observer: IntersectionObserver;
   private subscription = new Subscription();
   private renderedItems: MediaDTO[] = null;
-  private railSummary: TimelineSummaryDTO = null;
   private restoreTimer: number = null;
   private recheckTimer: number = null;
   private scrollFrame: number = null;
@@ -185,10 +170,10 @@ export class TimelineComponent implements OnInit, AfterViewInit, OnDestroy {
     }).catch(console.error);
   }
 
-  onPickMonth(event: Event): void {
-    const select = event.target as HTMLSelectElement;
-    this.jumpToMonth(select.value);
-    select.value = '';
+  get hasSummary(): boolean {
+    return (this.store.summary?.years ?? []).some(
+      (y): boolean => y.months.some((m): boolean => m.count > 0)
+    );
   }
 
   openMedia(media: MediaDTO): void {
@@ -241,7 +226,6 @@ export class TimelineComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.atMonth = month;
-    this.atMonthName = month ? this.formatMonth(month, 'MMMM y') : null;
     const before = month ? getTimelineMonthEnd(month) : null;
     if (before !== this.store.startBefore) {
       this.startAt(month);
@@ -260,33 +244,6 @@ export class TimelineComponent implements OnInit, AfterViewInit, OnDestroy {
     this.currentMonthKey = month ? formatTimelineMonth(month) : null;
     PageHelper.ScrollY = 0;
     this.loadMore();
-  }
-
-  private formatMonth(month: TimelineMonth, format: string): string {
-    return formatDate(getTimelineMonthEnd({year: month.year, month: month.month - 1}), format, this.locale, 'UTC');
-  }
-
-  private updateRail(): void {
-    if (this.railSummary === this.store.summary) {
-      return;
-    }
-    this.railSummary = this.store.summary;
-    this.railYears = (this.store.summary?.years ?? [])
-      .map((y): TimelineRailYear => ({
-        year: y.year,
-        months: y.months
-          .filter((m): boolean => m.count > 0)
-          .map((m): TimelineRailMonth => ({
-            key: formatTimelineMonth({year: y.year, month: m.month}),
-            month: m.month,
-            count: m.count,
-            shortName: this.formatMonth({year: y.year, month: m.month}, 'MMM'),
-            longName: this.formatMonth({year: y.year, month: m.month}, 'MMMM y'),
-          }))
-          .reverse(),
-      }))
-      .filter((y): boolean => y.months.length > 0)
-      .reverse();
   }
 
   private updateCurrentMonth(): void {
@@ -317,7 +274,6 @@ export class TimelineComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.store.shouldRefreshSummary) {
       this.store.loadSummary().catch(console.error);
     }
-    this.updateRail();
     if (this.renderedItems !== this.store.items || this.store.items.length !== this.groupedCount()) {
       this.renderedItems = this.store.items;
       this.mediaGroups = groupTimelineByDay(
