@@ -1,4 +1,4 @@
-<app-gallery-lightbox #lightbox></app-gallery-lightbox>
+<app-gallery-lightbox [grid]="lightboxGrid"></app-gallery-lightbox>
 <app-frame>
   <div body class="container-fluid app-gallery-body timeline-body" [class.timeline-has-rail]="hasSummary">
     @if (store.newDataAvailable) {
@@ -10,11 +10,10 @@
 
     <app-gallery-grid [mediaGroups]="mediaGroups"
       [mediaIdFn]="mediaIdFn"
+      [extraQueryParams]="extraQueryParams"
       [groupHeaderMethod]="headerMethod"
       [showInlineBlog]="false"
-      [revealMediaId]="revealMediaId"
-      (mediaOpen)="openMedia($event)"
-    (missingMedia)="onMissingMedia($event)"></app-gallery-grid>
+      [showScrollLabel]="false"></app-gallery-grid>
 
     <div #sentinel class="timeline-sentinel" aria-hidden="true"></div>
 

@@ -1,28 +1,33 @@
-<div #photoContainer class="photo-container rounded" (mouseover)="mouseOver()" (mouseout)="mouseOut()">
+<div #photoContainer class="photo-container rounded"
+  (mouseenter)="mouseOver()" (mouseleave)="mouseOut()"
+  (focusin)="mouseOver()" (focusout)="mouseOut()">
 
-  @if (!loaded || hasError) {
-    <app-gallery-grid-photo-loading
-      [error]="hasError"
-      [animate]="!hasError">
-    </app-gallery-grid-photo-loading>
-  }
+  <a class="photo-link" [routerLink]="[]" [queryParams]="lightboxLink().queryParams" [state]="lightboxLink().state">
+    @if (!loaded || hasError) {
+      <app-gallery-grid-photo-loading
+        [error]="hasError"
+        [animate]="!hasError">
+      </app-gallery-grid-photo-loading>
+    }
 
-  @if (thumbnail.Available) {
-    <img alt="{{gridMedia.media.name}}" #img [src]="thumbnail.Src"
-         decoding="sync"
-         (load)="onImageLoad()"
-         (error)="onImageError()"
-         [class.loaded]="loaded">
-  }
+    @if (thumbnail.Available) {
+      <img alt="{{gridMedia().media.name}}" #img [src]="thumbnail.Src"
+           decoding="sync"
+           (load)="onImageLoad()"
+           (error)="onImageError()"
+           [class.loaded]="loaded"
+           [class.fade-in]="fadeIn">
+    }
+  </a>
 
-  @if (gridMedia.isVideo()) {
+  @if (gridMedia().isVideo()) {
     <div class="video-indicator">
-      {{gridMedia.Video.metadata.duration  | duration}}
+      {{gridMedia().Video.metadata.duration  | duration}}
       <ng-icon name="ionVideocamOutline"></ng-icon>
     </div>
   }
 
-  @if (gridMedia.isLivePhoto()) {
+  @if (gridMedia().isLivePhoto()) {
     <div class="live-photo-indicator">
       LIVE
     </div>
@@ -53,7 +58,7 @@
     <div class="info rounded-bottom">
       <div class="photo-name">{{Title}}</div>
 
-      @if (gridMedia.hasPositionData()) {
+      @if (gridMedia().hasPositionData()) {
         <div class="photo-position">
           <ng-icon name="ionLocationOutline"></ng-icon>
           @if (getPositionText()) {

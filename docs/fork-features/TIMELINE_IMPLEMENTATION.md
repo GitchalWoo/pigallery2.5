@@ -293,9 +293,10 @@ Status legend: `todo`, `in progress`, `review`, `done`.
 | 10 | `TimelineStore` + `loadNextPage()` (coalescing, stale responses, Back/scroll restore, logout) | 1 | Medium–high, races | Opus | done |
 | 11 | `TimelineComponent` wiring, day grouping, auto-load sentinel, hidden features | 1 | Medium | Opus | done |
 | 12 | Summary endpoint, SQL day buckets on both dialects, LRU + generation cache | 2 | Moderate | Luna + Opus check | done |
-| 13 | Year/month rail, mobile picker, `?at=YYYY-MM` | 2 | Medium | Opus | review |
-| 14 | Dense justified layout, thumbnail-size control | 3 | UI design | Opus (iterating with maintainer) | deferred |
-| 15 | Windowed rendering and other scale items | 4 | As measured | Opus | deferred |
+| 13 | Year/month rail, mobile picker, `?at=YYYY-MM` | 2 | Medium | Opus | done |
+| 14 | Proportional Timeline Scrubber (`<app-timeline-scrubber>`) + virtualized grid (`GridLayout`/`GridScroller`/`GridScrollWindow`) + `LightboxGrid` | 2–4 | Medium–high | Ported from `Gitchalwoo/timeline` + upstream `#1384`/`#1369`/`#1394`–`#1397` | done |
+| 15 | Dense justified layout, thumbnail-size control | 3 | UI design | Opus (iterating with maintainer) | deferred |
+| 16 | Upward paging after `?at=`, bounded page caches, deep-link anchors for unloaded pages | 4 | As measured | Opus | deferred |
 
 Luna progress (2026-10-04): Tasks 1 and 3 are complete; task 2 is implemented
 and its paging tests are ready for Opus review. Tasks 4 and 5 are implemented,

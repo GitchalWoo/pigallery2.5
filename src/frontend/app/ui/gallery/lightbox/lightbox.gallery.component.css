@@ -9,7 +9,7 @@
   cursor: pointer;
 }
 
-app-gallery-lightbox-media {
+app-gallery-lightbox-photo {
   overflow: hidden;
 }
 
@@ -22,10 +22,6 @@ app-gallery-lightbox-media {
   height: 100%; /* Full height */
   background-color: black;
   transition: all 0.2s ease-in-out;
-  -o-transition: all 0.2s ease-in-out;
-  -ms-transition: all 0.2s ease-in-out;
-  -webkit-transition: all 0.2s ease-in-out;
-  -moz-transition: all 0.2s ease-in-out;
 }
 
 app-info-panel {
@@ -36,10 +32,6 @@ app-info-panel {
   right: 0;
   top: 0;
   transition: all 0.2s ease-in-out;
-  -o-transition: all 0.2s ease-in-out;
-  -ms-transition: all 0.2s ease-in-out;
-  -moz-transition: all 0.2s ease-in-out;
-  -webkit-transition: all 0.2s ease-in-out;
 }
 
 
@@ -47,10 +39,10 @@ ng-icon.h2 ::ng-deep svg {
   vertical-align: bottom;
 }
 
-.lightbox-load-state {
-  position: absolute;
-  bottom: 5rem;
+.lightbox-load-status {
+  position: fixed;
+  bottom: 1.5rem;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 1;
+  z-index: 1105;
 }

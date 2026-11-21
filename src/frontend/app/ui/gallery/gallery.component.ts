@@ -1,4 +1,4 @@
-import {Component, HostListener, type OnDestroy, type OnInit, ViewChild, ChangeDetectionStrategy, signal} from '@angular/core';
+import {Component, HostListener, type OnDestroy, type OnInit, ChangeDetectionStrategy, signal, viewChild} from '@angular/core';
 import {AuthenticationService} from '../../model/network/authentication.service';
 import {ActivatedRoute, type Params, Router} from '@angular/router';
 import {ContentService} from './content.service';
@@ -59,8 +59,7 @@ import {type MediaDTO} from '../../../../common/entities/MediaDTO';
 ]
 })
 export class GalleryComponent implements OnInit, OnDestroy {
-  @ViewChild(GalleryGridComponent, {static: false})
-  grid: GalleryGridComponent;
+  readonly grid = viewChild(GalleryGridComponent);
 
   public showSearchBar = false;
   public showShare = false;
