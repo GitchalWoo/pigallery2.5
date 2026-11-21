@@ -14,10 +14,16 @@ on:
     branches:
       - master
       - experimental
+    paths:
+      - 'docker/**'
+      - '.github/workflows/dockerfile-hadolint.yml'
   push:
     branches:
       - master
       - experimental
+    paths:
+      - 'docker/**'
+      - '.github/workflows/dockerfile-hadolint.yml'
 
 jobs:
   dockerfile_linting:
