@@ -118,17 +118,6 @@ export class GalleryComponent implements OnInit, OnDestroy {
   readonly mediaIdFn = (media: MediaDTO): string =>
     this.queryService.getMediaStringId(media);
 
-  openMedia(media: MediaDTO): void {
-    this.router.navigate([], {
-      queryParams: this.queryService.getParams({media}),
-    }).catch(console.error);
-  }
-
-  closeMissingMedia(): void {
-    this.router.navigate([], {queryParams: this.queryService.getParams()})
-      .catch(console.error);
-  }
-
   get ContentWrapper(): ContentWrapperWithError {
     return this.contentLoader.content.value;
   }

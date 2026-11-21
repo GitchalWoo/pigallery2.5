@@ -576,4 +576,158 @@ describe('GalleryLightboxComponent', () => {
     expect(overlayService.hideOverlay).not.toHaveBeenCalled();
     vi.restoreAllMocks();
   });
+
+  describe('fork hardening & paged LightboxGrid', () => {
+    it('loads the next page at the end of loaded media and opens the next item', async () => {
+      const page2Photo = createMockPhoto('photo4.jpg', 3);
+      const hasMore = signal(true);
+      const loadState = signal<'idle' | 'loading' | 'error'>('idle');
+      const pagedGrid: LightboxGrid = {
+        media: grid.media,
+        revealMedia: grid.revealMedia,
+        hasMore,
+        loadState,
+        loadMore: vi.fn(async () => {
+          grid.media.set([...photos, page2Photo]);
+          hasMore.set(false);
+        }),
+      };
+      fixture.componentRef.setInput('grid', pagedGrid);
+      await openPhoto('photo3.jpg');
+
+      component.nextImage();
+      await settle();
+
+      expect(pagedGrid.loadMore).toHaveBeenCalledTimes(1);
+      expect(photoParam()).toBe('photo4.jpg');
+    });
+
+    it('does not navigate when the viewer closes while a page is loading', async () => {
+      let resolvePage!: () => void;
+      const hasMore = signal(true);
+      const pagedGrid: LightboxGrid = {
+        media: grid.media,
+        revealMedia: grid.revealMedia,
+        hasMore,
+        loadState: signal('idle'),
+        loadMore: vi.fn(() => new Promise<void>(resolve => {
+          resolvePage = (): void => {
+            grid.media.set([...photos, createMockPhoto('photo4.jpg', 3)]);
+            hasMore.set(false);
+            resolve();
+          };
+        })),
+      };
+      fixture.componentRef.setInput('grid', pagedGrid);
+      await openPhoto('photo3.jpg');
+
+      component.nextImage();
+      component.hide();
+      await settle();
+      resolvePage();
+      await settle();
+
+      expect(component.status()).toBe(LightboxStates.Closed);
+      expect(photoParam()).toBeUndefined();
+    });
+
+    it('stops loading and does not navigate after the viewer is destroyed mid-load', async () => {
+      let resolvePage!: () => void;
+      const pagedGrid: LightboxGrid = {
+        media: grid.media,
+        revealMedia: grid.revealMedia,
+        hasMore: signal(true),
+        loadState: signal('idle'),
+        loadMore: vi.fn(() => new Promise<void>(resolve => {
+          resolvePage = resolve;
+        })),
+      };
+      fixture.componentRef.setInput('grid', pagedGrid);
+      await openPhoto('photo3.jpg');
+
+      component.nextImage();
+      fixture.destroy();
+      resolvePage();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pagedGrid.loadMore).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps loading through pages that add nothing until a new item appears', async () => {
+      let calls = 0;
+      const hasMore = signal(true);
+      const pagedGrid: LightboxGrid = {
+        media: grid.media,
+        revealMedia: grid.revealMedia,
+        hasMore,
+        loadState: signal('idle'),
+        loadMore: vi.fn(async () => {
+          calls++;
+          if (calls === 3) {
+            grid.media.set([...photos, createMockPhoto('photo4.jpg', 3)]);
+            hasMore.set(false);
+          }
+        }),
+      };
+      fixture.componentRef.setInput('grid', pagedGrid);
+      await openPhoto('photo3.jpg');
+
+      component.nextImage();
+      await settle();
+
+      expect(pagedGrid.loadMore).toHaveBeenCalledTimes(3);
+      expect(photoParam()).toBe('photo4.jpg');
+    });
+
+    it('cancels active media request when closing or destroying lightbox', async () => {
+      await openPhoto('photo1.jpg');
+      const cancelSpy = vi.spyOn(component.mediaElement(), 'cancelActiveRequest');
+
+      component.hide();
+      await settle();
+      expect(cancelSpy).toHaveBeenCalled();
+
+      await openPhoto('photo2.jpg');
+      cancelSpy.mockClear();
+      fixture.destroy();
+      expect(cancelSpy).toHaveBeenCalled();
+    });
+
+    it('promotes Opening to Open via safety fallback timer if animation does not settle', async () => {
+      // Animation that never fires 'finish' (e.g. hidden tab)
+      HTMLElement.prototype.animate = (): Animation => {
+        const a = new EventTarget() as Animation;
+        a.cancel = vi.fn();
+        return a;
+      };
+      mockActivatedRoute.queryParams.next({[QueryParams.gallery.photo]: 'photo1.jpg'});
+      fixture.detectChanges();
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+      expect(component.status()).toBe(LightboxStates.Opening);
+
+      await vi.advanceTimersByTimeAsync(500);
+      fixture.detectChanges();
+      expect(component.status()).toBe(LightboxStates.Open);
+    });
+
+    it('safely computes lightBoxPhotoDimension with missing or 0x0 metadata size without NaN', async () => {
+      const zeroPhoto = createMockPhoto('zero.jpg', 0);
+      zeroPhoto.metadata.size = {width: 0, height: 0};
+      grid.media.set([zeroPhoto]);
+      await openPhoto('zero.jpg');
+
+      const dim = (component as unknown as {calcLightBoxPhotoDimension(p: MediaDTO): {width: number; height: number; top: number; left: number}}).calcLightBoxPhotoDimension(zeroPhoto);
+      expect(Number.isNaN(dim.width)).toBe(false);
+      expect(Number.isNaN(dim.height)).toBe(false);
+      expect(Number.isNaN(dim.top)).toBe(false);
+      expect(Number.isNaN(dim.left)).toBe(false);
+    });
+
+    it('keeps app-top-loading-bar inside #root above lightbox layers', () => {
+      const rootEl: HTMLElement = component.root().nativeElement;
+      const loadingBar = rootEl.querySelector('app-top-loading-bar');
+      expect(loadingBar).toBeTruthy();
+    });
+  });
 });
