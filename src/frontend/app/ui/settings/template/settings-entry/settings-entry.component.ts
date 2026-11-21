@@ -29,6 +29,9 @@ import { WorkflowComponent } from '../../workflow/workflow.component';
 import { PopoverDirective } from 'ngx-bootstrap/popover';
 import { SafeHtmlPipe } from '../../../../pipes/SafeHTMLPipe';
 
+import {UserRoles} from '../../../../../../common/entities/UserDTO';
+import {AuthenticationService} from '../../../../model/network/authentication.service';
+
 interface IState {
   shouldHide(): boolean;
 
@@ -111,6 +114,7 @@ export class SettingsEntryComponent
   constructor(private searchQueryParserService: SearchQueryParserService,
               public settingsService: SettingsService,
               private modalService: BsModalService,
+              private authService: AuthenticationService,
   ) {
   }
 
@@ -371,6 +375,9 @@ export class SettingsEntryComponent
       } else {
         state.optionsView = enumToTranslatedArray(eClass);
       }
+    }
+    if ((state.isEnumType ? state.type : state.arrayType) === UserRoles) {
+      return state.optionsView.filter(option => this.authService.isAuthorized(Number(option.key)));
     }
     return state.optionsView;
   }
