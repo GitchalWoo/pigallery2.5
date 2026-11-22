@@ -171,16 +171,7 @@ grep -E 'passing|failing|^\s+[0-9]+\) ' /tmp/pg-tests.log
 
 For UI changes, also check the behavior in a browser: `npm run build-en`, then `npm start -- --Server-port=8081` (use 8082 if 8081 is busy). List each check in the PR.
 
-For auth, session, upload, or UI changes, verify in the user's 8086 test container. **Always warn the user before running this script** because it replaces `pigallery25-test` and wipes its `db`, `tmp`, and `config` folders (and requires the branch to be pushed to `origin` first):
-
-```bash
-cd "/mnt/Duzy/git/disk_troubleshooting/Nuc Lab/apps/pigallery2-dev"
-./run-test-container-pigallery25.sh <branch> --port 8086 \
-  --media /home/michalwalczak/media/pigallery25 \
-  --data /home/michalwalczak/.cache/pigallery25-test --no-seed
-```
-
-The generated admin password is in `/home/michalwalczak/.cache/pigallery25-test/db/admin-bootstrap.txt`.
+For auth, session, upload, or UI changes, also verify in a local test container (e.g. on port 8086) built from the pushed branch. **Always warn the user before running any destructive test-container reset/deploy script** that wipes its `db`, `tmp`, and `config` directories. The generated admin password is written to `<data-dir>/db/admin-bootstrap.txt`.
 
 ### 7. Update Ledger, Push & Open PR
 
