@@ -4,7 +4,7 @@
 
 - Keep this fork as the integration base when bringing in useful upstream changes.
 - Follow [Upstream-Porting.md](docs/fork-features/Upstream-Porting.md) for conflict rules, commit attribution (`cherry-pick -x` / `adapted from`), mandatory test coverage (Mocha SQLite + MariaDB for backend, Vitest for any hand-adapted frontend code), and container verification.
-- Port remaining upstream work pack by pack (one branch and one PR per pack, in order) following [Upstream-Port-Packs.md](docs/fork-features/Upstream-Port-Packs.md).
+- Port remaining upstream work pack by pack (one branch and one PR per pack, in order) following [Upstream-Port-Packs.md](docs/fork-features/Upstream-Port-Packs.md). Before changing code in a pack, post its impact report (changes, impact on the current solution, regressions, scope changes) and wait for user approval.
 - Track upstream `bpatrik/pigallery2` commits and PRs (Ported / Planned / Deferred / Obsolete) in [Upstream-Ledger.md](docs/fork-features/Upstream-Ledger.md). Run `node scripts/upstream-status.mjs --fetch` to check for new upstream commits since the last watermark, and update the ledger in every port PR.
 - Preserve existing fork commits and uncommitted user changes. Validate each port with focused and full tests before considering it complete.
 

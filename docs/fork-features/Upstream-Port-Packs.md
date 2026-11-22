@@ -16,7 +16,7 @@ Execution plan for porting every remaining upstream change from [bpatrik/pigalle
 4. **Security-sensitive work is isolated.** Uploads (P02), directory access (P03), sharing (P04), OIDC (P05) and session handling (P06) each have their own pack. That lets a reviewer read them with the fork's hardening rules in mind.
 5. **Only P03 may change the database schema.** It adds a `DatabaseMigrations` step. If any other pack seems to need a schema change or a `DataStructureVersion` bump, stop and ask the user.
 6. **Split a pack when it grows too large.** If a pack exceeds about 60 changed source files (excluding `.xlf`) or mixes backend and UI review, split it into `p<NN>a`/`p<NN>b` along the line given in the pack. The first part must leave `master` working and must fail closed.
-7. **Step 0 of every pack is a presence check.** Several commits may already be in the fork, hand-ported without trailers (mostly in PR #45 and PR #41). For each commit in the pack:
+7. **Step 0 of every pack is a presence check, followed by the impact report** (see "Impact report before any code" below). No code changes before the user approves the report. Several commits may already be in the fork, hand-ported without trailers (mostly in PR #45 and PR #41). For each commit in the pack:
    - Read the upstream diff (`git show <hash> -- src`).
    - Check whether the behavior already exists on `master`.
    - If it does, port nothing. Move it to **Obsolete / Skipped** in the ledger with the reason "Already in fork via PR #NN".
@@ -30,8 +30,31 @@ Execution plan for porting every remaining upstream change from [bpatrik/pigalle
    - a Vitest spec for every hand-adapted frontend behavior;
    - Mocha coverage on SQLite **and** MariaDB for backend changes;
    - a ledger update that moves items to **Ported** with the fork PR number, or to **Obsolete / Skipped** with a reason;
-   - a PR description with ported, adapted and skipped tables and full test results.
+   - a PR description with the final impact report (see below), ported, adapted and skipped tables, and full test results.
    - Push and open the PR only when the user asks.
+
+### Impact report before any code (mandatory for every pack)
+
+Before writing or cherry-picking any code for a pack, the agent posts an **impact report** to the user and **waits for approval**. Research is allowed: reading upstream diffs, the step 0 presence check, `git merge-tree` dry runs, reading fork code. Changing files is not. The report covers:
+
+1. **What changes.** Per commit: the user-visible behavior, the files and modules it touches in the fork, and whether it will be cherry-picked, adapted, or found already present.
+2. **Impact on the current solution.**
+   - What existing fork behavior changes, including defaults, config keys, API responses and error codes, UI flows and styling.
+   - Effects on stored data, on existing configurations, and on Docker or nginx setups.
+3. **Regression risks.**
+   - Which fork hardening or fork-only features the change touches (`SafePath`, `wx`, cookies/CSRF, `AUD2`, `RateLimiter`, 401 guard, `DatabaseMigrations`, Prism, Zone.js, `LightboxGesturesDirective`, PR #45 grid).
+   - What could break, and which tests will cover it, both existing tests and the new ones planned.
+4. **Scope changes.** Anything that differs from this file:
+   - commits already in the fork;
+   - commits needing hunks from another pack;
+   - a pack too large and needing a split;
+   - a decision in section 2 that does not fit the code;
+   - extra work found (migrations, config renames, docs).
+
+   Say what is proposed instead.
+5. **Open questions** for the user, each with a recommended answer.
+
+Keep it short: a table per commit plus bullet lists. If the user approves, proceed as reported. If, during the work, the scope or a risk turns out different from the report, stop and post a short report update before continuing. The PR description repeats the final impact report, marking what changed since the approved version.
 
 ### Ground rules for every pack (from Upstream-Porting.md)
 
