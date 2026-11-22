@@ -3,6 +3,7 @@
 Evergreen guide for porting changes from upstream [bpatrik/pigallery2](https://github.com/bpatrik/pigallery2) (`upstream` remote) into this fork (`GitchalWoo/pigallery2.5`, `origin` remote). Read [AGENTS.md](../../AGENTS.md) first for general project setup and test environment details.
 
 - **Commit & PR tracker:** [Upstream-Ledger.md](Upstream-Ledger.md) tracks every upstream PR/commit since the common ancestor (`dc456950`) as **Ported**, **Planned**, **Deferred**, or **Obsolete / Skipped**.
+- **Work queue:** [Upstream-Port-Packs.md](Upstream-Port-Packs.md) groups all remaining upstream changes into ordered packs (one PR each) with pre-made decisions.
 - **Worked examples:** [PR #41](https://github.com/GitchalWoo/pigallery2.5/pull/41) (Tier 1 security & correctness fixes), [PR #42](https://github.com/GitchalWoo/pigallery2.5/pull/42) (`#1212` session revocation).
 
 ## Repository Facts & Fork vs. Upstream Rules
