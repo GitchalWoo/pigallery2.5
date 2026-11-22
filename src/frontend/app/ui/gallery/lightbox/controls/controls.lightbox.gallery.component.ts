@@ -20,6 +20,7 @@ import {FormsModule} from '@angular/forms';
 import {RouterLink} from '@angular/router';
 import {SearchQueryUtils} from '../../../../../../common/SearchQueryUtils';
 import {LightboxGesturesDirective} from './lightbox-gestures.directive';
+import {NotificationService} from '../../../../model/notification.service';
 
 
 @Component({
@@ -73,7 +74,8 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
     public fullScreenService: FullScreenService,
     private authService: AuthenticationService,
     private fileSizePipe: FileSizePipe,
-    private datePipe: DatePipe
+    private datePipe: DatePipe,
+    private notification: NotificationService
   ) {
     this.controllersDimmed = this.lightboxService.controllersDimmed;
     this.searchEnabled = this.authService.canSearch();
@@ -286,13 +288,7 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
       case 'd':
       case 'D':
         if (event.shiftKey) {
-          const link = document.createElement('a');
-          link.setAttribute('type', 'hidden');
-          link.href = this.activePhoto.gridMedia.getOriginalMediaPath();
-          link.download = this.activePhoto.gridMedia.media.name;
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
+          void this.downloadOriginal();
         }
         break;
       case 'Escape': // escape
@@ -304,6 +300,34 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
         }
         break;
     }
+  }
+
+  /**
+   * Downloads the original file. A file deleted from the disk stays in the DB until the next reindexing:
+   * it is checked first, so the user gets a message instead of a failed download (#1311).
+   */
+  public async downloadOriginal(event?: Event): Promise<void> {
+    event?.preventDefault();
+    const gridMedia = this.activePhoto?.gridMedia;
+    if (!gridMedia) {
+      return;
+    }
+    const url = gridMedia.getOriginalMediaPath();
+    try {
+      if ((await fetch(url, {method: 'HEAD'})).status === 404) {
+        this.notification.warning($localize`This file is not available anymore.`);
+        return;
+      }
+    } catch {
+      // offline: the browser shows its own error for the download
+    }
+    const link = document.createElement('a');
+    link.setAttribute('type', 'hidden');
+    link.href = url;
+    link.download = gridMedia.media.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   }
 
   public runSlideShow(): void {
