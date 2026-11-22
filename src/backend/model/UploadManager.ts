@@ -2,7 +2,7 @@ import {ProjectPath} from '../ProjectPath';
 import * as path from 'path';
 import * as fs from 'fs';
 import {SafePath} from './fileaccess/SafePath';
-import {SupportedFormats} from '../../common/SupportedFormats';
+import {UploadUtils} from '../../common/UploadUtils';
 import {FileAlreadyExists} from '../exceptions/FileAlreadyExists';
 import {DirectoryNotFound} from '../exceptions/DirectoryNotFound';
 import {ObjectManagers} from './ObjectManagers';
@@ -60,9 +60,15 @@ export class UploadManager {
     const relativeDir = directory || '';
     const fullDirPath = SafePath.resolve(ProjectPath.ImageFolder, relativeDir);
 
-    const basename = path.basename(file.originalname);
-    const extension = path.extname(basename).toLowerCase().substring(1);
-    if (!this.isSupportedExtension(extension)) {
+    const basename = file.originalname;
+    // the filename must be a plain name, no path components
+    if (!basename || basename === '.' || basename === '..' ||
+      /[/\\\0]/.test(basename) || path.basename(basename) !== basename) {
+      throw new Error('Invalid filename: ' + basename);
+    }
+
+    const extension = UploadUtils.getExtension(basename);
+    if (!UploadUtils.isUploadableExtension(extension, Config.Upload.blockedExtensions)) {
       throw new Error('Unsupported file format: ' + extension);
     }
 
@@ -117,11 +123,5 @@ export class UploadManager {
     if (!(await fs.promises.stat(fullDirPath)).isDirectory()) {
       throw new DirectoryNotFound('Directory not found');
     }
-  }
-
-  private isSupportedExtension(ext: string): boolean {
-    return SupportedFormats.Photos.includes(ext) ||
-      SupportedFormats.Videos.includes(ext) ||
-      SupportedFormats.MetaFiles.includes(ext);
   }
 }
