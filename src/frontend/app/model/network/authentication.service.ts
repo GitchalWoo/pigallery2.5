@@ -98,10 +98,14 @@ export class AuthenticationService {
 
   public async logout(reason?: ErrorCodes): Promise<void> {
     await this.userService.logout();
-    this.user.next(null);
-    // even on logout try to get sharing user if it's a sharing
     await this.shareService.wait();
-    if (this.shareService.isSharing() && reason !== ErrorCodes.NOT_AUTHENTICATED_SHARING) {
+    const resumeSharing = this.shareService.isSharing() && reason !== ErrorCodes.NOT_AUTHENTICATED_SHARING;
+    const publicSharing = resumeSharing ? await this.shareService.getPublicSharing() : null;
+    if (publicSharing?.passwordProtected === false) {
+      this.shareService.dropSharing();
+    }
+    this.user.next(null);
+    if (resumeSharing && this.shareService.isSharing()) {
       await this.getSessionUser();
     }
   }

@@ -11,7 +11,7 @@ export class StringifySearchQuery implements PipeTransform {
   }
 
   transform(query: SearchQueryDTO): string {
-    return this.searchQueryParserService.stringify(query);
+    return query ? this.searchQueryParserService.stringify(query) : '';
   }
 }
 

@@ -541,6 +541,15 @@
               </div>
             </div>
           }
+          @case ('DirectorySearchConfig-Array') {
+            <app-settings-directory-search-list class="w-100"
+              [list]="state.value"
+              [idName]="idName"
+              [disabled]="state.readonly"
+              [newItem]="newDirectorySearch"
+              (changed)="onChange(null)">
+            </app-settings-directory-search-list>
+          }
           @case ('ClientSortingConfig-Array') {
             @for (_ of state.value; track _; let i = $index) {
               <div class="row col-12 mt-1 m-0 p-0">

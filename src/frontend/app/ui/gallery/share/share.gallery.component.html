@@ -37,17 +37,17 @@
         <div class="col-5 col-sm-3">
           @if (!sharing) {
             <button
-              id="getShareButton" name="getShareButton"
+              type="button" id="getShareButton" name="getShareButton"
               (click)="share()"
-              [disabled]="!shareForm.form.valid"
+              [disabled]="shareRequestPending || !shareForm.form.valid"
               class="btn btn-primary btn-block float-end"
             i18n>Share</button>
           }
           @if (sharing) {
             <button
-              id="copyButton" name="copyButton"
+              type="button" id="copyButton" name="copyButton"
               (click)="copy()"
-              [disabled]="!shareForm.form.valid"
+              [disabled]="!urlValid || !shareForm.form.valid"
               class="btn btn-primary btn-block float-end"
             i18n>Copy</button>
           }
@@ -63,7 +63,7 @@
             name="sharing-dir"
             id="sharing-dir"
             class="full-width form-control"
-            [ngModel]="galleryService.isSearchResult() ? (currentQuery | searchQuery) : sharingTarget">
+            [ngModel]="isDirectorySharing ? sharingTarget : (currentQuery | searchQuery)">
         </div>
       </div>
 
@@ -74,10 +74,26 @@
             <span
             i18n>at least</span>&nbsp;
           }
-          <span class="fw-bold">{{ currentMediaCount }}</span>&nbsp;<span i18n>photos and videos.</span>&nbsp;<span i18n>Folders are not shared.</span>
+          <span class="fw-bold">{{ sharedMediaCount }}</span>&nbsp;<span i18n>photos and videos.</span>
+          @if (!isDirectorySharing) {
+            &nbsp;<span i18n>Folders are not shared.</span>
+          }
         </small>
       </div>
     </div>
+
+    @if (isDirectorySharing) {
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="share-recursive" name="share-recursive"
+          [disabled]="shareRequestPending || !canShareSubfolders"
+          [ngModel]="canShareSubfolders && input.recursive" (ngModelChange)="input.recursive = $event; update()"
+          [attr.aria-describedby]="canShareSubfolders ? null : 'share-recursive-unavailable'">
+        <label class="form-check-label" for="share-recursive" i18n>Include subfolders</label>
+        @if (!canShareSubfolders) {
+          <div id="share-recursive-unavailable" class="form-text" i18n>Subfolders can only be included when the folder path contains no * or ? characters.</div>
+        }
+      </div>
+    }
 
     <div class="row">
       <div class="col-4">
@@ -93,6 +109,7 @@
           class="form-control"
           name="share-password"
           type="password"
+          [disabled]="shareRequestPending"
           (change)="update()"
           [(ngModel)]="input.password"
           i18n-placeholder
@@ -109,12 +126,13 @@
         <input class="form-control" [(ngModel)]="input.valid.amount" (change)="update()"
           name="valid-from"
           id="valid-from"
-          [disabled]="input.valid.type === ValidityTypes.Forever"
+          [disabled]="shareRequestPending || input.valid.type === ValidityTypes.Forever"
           type="number" min="1" step="1"/>
       </div>
       <div class="col-4" style="padding-left: 1px">
         <select class="form-select"
           [(ngModel)]="input.valid.type" (change)="update()" name="valid-to"
+          [disabled]="shareRequestPending"
           required>
           <option [ngValue]="ValidityTypes.Minutes" i18n>Minutes</option>
           <option [ngValue]="ValidityTypes.Hours" i18n>Hours</option>
@@ -133,8 +151,7 @@
         (click)="showSharingList = true"
         class="list-shares-button m-0">
         <span class="badge text-bg-secondary me-1">{{ activeShares.length }}</span>
-        <ng-container i18n>active share(s) for this folder.
-      </ng-container>
+        <ng-container i18n>active share(s)</ng-container>
         <ng-icon name="ionChevronForwardOutline" class="ms-1"></ng-icon>
       </a>
     }
@@ -143,6 +160,9 @@
         <thead>
           <tr>
             <th i18n>Sharing</th>
+            @if (isDirectorySharing) {
+              <th scope="col" i18n>Includes subfolders</th>
+            }
             @if (IsAdmin) {
               <th i18n>Creator</th>
             }
@@ -151,17 +171,24 @@
           </tr>
         </thead>
         <tbody>
-          @for (share of activeShares; track share) {
+          @for (share of activeShares; track share.sharingKey) {
             <tr>
               <td class="ellipsisContainer"><a [href]="sharingService.getUrl(share)" class="ellipsisText">{{share.sharingKey}}</a></td>
+              @if (isDirectorySharing) {
+                <td>{{ isRecursive(share) ? text.Yes : text.No }}</td>
+              }
               @if (IsAdmin) {
                 <td>{{share.creator.name}}</td>
               }
               <td>{{share.expires | date}}</td>
-              <td>
-                <button (click)="deleteSharing(share)"
+              <td class="text-end text-nowrap">
+                <button type="button" class="btn btn-sm btn-outline-secondary me-1"
+                  (click)="copy(sharingService.getUrl(share))" aria-label="Copy link" i18n-aria-label>
+                  <ng-icon name="ionCopyOutline"></ng-icon>
+                </button>
+                <button type="button" (click)="deleteSharing(share)"
                   [disabled]="share.sharingKey == sharing?.sharingKey"
-                  class="btn btn-danger float-end">
+                  class="btn btn-sm btn-danger">
                   <ng-icon name="ionTrashOutline" title="Delete" i18n-title></ng-icon>
                 </button>
               </td>

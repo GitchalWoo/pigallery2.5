@@ -1,3 +1,4 @@
+import {TextSearchMatchingTypes} from './TextSearchMatchingTypes';
 import {Component, EventEmitter, forwardRef, Input, Output, ChangeDetectionStrategy} from '@angular/core';
 import {
   DatePatternFrequency,
@@ -126,7 +127,7 @@ export class GallerySearchQueryEntryComponent
       return [];
     }
     if (this.IsTextQuery) {
-      return ['~', '!~', '=', '!=', 'glob', '!glob'];
+      return TextSearchMatchingTypes.values;
     }
     if (this.queryEntry?.type === SearchQueryTypes.orientation) {
       // orientation has no negation: its opposite is the other orientation
@@ -139,64 +140,22 @@ export class GallerySearchQueryEntryComponent
     if (!this.IsTextQuery) {
       return (this.queryEntry as NegatableSearchQuery)?.negate ? '!=' : '=';
     }
-    if (this.AsTextQuery.matchType === TextSearchQueryMatchTypes.exact_match) {
-      if (this.AsTextQuery.negate) {
-        return '!=';
-      } else {
-        return '=';
-      }
-    } else if (typeof this.AsTextQuery.matchType === 'undefined' ||
-      this.AsTextQuery.matchType === TextSearchQueryMatchTypes.like) {
-      if (this.AsTextQuery.negate) {
-        return '!~';
-      } else {
-        return '~';
-      }
-    } else if (this.AsTextQuery.matchType === TextSearchQueryMatchTypes.globMatch) {
-      if (this.AsTextQuery.negate) {
-        return '!glob';
-      } else {
-        return 'glob';
-      }
-    }
+    return TextSearchMatchingTypes.get(this.AsTextQuery);
   }
 
   set SelectedMatchType(value: string) {
     if (this.IsListQuery) {
       return;
     }
-    this.AsTextQuery.negate = value.charAt(0) === '!';
-    if (!this.IsTextQuery) {
-      return;
-    }
-    if (value === '!~' || value === '~') {
-      this.AsTextQuery.matchType = TextSearchQueryMatchTypes.like;
-    } else if (value === '!=' || value === '=') {
-      this.AsTextQuery.matchType = TextSearchQueryMatchTypes.exact_match;
-    } else if (value === '!glob' || value === 'glob') {
-      this.AsTextQuery.matchType = TextSearchQueryMatchTypes.globMatch;
+    if (this.IsTextQuery) {
+      TextSearchMatchingTypes.set(this.AsTextQuery, value);
+    } else {
+      (this.queryEntry as NegatableSearchQuery).negate = value === '!=';
     }
   }
 
-  getMatchingTypesDescription(type: string) {
-    switch (type) {
-      case '=':
-        if (this.IsTextQuery) {
-          return $localize`Exact match (e.g.: bb matches for \' bb \')`;
-        }
-        return $localize`Exact match`;
-      case '!=':
-        return $localize`Exact negative match`;
-      // only supported for text queries
-      case '~':
-        return $localize`Open and start match (e.g.: bb matches for \'abba\' and \' bb \')`;
-      case '!~':
-        return $localize`Negative open and start  match`;
-      case 'glob':
-        return $localize`glob match (supports wildcards: * and ?)`;
-      case '!glob':
-        return $localize`Negative glob match`;
-    }
+  getMatchingTypesDescription(type: string): string {
+    return TextSearchMatchingTypes.getDescription(type, this.IsTextQuery);
   }
 
   validate(control: UntypedFormControl): ValidationErrors {

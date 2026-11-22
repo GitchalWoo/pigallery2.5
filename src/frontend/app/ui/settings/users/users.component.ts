@@ -15,13 +15,15 @@ import {StringifyRole} from '../../../pipes/StringifyRolePipe';
 import {type UserSettingsDTO} from '../../../../../common/entities/UserSettingsDTO';
 import {type SearchQueryDTO, SearchQueryTypes, type TextSearch} from '../../../../../common/entities/SearchQueryDTO';
 import {GallerySearchFieldComponent} from '../../gallery/search/search-field/search-field.gallery.component';
+import {DirectorySearchListSettingsComponent} from '../directory-search-list/directory-search-list.settings.component';
 
 @Component({
   selector: 'app-settings-users',
   templateUrl: './users.component.html',
   styleUrls: ['./users.component.css'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  imports: [FormsModule, NgClass, NgIconComponent, ModalDirective, StringifyRole, GallerySearchFieldComponent]
+  imports: [FormsModule, NgClass, NgIconComponent, ModalDirective, StringifyRole, GallerySearchFieldComponent,
+    DirectorySearchListSettingsComponent]
 })
 export class UsersComponent implements OnInit {
 
@@ -157,7 +159,9 @@ export class UsersComponent implements OnInit {
     this.editSettings = {
       overrideAllowBlockList: fresh.overrideAllowBlockList ?? false,
       allowQuery: fresh.allowQuery ?? defaultQuery,
-      blockQuery: fresh.blockQuery ?? defaultQuery
+      blockQuery: fresh.blockQuery ?? defaultQuery,
+      allowDirectoryList: Utils.clone(fresh.allowDirectoryList ?? []),
+      blockDirectoryList: Utils.clone(fresh.blockDirectoryList ?? [])
     } as UserSettingsDTO;
     this.newPassword = '';
     this.confirmNewPassword = '';
@@ -187,6 +191,10 @@ export class UsersComponent implements OnInit {
         overrideAllowBlockList: this.editSettings.overrideAllowBlockList,
         allowQuery: this.editSettings.overrideAllowBlockList ? this.editSettings.allowQuery : null,
         blockQuery: this.editSettings.overrideAllowBlockList ? this.editSettings.blockQuery : null,
+        allowDirectoryList: this.editSettings.overrideAllowBlockList
+          ? this.editSettings.allowDirectoryList.filter(rule => rule.value.trim()) : null,
+        blockDirectoryList: this.editSettings.overrideAllowBlockList
+          ? this.editSettings.blockDirectoryList.filter(rule => rule.value.trim()) : null,
       } as UserSettingsDTO;
       if (this.newPassword && this.newPassword.length > 0) {
         settings.newPassword = this.newPassword;

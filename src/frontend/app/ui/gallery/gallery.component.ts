@@ -11,7 +11,6 @@ import {interval, Observable, Subscription} from 'rxjs';
 import {PageHelper} from '../../model/page.helper';
 import {type PhotoDTO} from '../../../../common/entities/PhotoDTO';
 import {QueryParams} from '../../../../common/QueryParams';
-import {take} from 'rxjs/operators';
 import {GallerySortingService, type GroupedDirectoryContent} from './navigator/sorting.service';
 import {FilterService} from './filter/filter.service';
 import {PiTitleService} from '../../model/pi-title.service';
@@ -242,14 +241,21 @@ export class GalleryComponent implements OnInit, OnDestroy {
       params[QueryParams.gallery.sharingKey_params] &&
       params[QueryParams.gallery.sharingKey_params] !== ''
     ) {
-      const sharing = await this.shareService.currentSharing
-        .pipe(take(1))
-        .toPromise();
+      const key = params[QueryParams.gallery.sharingKey_params];
+      const sharing = await this.shareService.getCurrentSharing();
+      if (key !== this.shareService.getSharingKey()) {
+        return;
+      }
       const qParams: { [key: string]: any } = {};
       qParams[QueryParams.gallery.sharingKey_query] =
         this.shareService.getSharingKey();
+      const route = this.shareService.getDefaultRoute(sharing);
+      if (!route) {
+        await this.router.navigate(['/error']);
+        return;
+      }
       this.router
-        .navigate(['/search', JSON.stringify(sharing.searchQuery)], {queryParams: qParams})
+        .navigate(route, {queryParams: qParams})
         .catch(console.error);
       return;
     }
