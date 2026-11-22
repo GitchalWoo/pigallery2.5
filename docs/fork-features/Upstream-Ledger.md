@@ -3,7 +3,7 @@
 Ever-growing ledger tracking upstream commits and pull requests from [bpatrik/pigallery2](https://github.com/bpatrik/pigallery2) since the fork's common ancestor (`dc456950`, 2026-08-25). See [Upstream-Porting.md](Upstream-Porting.md) for porting rules, conflict guidelines, and testing requirements.
 
 - **Common ancestor:** `dc456950` (2026-08-25)
-- **Last surveyed upstream commit:** `b46e2b47` (2026-11-22)
+- **Last surveyed upstream commit:** `2a9d28f4` (2026-11-22)
 
 Run `node scripts/upstream-status.mjs --fetch` to list new upstream commits. Before merging a ledger update, run `node scripts/upstream-status.mjs --fetch --check` to verify the watermark, PR entries, direct commit references and individual hashes in the selective PR table.
 
@@ -29,6 +29,7 @@ Run `node scripts/upstream-status.mjs --fetch` to list new upstream commits. Bef
 | [#1400](https://github.com/bpatrik/pigallery2/pull/1400) (security changes) | Enforce role grants, target-account permissions and album list access on the server. Filter settings role choices for the signed-in user. | [#44](https://github.com/GitchalWoo/pigallery2.5/pull/44) (merged at `b141cd0d`) | Adapted `cc4e220e` as `680ea986`, `a5b99924` as `d39508eb`, and the fail-closed user-ID guard from `31fe743d` as `9f3483e5`. Album writes require Admin. Existing Developer-only read configurations retain that threshold. Album-delete issue #1173 is tracked separately. |
 | [#1384](https://github.com/bpatrik/pigallery2/pull/1384), [#1369](https://github.com/bpatrik/pigallery2/pull/1369), [#1394](https://github.com/bpatrik/pigallery2/pull/1394), [#1395](https://github.com/bpatrik/pigallery2/pull/1395), [#1396](https://github.com/bpatrik/pigallery2/pull/1396), [#1397](https://github.com/bpatrik/pigallery2/pull/1397) | Lightbox Back-button close (`LightboxGrid`), scroll date label (`showScrollLabel`), and virtualized grid (`GridLayout`, `GridScroller`, `GridScrollWindow`, `ScrollRestorationService`) | [#45](https://github.com/GitchalWoo/pigallery2.5/pull/45) | Kept Zone.js, `TopLoadingBarComponent`, `LightboxGesturesDirective`, `cancelActiveRequest()`, `openingTimer` fallback, `0×0` NaN guard, Web Animations API lightbox, and Prism styles; bridged RxJS services in `GalleryGridComponent`; extended `LightboxGrid` for Timeline and removed `LightboxSource.ts` / `timeline-lightbox.source.ts`. Included `#1391` loop-restart next-button icon and proportional Timeline Scrubber (`feat/timeline-scrubber`). Verified with Mocha (1,048 SQLite+MariaDB), Vitest (362), Cypress (19 active), and 8086 test container manual checks. |
 | [#1418](https://github.com/bpatrik/pigallery2/pull/1418) (`4b416523`, `0b72047c`), [#1414](https://github.com/bpatrik/pigallery2/pull/1414) (`d80050bb`), `23e9b9b2` (#1379), `13b54a9b`, `01790a52` (#1381), `053ea9f7`, `7b5b6e51` (#1371) | P01 Small independent fixes: info-panel map pin & recenter, optional `Server.Log.file` with 10 MB rotation, album delete confirmation, folder-named ZIP downloads, deleted-file download toast, lat/lng 0 markers & short GPX stats, ZIP query-param joining | [#46](https://github.com/GitchalWoo/pigallery2.5/pull/46) | `Server.Log.file` contained inside `ProjectPath.DBFolder` via `SafePath` + `ConfigDiagnostics` warning; `hasGPS()` also fixed for `0` coordinates; `85edb8da` already in fork (`6b0d52d2`). Added Vitest and Mocha coverage. |
+| [#1205](https://github.com/bpatrik/pigallery2/pull/1205) backend (`2615d2a5`, `4d5a77ba`, `39ce8072`, `0583c8c8` test), `e25f3fda`, `a041087a`, `d12e0936` (backend), `32d5d33f`, `db893d56` (#1385 route check), [#1212](https://github.com/bpatrik/pigallery2/pull/1212) omitted hunks (`22088d3a`, `c363b088`), [#1367](https://github.com/bpatrik/pigallery2/pull/1367) (`924b629f`, with `6d3e525c`, `b25edc33`) | P03a Directory access core (backend): `DirectoryAccess`, `Users.allowDirectoryList` / `blockDirectoryList`, `SharingEntity.directoryQuery`, `authoriseDirectory` on folder listing and upload, `DIRECTORY_NOT_FOUND` (404) for hidden and missing folders, 404 for hidden media, `/share/:key/publicInfo`, `NOT_AUTHENTICATED_SHARING`, schema version 45 | [#48](https://github.com/GitchalWoo/pigallery2.5/pull/48) | `DatabaseMigrations` 44 → 45 (no drop; SQLite sharing table rebuilt with foreign keys off). Kept `SafePath`, SHA-256 projection keys, PR #42 session stamps, CSRF and the 401 guard. `NOT_AUTHENTICATED_SHARING` only for requests with a sharing key. Listing route narrowed to `/gallery`, `/gallery/`, `/gallery//`. Media lists no longer hide folders (startup warning, docs). Upload check runs before the body is read. UI (share dialog, list editor, folder errors) follows in P03b. |
 | [#1378](https://github.com/bpatrik/pigallery2/pull/1378) (`4ebb11e5`, `9c3e7e2b`, `b22d438a`), `c98c2151`, `1e65ca19` (#1274) | P02 Streaming uploads: uploads stream to `TempFolder/upload` instead of RAM, `Upload.maxFileSizeMB` (default 50) rejects only the large file, `Upload.blockedExtensions` (`pg2conf`, `svg`), strict filenames, UTF-8 filenames, 403 `PERMISSION_DENIED` for unwritable folders, uploader names rejected files and offers a retry | [#47](https://github.com/GitchalWoo/pigallery2.5/pull/47) | Move with `link()` + `unlink()` (never `rename()`), exclusive `wx` copy fallback on `EXDEV`/`EPERM`; `SafePath`, 5-slot semaphore, 10 files/parts and PR #41 `DirectoryNotFound` kept; temp files removed before answering and at startup. Uploader adapted to the fork's progress cards (no upstream toast system); also fixed whole-request errors showing as success. `6d52e24d` not applied: nginx examples keep `55m` with request buffering on. Mocha + Vitest coverage. |
 
 ---
@@ -39,15 +40,15 @@ Every remaining upstream change is grouped into 15 packs. Each pack is one branc
 
 | Order | Upstream PR / Commits | Pack | Effort | Notes for This Fork |
 | --- | --- | --- | --- | --- |
-| 3 | [#1205](https://github.com/bpatrik/pigallery2/pull/1205) (`2615d2a5`, `4d5a77ba`, `39ce8072`, `0583c8c8`), `e25f3fda`, `a041087a`, `d12e0936`, `32d5d33f`, #1385 route check, #1212 omitted hunks, #1367 | P03 Directory access core | L | Only pack allowed to change the schema: `DatabaseMigrations` step. Drop upstream SQLite LIKE escaping. |
-| 4 | [#1374](https://github.com/bpatrik/pigallery2/pull/1374) (sharing and frame commits), [#1392](https://github.com/bpatrik/pigallery2/pull/1392) (`251d002f`), #1351 | P04 Sharing follow-ups | M | Enforce "prevent downloading" on the server. |
+| 3 | [#1205](https://github.com/bpatrik/pigallery2/pull/1205) frontend hunks (`2615d2a5`, `39ce8072`, `0583c8c8`), `d12e0936` (`ShareService`) | P03b Directory access UI | M | Backend landed in P03a. Share dialog (folder sharing, "Include subfolders"), directory list editor, user settings, breadcrumb parents, folder-not-found navigation, gallery cache user fix, Cypress `share.cy.ts`. Prism styling, fork component style. |
+| 4 | [#1374](https://github.com/bpatrik/pigallery2/pull/1374) (sharing and frame commits), [#1392](https://github.com/bpatrik/pigallery2/pull/1392) (`251d002f`), #1351 | P04 Sharing follow-ups | M | Enforce "prevent downloading" on the server. May add one additive `DatabaseMigrations` step for `SharingEntity.preventDownload`. |
 | 5 | #1170, `52ebed29`, `e007799f`, `f6b22cdd`, `fe16aead` (#1303), #1349 | P05 OIDC & urlBase | M | Keep `AUD2`; skip the scheme-update hunk. |
 | 6 | #1370, `207eef3f`, [#1372](https://github.com/bpatrik/pigallery2/pull/1372) (`14122e83`, `7de24347`, `93cfd4b5`), `527c8abc`, `09baecd1`, `6c74f3e1` (#1379), #1348 | P06 Session UX & API errors | M | Adapt `c76f1daf`: keep the `ErrorInterceptor` 401 guard. Deep-link return must not allow open redirects. |
 | 7 | `12bccc5a`, `eb9b96b4`, `dea51c73`, `0d262ff3`, #1214, `a9066201` (#1274) | P07 Search correctness | M | Escaping hunks only; no mysql2 upgrade. |
 | 8 | [#1380](https://github.com/bpatrik/pigallery2/pull/1380) (`e0d265c6`, `38fc861f`, `74473bc5`, `3a8428de`, `3f7f68ff`, `7177c0e1`), [#1383](https://github.com/bpatrik/pigallery2/pull/1383) | P08 Accent-insensitive search | M | Default off; MariaDB parity (no `ł`/`ø`/`ß` folding, documented). |
 | 9 | [#1198](https://github.com/bpatrik/pigallery2/pull/1198), `97dfe73a`, `91e374dc` (#1371), #1343 (`e60006ac`), `9fe9eaaf` | P09 Directory sort/group | M | Re-implement grouping in the PR #45 virtual grid; check Timeline grouping. |
 | 10 | #1376, `2a83005f`, `1ade9d14` (#1394), `c214d5c5`, `a41d5577`, `8b5b6419`, `947f95d7` (#1410), #1416, #1391, `9ae9151b`, `bdc57a25`, `1d17b220`, `2cb691c4` | P10 Grid & lightbox parity | M | Many items may already be in PR #45; check each first. |
-| 11 | #1373 (`990af75e`, `7dab232d`, `3aec0c9e`, `182f0912`), `68ca3a26`, `7eafcd1e`, `be5da765`, `f01bf7e5` (#1371), `94e26454` | P11 Loading, empty & error states | M | Prism styling; folder errors use P03 `DIRECTORY_NOT_FOUND`. |
+| 11 | #1373 (`990af75e`, `7dab232d`, `3aec0c9e`, `182f0912`), `68ca3a26`, `7eafcd1e`, `be5da765`, `f01bf7e5` (#1371), `94e26454`, `2a9d28f4` | P11 Loading, empty & error states | M | Prism styling; folder errors use P03 `DIRECTORY_NOT_FOUND`. `2a9d28f4` changes the `IndexingManager` empty-root guard. |
 | 12 | `8ba350db`, `36fc6635`, `9b6911b1`, `5c161414` (#1274), `bcad49e0`, `d5fd716b`, `c4f66156`, #1390, #1393, #1352 | P12 Shell, admin & PWA polish | M | Fork design wins styling conflicts. |
 | 13 | #1168, `de4c72a4`, `33b99240`, `eebd645f`, #1200, `36caf087`, #1386, `bf6b8bc9` (#1394) | P13 Indexing, extensions & config | M | Independent of the other packs. Old configurations must keep loading. |
 | 14 | `a82bec8b`, `3a43889a`, `c7564ca8`, `1084031d`, `10165e9c`, `8d8a22c2`, #1353 | P14 Test infrastructure | M | `c7564ca8` changes runtime cover selection and collation. |
@@ -57,15 +58,13 @@ Every remaining upstream change is grouped into 15 packs. Each pack is one branc
 
 ## Deferred
 
-All items below are scheduled in [Upstream-Port-Packs.md](Upstream-Port-Packs.md) (P03, P04, P08).
+All items below are scheduled in [Upstream-Port-Packs.md](Upstream-Port-Packs.md) (P04, P08). Their `#1205` dependency is on `master` since P03a.
 
 | Upstream PR / Commit | Summary | Blocked By |
 | --- | --- | --- |
 | [#1392](https://github.com/bpatrik/pigallery2/pull/1392) (`251d002f`) | Prevent downloading option on shares | `#1205` |
 | [#1383](https://github.com/bpatrik/pigallery2/pull/1383) | Accent-aware directory allow/block lists | `#1205` |
 | [#1374](https://github.com/bpatrik/pigallery2/pull/1374) *(sharing fixes)* | Folder sharing edge-case fixes | `#1205` |
-| `32d5d33f` | Stop calling `AuthenticationMWs` from `GalleryMWs.listDirectory` | `#1205` |
-| [#1385](https://github.com/bpatrik/pigallery2/pull/1385) *(upload route check)* | Route-level `authoriseDirectory` check on uploads | `#1205` |
 
 ---
 
@@ -97,7 +96,6 @@ Every candidate below is assigned to a pack in [Upstream-Port-Packs.md](Upstream
 | --- | --- | --- |
 | #1170, `52ebed29` | Share links and other application URLs under a non-root `urlBase` | Check generated URLs as well as redirects. |
 | `e007799f`, `f6b22cdd`, #1303 (`fe16aead`) | Non-RS256 providers, userinfo-only claims, OIDC links, user retention across schema changes, insecure-issuer warning | Preserve AUD2 account binding and in-place migrations. |
-| `e25f3fda`, `a041087a`, `d12e0936` | Password-protected share logout, auth middleware follow-up, default share view options | Compare with #1205 and merged #1212. |
 | `12bccc5a`, `eb9b96b4`, `dea51c73`, `0d262ff3` | SQL escaping, saved-search date ranges and missing search values | Check SQLite and MariaDB. |
 | #1168, `de4c72a4`, `eebd645f`, `33b99240` | Folder exclusion globs, case-sensitive folder/file matching and setting descriptions | Check existing configurations. |
 | #1200, `36caf087`, #1214 | Extension metadata filters, in-place refresh after metadata edits, mobile Enter key and form button types | Compare both search entry points. |
@@ -110,7 +108,8 @@ Every candidate below is assigned to a pack in [Upstream-Port-Packs.md](Upstream
 | #1343 (`e60006ac`), #1410 (`8b5b6419`, `947f95d7`) | Breadcrumb Home URL, opening a partially visible photo, grid info bar positioning | Review these behavior changes separately from Playwright and the modern theme. |
 | #1220, #1221, #1255, #1259, #1262, #1265, #1296, #1301 (behavioral hunks) | Changes mixed into tooling PRs include blog rendering, stable list keys, job defaults, notifications, share navigation, diagnostics and search input checks | Compare runtime changes when reviewing the affected feature. The stack migrations remain skipped. |
 | `a82bec8b`, `3a43889a`, `c7564ca8`, `1084031d`, `10165e9c`, `8d8a22c2` | DB test races, cache cleanup, deterministic covers, collation, teardown, MySQL reset and benchmark runner | Compare with the fork’s database test isolation and benchmark scripts. |
-| #1348, #1349, #1351, #1352, #1353, #1367 | Backend regression scenarios for API errors, users, sharing permissions, jobs, settings and gallery changes | Reuse applicable cases with the feature port. Preserve the fork’s upload-limit coverage. |
+| #1348, #1349, #1351, #1352, #1353 | Backend regression scenarios for API errors, users, sharing permissions, jobs, settings and gallery changes | Reuse applicable cases with the feature port. Preserve the fork’s upload-limit coverage. |
+| `2a9d28f4` | Empty gallery instead of a listing error for an empty photo folder on a new install; the empty-root guard stops indexing only when something is already indexed | Surveyed 2026-11-22 (`b46e2b47..2a9d28f4`); P11. Keep the guard against wiping the gallery from an unmounted drive. |
 | #1421, #1417, #1423, `03a6f7c7`, `5f0bd5e8` | Empty-folder upload hint (#1421), daily relative-date projection cache refresh (#1417), OIDC login errors & server path redaction (#1423), JPEG XL support (`03a6f7c7`), grid badge corner rounding (`5f0bd5e8`) | Surveyed 2026-11-22 (`c36b1fdc..b46e2b47`); compare with P05/P10/P11/P13 and Prism. #1421 was reviewed in P02 and moved to P11: it extends the #1373 empty state the fork does not have yet. |
 
 ### Commit decisions within selective PRs
@@ -121,13 +120,13 @@ Where this table says **Deferred**, the pack assignment in [Upstream-Port-Packs.
 | --- | --- | --- |
 | #1371 | **Ported** (P01): map/GPX `053ea9f7`, zip query parameters `7b5b6e51`. **Skipped**: face names `85edb8da` (already in fork via `6b0d52d2`) | **Deferred** for fork comparison: flattening `91e374dc`, grouping `97dfe73a`, notifications `7eafcd1e`, duplicates `be5da765` and `f01bf7e5`, slideshow `9ae9151b`. **Skipped** upstream e2e setup `b5f96bfd`. |
 | #1372 | **Planned** deep-link return `14122e83` and session-ended banner `7de24347` | **Deferred** password field reset `93cfd4b5`. **Skipped** test relabel `f31ddcc4` and lockfile `451bd3a8`. |
-| #1373 | No individually queued commit | **Deferred** loading and empty states, folder errors and unknown routes (`990af75e`, `7dab232d`, `3aec0c9e`, `182f0912`). Revisit folder errors with #1205. |
+| #1373 | No individually queued commit | **Deferred** loading and empty states, folder errors and unknown routes (`990af75e`, `7dab232d`, `3aec0c9e`, `182f0912`). Folder errors can use `DIRECTORY_NOT_FOUND` (P03a). |
 | #1374 | **Deferred** sharing permissions, expired links and guest navigation until #1205 (`b41608d6`, `a369c245`, `78e24893`, `ec95c780`) | **Deferred** empty random-link and frame results (`c0bc7229`, `d90170bb`) for separate comparison. **Skipped** translation refresh `fa70a527`. |
 | #1376 | No individually queued commit | **Deferred** history/scroll and fade behavior (`aa1a5fea`, `15eacc82`, `2379cd7f`, `74d8ce3c`) for comparison during #1384. Also compare keyboard and touch behavior (`e4476463`, `420bdbe4`). |
 | #1379 | **Ported** (P01): album deletion confirmation `23e9b9b2` | **Deferred** self-demotion guard `527c8abc`, admin-page redirect `09baecd1` and settings limits `6c74f3e1`. Review the guard alongside #1400. |
 | #1381 | **Ported** (P01): folder zip naming `13b54a9b`, deleted-file download feedback `01790a52` | — |
 | #1380 | **Planned** accent folding, search performance and autocomplete behavior (`e0d265c6`, `38fc861f`, `74473bc5`, `3a8428de`, `3f7f68ff`) | **Deferred** geocoding error handling `7177c0e1` for comparison. **Skipped** upstream config documentation convention `e8dd72cb`. |
-| #1385 | **Ported** upload fixes from `db893d56` with its route check **Deferred** until #1205 | **Skipped** upstream old-browser e2e fixture adjustment `b4dc9f46`. |
+| #1385 | **Ported** upload fixes from `db893d56` (PR #41) and its route check (P03a) | **Skipped** upstream old-browser e2e fixture adjustment `b4dc9f46`. |
 | #1394 | **Planned** grid rendering, scrolling and related config changes (`2a83005f`, `1ade9d14`, `bf6b8bc9`) | **Skipped** upstream e2e adjustments `003790d4`, `46d443f8` and sponsor markup `d1fea9a6`. |
 | #1400 | **Ported on the port branch**: role and album-read checks (`cc4e220e`, `a5b99924`), including the fail-closed guard from `31fe743d` | **Skipped** optional album creation/write roles (`1191b11a`, `f08aec3d`, `6952395f`, `676a2a2d` and corresponding hunks in later commits). |
 
@@ -136,6 +135,7 @@ Where this table says **Deferred**, the pack assignment in [Upstream-Port-Packs.
 | Upstream | Reason |
 | --- | --- |
 | `e47258fa` | Path containment follows the fork’s SafePath policy, as for #1300. |
+| `0583c8c8` (#1205, SQLite LIKE escaping hunk) | The fork has its own escaping (`ESCAPE '\\'`); P03a ported only the test, which covers directory searches and sharings. |
 | `6d52e24d` (#1378) | nginx examples at `500m` with `proxy_request_buffering off`. The fork keeps `55m` (matching the 50 MB `Upload.maxFileSizeMB` default) with buffering on, so slow clients cannot hold the 5 upload slots (P02 decision). |
 | #1185, #1276, #1341, `477f4d96`, `954cd607`, `241763d2`, `7ae98058`, `44c47a58`, `d7c74170`, `c36b1fdc` | Upstream directory listings, sponsorship, docs formatting, copy and README maintenance. |
 | #1317, #1339, #1340, #1343 (test changes), #1347, #1350, #1354, #1355, #1356, #1357, #1359, #1360, #1361, #1362, #1363, #1364, #1365, #1366 | Upstream test tooling, fixtures, expected failures and journey suites. Use relevant scenarios in the fork’s required Vitest, Mocha and Cypress coverage. |

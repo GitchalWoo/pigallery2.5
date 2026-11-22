@@ -130,4 +130,5 @@
 ## Security Context
 
 - Security remediation status and audit controls (S1–S5, AUD1–AUD14) are detailed in [Security-Updates.md](docs/fork-features/Security-Updates.md).
+- Directory access (P03a, #1205): `AuthenticationMWs.authoriseDirectory` sets `req.directoryAccess`; hidden and missing folders answer the same `DIRECTORY_NOT_FOUND` (404) with no disk path. Upload needs `DirectoryAccessTypes.available`. Media allow/block lists filter only media; folders are hidden with `Users.allowDirectoryList` / `blockDirectoryList`.
 - Uploads stream to `TempFolder/upload` (stale files removed at startup) and move into the gallery with `link()` + `unlink()` or an exclusive `wx` copy, never overwriting. Limits: `Upload.maxFileSizeMB` (default 50) per file, 10 file parts/request, concurrency semaphore (`MAX_CONCURRENT_UPLOADS = 5`). `Upload.blockedExtensions` (default `pg2conf`, `svg`).
