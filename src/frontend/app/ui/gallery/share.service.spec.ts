@@ -125,3 +125,41 @@ describe('AuthenticationService.logout of a sharing', () => {
     expect(service.user.value).toBeNull();
   });
 });
+
+describe('ShareService default-view requests', () => {
+  const setup = () => {
+    const network = {postJson: vi.fn(), putJson: vi.fn()};
+    const service = new ShareService(network as any, {events: new Subject()} as any);
+    return {service, network};
+  };
+  const search = {type: SearchQueryTypes.any_text, value: 'picnic'} as const;
+
+  it('forwards the selected default view on legacy and search-based create and update', () => {
+    const {service, network} = setup();
+    service.createSharing('photos', '', 1000, 'photos');
+    service.createSharingByQuery(search, '', 1000, undefined, search);
+    service.updateSharing('photos', 1, '', 1000, undefined, search);
+    service.updateSharingByQuery(1, search, '', 1000, '/');
+
+    expect(network.postJson).toHaveBeenNthCalledWith(1, '/share/photos', {
+      createSharing: {valid: 1000, defaultDirectoryView: 'photos'}
+    });
+    expect(network.postJson).toHaveBeenNthCalledWith(2, '/share/', {
+      createSharing: {valid: 1000, searchQuery: search, defaultSearchView: search}
+    });
+    expect(network.putJson).toHaveBeenNthCalledWith(1, '/share/photos', {
+      updateSharing: {id: 1, valid: 1000, password: '', defaultSearchView: search}
+    });
+    expect(network.putJson).toHaveBeenNthCalledWith(2, '/share/', {
+      updateSharing: {id: 1, valid: 1000, password: '', searchQuery: search, defaultDirectoryView: '/'}
+    });
+  });
+
+  it('rejects conflicting defaults before sending the request', () => {
+    const {service, network} = setup();
+    expect(() => service.createSharingByQuery(search, '', 1000, 'photos', search)).toThrow('cannot be set at the same time');
+    expect(() => service.updateSharing('photos', 1, '', 1000, 'photos', search)).toThrow('cannot be set at the same time');
+    expect(network.postJson).not.toHaveBeenCalled();
+    expect(network.putJson).not.toHaveBeenCalled();
+  });
+});

@@ -96,15 +96,28 @@ export class ShareService {
     return this.ReadyPR;
   }
 
+  private static defaultViews(defaultDirectoryView?: string, defaultSearchView?: SearchQueryDTO): Partial<CreateSharingDTO> {
+    if (defaultDirectoryView && defaultSearchView) {
+      throw new Error('defaultDirectoryView and defaultSearchView cannot be set at the same time');
+    }
+    return {
+      ...(defaultDirectoryView && {defaultDirectoryView}),
+      ...(defaultSearchView && {defaultSearchView})
+    };
+  }
+
   public createSharing(
     dir: string,
     password: string,
-    valid: number
+    valid: number,
+    defaultDirectoryView?: string,
+    defaultSearchView?: SearchQueryDTO
   ): Promise<ResponseSharingDTO> {
     // The server converts the legacy path to an exact directory query.
     return this.networkService.postJson('/share/' + dir, {
       createSharing: {
         valid,
+        ...ShareService.defaultViews(defaultDirectoryView, defaultSearchView),
         ...(!!password && {password: password}) // only add password if present
       } as CreateSharingDTO,
     });
@@ -113,11 +126,14 @@ export class ShareService {
   public createSharingByQuery(
     searchQuery: SearchQueryDTO,
     password: string,
-    valid: number
+    valid: number,
+    defaultDirectoryView?: string,
+    defaultSearchView?: SearchQueryDTO
   ): Promise<ResponseSharingDTO> {
     return this.networkService.postJson('/share/', {
       createSharing: {
         valid,
+        ...ShareService.defaultViews(defaultDirectoryView, defaultSearchView),
         ...(!!password && {password: password}),
         searchQuery
       } as CreateSharingDTO,
@@ -128,13 +144,16 @@ export class ShareService {
     dir: string,
     sharingId: number,
     password: string,
-    valid: number
+    valid: number,
+    defaultDirectoryView?: string,
+    defaultSearchView?: SearchQueryDTO
   ): Promise<ResponseSharingDTO> {
     // The server converts the legacy path to an exact directory query.
     return this.networkService.putJson('/share/' + dir, {
       updateSharing: {
         id: sharingId,
         valid,
+        ...ShareService.defaultViews(defaultDirectoryView, defaultSearchView),
         password,
       } as CreateSharingDTO,
     });
@@ -144,12 +163,15 @@ export class ShareService {
     sharingId: number,
     searchQuery: SearchQueryDTO,
     password: string,
-    valid: number
+    valid: number,
+    defaultDirectoryView?: string,
+    defaultSearchView?: SearchQueryDTO
   ): Promise<ResponseSharingDTO> {
     return this.networkService.putJson('/share/', {
       updateSharing: {
         id: sharingId,
         valid,
+        ...ShareService.defaultViews(defaultDirectoryView, defaultSearchView),
         password,
         searchQuery
       } as CreateSharingDTO,
