@@ -1,0 +1,334 @@
+# Upstream Port Packs
+
+Execution plan for porting every remaining upstream change from [bpatrik/pigallery2](https://github.com/bpatrik/pigallery2) up to watermark `c36b1fdc` (2026-11-21). The plan is meant for an agent working **one pack at a time, one PR per pack**.
+
+- Rules, conflict policy and the test gate: [Upstream-Porting.md](Upstream-Porting.md). Read it before starting a pack.
+- Status of every upstream PR and commit: [Upstream-Ledger.md](Upstream-Ledger.md). Update it in every pack PR.
+- This file says **what goes into which PR, in which order, and which decisions are already made**.
+
+---
+
+## 1. How the work is split
+
+1. **One pack = one branch = one PR.** The branch is `port/upstream-p<NN>-<topic>` from the latest `origin/master`. Never combine two packs into one PR. A pack may be split into smaller PRs (rule 6). Packs are never merged together.
+2. **Packs run in the numbered order.** Start a pack only after the previous one is merged to `master`, unless the dependency table (section 3) marks it as independent. Rebase on `master` before starting.
+3. **Order follows upstream chronology where packs share files.** Upstream merged #1205 (directory access) before #1212, #1372, #1380 and #1383, and merged #1198 before its virtual grid. The fork already ported some later changes without those earlier ones (PR #42, PR #45). Porting the remaining base changes first, and their followers after them, keeps each conflict in one PR.
+4. **Security-sensitive work is isolated.** Uploads (P02), directory access (P03), sharing (P04), OIDC (P05) and session handling (P06) each have their own pack. That lets a reviewer read them with the fork's hardening rules in mind.
+5. **Only P03 may change the database schema.** It adds a `DatabaseMigrations` step. If any other pack seems to need a schema change or a `DataStructureVersion` bump, stop and ask the user.
+6. **Split a pack when it grows too large.** If a pack exceeds about 60 changed source files (excluding `.xlf`) or mixes backend and UI review, split it into `p<NN>a`/`p<NN>b` along the line given in the pack. The first part must leave `master` working and must fail closed.
+7. **Step 0 of every pack is a presence check.** Several commits may already be in the fork, hand-ported without trailers (mostly in PR #45 and PR #41). For each commit in the pack:
+   - Read the upstream diff (`git show <hash> -- src`).
+   - Check whether the behavior already exists on `master`.
+   - If it does, port nothing. Move it to **Obsolete / Skipped** in the ledger with the reason "Already in fork via PR #NN".
+   - If only part of it exists, port the missing part and say so in the PR.
+8. **Stop and ask the user** if:
+   - a change would weaken fork hardening (`SafePath`, `wx`, signed/CSRF cookies, `AUD2`, `RateLimiter`, the `ErrorInterceptor` 401 guard, `admin-bootstrap.txt`, `DatabaseMigrations`);
+   - upstream styling would override the Prism design;
+   - a "Decision" below turns out to be wrong for the fork's code.
+9. **Per-pack deliverables:**
+   - commits with `cherry-pick -x` or `adapted from commit <full hash>` trailers;
+   - a Vitest spec for every hand-adapted frontend behavior;
+   - Mocha coverage on SQLite **and** MariaDB for backend changes;
+   - a ledger update that moves items to **Ported** with the fork PR number, or to **Obsolete / Skipped** with a reason;
+   - a PR description with ported, adapted and skipped tables and full test results.
+   - Push and open the PR only when the user asks.
+
+### Ground rules for every pack (from Upstream-Porting.md)
+
+- Drop `RELEASE_NOTES.md`, `test/playwright/*`, upstream e2e fixtures and `.xlf` churn. Restore with `git checkout HEAD -- src/frontend/translate/`.
+- Apply frontend behavior in the fork's component style: constructor injection, RxJS, `ChangeDetectionStrategy.Eager`. Do not migrate components to signals.
+- Keep `req.params` + `normalizePathParam`. Do not use `RequestParams.get`.
+- Config additions update `test/common/unit/config/ConfigTypes.snapshot.json` in the same commit.
+- Run the gate before every PR: `build-backend`, the spec `tsc`, `build-en`, `ng lint`, `ng test`, and full Mocha on SQLite + MariaDB.
+- Packs that touch auth, sessions, sharing, uploads or UI also need verification in the 8086 test container. Warn the user before running it.
+
+---
+
+## 2. Decisions already made
+
+| Topic | Decision | Reason |
+| --- | --- | --- |
+| One big PR | **No.** 15 packs, one PR each. | More than 70 conflicting files and a schema migration in one PR cannot be reviewed or bisected. |
+| #1380 accent-insensitive SQLite search | **Port as upstream**, default off (P08). No extra folding of `ł`/`ø`/`ß`. | Keeps SQLite results identical to MariaDB `utf8mb4_general_ci`, which does not fold those letters either. Document that `ł` → `l` does not match. |
+| #1198 sort/group by directory | **Port** (P09), after the search packs. | Wanted feature. It must be re-implemented inside the fork's `GridLayout`/`GridScroller` from PR #45, not cherry-picked into the old grid. |
+| #1378 upload move into the gallery | **Never `rename()` over a target.** | Upstream `fs.promises.rename()` silently replaces an existing file and breaks the fork's `wx` no-overwrite guarantee. Use `fs.promises.link()` + `unlink()` (fallback `copyFile(..., COPYFILE_EXCL)` + `unlink()` on `EXDEV`/`EPERM`). The target path comes from `SafePath.resolveForWrite`. |
+| #1414 log file location | **Contained.** `Server.Log.file` resolves inside the configured data folder via `SafePath`; paths outside it are rejected and logged. | Upstream `ProjectPath.getAbsolutePath(file)` lets an admin setting create files anywhere the process can write. |
+| #1205 schema | **`DatabaseMigrations` step**, no drop-and-rebuild. | New nullable columns: `UserEntity.allowDirectoryList` / `blockDirectoryList`, `SharingEntity.directoryQuery`. `SharingEntity.searchQuery` becomes nullable, which needs a table rebuild on SQLite. Test the migration on populated SQLite and MariaDB databases. |
+| #1205 SQLite LIKE escaping (in `0583c8c8`) | **Skip that hunk.** | The fork has its own escaping (`ESCAPE '\\'`). Keep the user-cache fix from the same commit. |
+| #1370 `c76f1daf` "Log out on NOT_AUTHORISED for every request" | **Adapt.** | Keep the fork guard: log out only when `isAuthenticated()` is true and the URL is not `/user/me`, `/login` or `/logout`. Otherwise the 401 loop returns. |
+| `#1372` deep link and session banner | **Moved from "small fixes" to P06**, after #1205. | They touch `navigation.service.ts` and `authentication.service.ts`, which #1205 also changes. Upstream applied them after #1205. |
+| `12bccc5a` mysql2 upgrade | **Skip the dependency part**, compare the escaping part. | The fork manages its own database driver versions. |
+| `f6b22cdd` "keep users on scheme updates" | **Skip that hunk**, compare the OIDC strict mode. | `DatabaseMigrations` already keeps users. Strict mode must not weaken `AUD2`. |
+| #1387 publish extension kit, #1388 enum move for the kit | **Skip.** | The fork does not publish an extension kit. The #1388 enum move churns 35 files for no runtime gain. Reopen if the fork starts publishing the kit. |
+| Stack PRs (#1220, #1221, #1255, #1259, #1262, #1265, #1296, #1301) | **Sweep runtime hunks once** (P15); framework migration stays skipped. | Upstream mixed a few bug fixes into the framework PRs. |
+| Upstream Playwright, e2e fixtures, translations, release tooling | **Skip** (unchanged). | See the ledger. Behavior is covered by Vitest, Mocha and Cypress instead. |
+
+---
+
+## 3. Pack overview and dependencies
+
+| Pack | Topic | Effort | Depends on | Security review |
+| --- | --- | --- | --- | --- |
+| P01 | Small independent fixes | S | — | Log file containment |
+| P02 | Streaming uploads | M–L | — (independent of P01) | **Yes** |
+| P03 | Directory access & folder sharing core (#1205) | L | P01 | **Yes** |
+| P04 | Sharing follow-ups (#1374, #1392) | M | P03 | **Yes** |
+| P05 | OIDC & `urlBase` follow-ups | M | P03 | **Yes** |
+| P06 | Session UX & API error statuses | M | P03, P05 | **Yes** |
+| P07 | Search correctness fixes | M | P03 | Escaping |
+| P08 | Accent-insensitive search (#1380, #1383) | M | P03, P07 | — |
+| P09 | Sort/group by directory & navigator | M | P08 | — |
+| P10 | Grid & lightbox parity | M | P09 | — |
+| P11 | Loading, empty & error states | M | P03, P06 | — |
+| P12 | Prism shell, admin & PWA polish | M | P11 | — |
+| P13 | Indexing, extensions & config | M | — | Extension reload |
+| P14 | Test infrastructure & regression scenarios | M | P03–P08 | — |
+| P15 | Stack-PR runtime-hunk sweep | S–M | all others | — |
+
+P02 and P13 do not depend on other packs and can be done whenever convenient.
+
+---
+
+## 4. Packs
+
+For PRs listed without hashes, enumerate commits with step 3 of [Upstream-Porting.md](Upstream-Porting.md):
+
+```bash
+m=$(git log --merges --format=%H --grep="Merge pull request #<PR> " dc456950..upstream/master | head -1)
+git log --no-merges --reverse --format='%h %s' $(git merge-base $m^1 $m^2)..$m^2
+```
+
+### P01 — Small independent fixes (S)
+
+Branch `port/upstream-p01-small-fixes`.
+
+| Commit | Change | Notes |
+| --- | --- | --- |
+| `4b416523` (#1418) | Styled pin on the info panel map before the folder map loads | Clean. Move the CSS into the fork's styles without breaking Prism. |
+| `0b72047c` (#1418) | Info panel map recenters when switching photos | Conflicts in `info-panel.lightbox.gallery.component.{html,ts}`. Replace the Playwright test with a Vitest spec. |
+| `d80050bb` (#1414) | `Server.Log.file`, rotated at 10 MB | Apply the containment decision. Add a `ConfigDiagnostics` warning for an unwritable path. Update `docs` (Fail2Ban guide) and the config snapshot. Port `Logger.spec.ts`. |
+| `23e9b9b2` (#1379) | Confirm before deleting an album | Vitest spec. |
+| `13b54a9b` (#1381) | Folder zip named after the folder (`res.attachment`) | Not in fork yet. Port the Mocha tests. |
+| `01790a52` (#1381) | Toast when downloading a deleted file from the lightbox | Vitest spec. |
+| `053ea9f7` (#1371) | Map marker at latitude 0; short GPX track stats | Vitest spec. |
+| `7b5b6e51` (#1371) | Join query params of the zip download link | Vitest spec. |
+| `85edb8da` (#1371) | Wrap long face names on phones | CSS only. Check against Prism. |
+
+Done when: gate is green, and the info panel map and album delete have been checked in the browser.
+
+### P02 — Streaming uploads (M–L, security)
+
+Branch `port/upstream-p02-uploads`. Commits in this order:
+
+| Commit | Change | Notes |
+| --- | --- | --- |
+| `c98c2151` | Harden upload filenames; block `pg2conf` and `svg` uploads | Upstream base for #1378's `blockedExtensions`. Keep `SafePath`. |
+| `1e65ca19` (#1274) | Keep accented letters of uploaded file names | Keep the fork's filename sanitizing. |
+| `4ebb11e5` (#1378) | Stream to `TempFolder/upload`; `Upload.maxFileSizeMB` | Default `maxFileSizeMB` = **50**. Keep `MAX_CONCURRENT_UPLOADS = 5` and the 10-file limit. Apply the move-without-overwrite decision. Remove stale temp files at startup. |
+| `b22d438a` (#1378) | Uploader names rejected files, explains unwritable folders, offers retry | Keep PR #41 `DirectoryNotFound` handling. Vitest for `uploader.service` and the toast container. |
+| `6d52e24d` (#1378) | nginx examples allow 500 MB + `proxy_request_buffering off` | Replace the fork's `55m` note in the docker-compose and NPM guides. |
+| `9c3e7e2b` (#1378) | Remove temp files before answering | Also on error paths. |
+
+Required tests (Mocha):
+- an existing target file is never replaced;
+- concurrent uploads of the same name: exactly one succeeds;
+- oversized file rejected while the others in the request succeed;
+- no temp file is left after success, rejection or a client abort;
+- traversal names stay rejected.
+
+Container check: upload through the 8086 instance.
+
+### P03 — Directory access & folder sharing core (L, security, schema)
+
+Branch `port/upstream-p03-directory-access`. If too large, split into **P03a** (backend, migration, tests; no UI) and **P03b** (settings list editor, share dialog, frontend services).
+
+| Commit | Change | Notes |
+| --- | --- | --- |
+| `e25f3fda`, `a041087a`, `d12e0936` | Password-protected share logout loop, auth follow-up, default share view options | Upstream base of #1205 (Oct 18). Fork already has default view options (`a6f7f6bd`); port the fixes only. |
+| `2615d2a5` (#1205) | `DirectoryAccess`, allow/block lists, folder sharing, `DIRECTORY_NOT_FOUND`, `req.directoryAccess`, `authoriseDirectory` | Core. Keep `SafePath`, signed/CSRF cookies, SHA-256 projection keys. |
+| `4d5a77ba` (#1205) | ignore files | `.gitignore` only; merge with the fork's entries. |
+| `39ce8072` (#1205) | Sharing lists, 404 for media, list editor fixes | |
+| `0583c8c8` (#1205) | Sharing tests, user cache fix | Skip the LIKE-escaping hunk. Convert the e2e tests to Mocha and Cypress (`test/cypress/e2e/share.cy.ts`). |
+| #1212 omitted hunks of `22088d3a`, `c363b088` | `DirectoryAccess` parts of session revocation left out by PR #42 | Re-read both commits and port only the `DirectoryAccess` / `SessionContext` hunks. |
+| `32d5d33f` | `GalleryMWs.listDirectory` stops calling `AuthenticationMWs` | Was Deferred. |
+| `db893d56` route check (#1385) | `authoriseDirectory` on upload routes | Was Deferred. |
+| #1367 | Test that a sharing guest sees nothing outside the shared folder | Port as Mocha. This is the main regression test of the pack. |
+
+Migration: write the next `DatabaseMigrations` step and bump `DataStructureVersion` once. Test an upgrade from current `master` on SQLite and MariaDB with users and shares present.
+
+Required tests:
+- block list beats allow list;
+- search, random, zip, thumbnail and projected-cache paths all honor directory access;
+- shared folder with password and expiry;
+- unknown folder returns `DIRECTORY_NOT_FOUND` without leaking existence.
+
+### P04 — Sharing follow-ups (M, security)
+
+Branch `port/upstream-p04-sharing`.
+
+| Commit | Change | Notes |
+| --- | --- | --- |
+| `b41608d6` (#1374) | Admin can update another user's sharing | Was Deferred. Check the fork's role rules from PR #44. |
+| `c0bc7229` (#1374) | Random link matching nothing → plain-text 404 | |
+| `a369c245` (#1374) | One page for invalid or expired sharing links | Was Deferred. |
+| `78e24893` (#1374) | Invalid-link page when a sharing ends while open | Touches `error.interceptor.ts`; keep the 401 guard. |
+| `ec95c780` (#1374) | Keep the sharing link in a guest's address bar | |
+| `d90170bb` (#1374) | Full-screen message for a photo frame that matches nothing | |
+| `251d002f` (#1392) | "Prevent downloading" option on shares | Server-side enforcement on zip, original-file and download routes is required, not only hidden buttons. |
+| #1351 | Backend sharing tests | Reuse the applicable scenarios. |
+
+`fa70a527` stays skipped (translations).
+
+### P05 — OIDC & urlBase follow-ups (M, security)
+
+Branch `port/upstream-p05-oidc-urlbase`.
+
+| Commit | Change | Notes |
+| --- | --- | --- |
+| #1170 | Share links honor a non-root `urlBase` | |
+| `52ebed29` | `Config.Server` URL helpers for all app links | Compare with the fork's OIDC `urlBase` redirect; keep one helper. |
+| `e007799f` | OIDC with non-RS256 IdPs, userinfo-only claims | Extend the `MockOIDCServer` tests. |
+| `f6b22cdd` | OIDC strict security mode | Skip the "keep users on scheme updates" hunk. Strict mode must stay at least as strict as `AUD2`. |
+| `fe16aead` (#1303) | Settings warning for an `http://` issuer | Rest of #1303 stays skipped. |
+| #1349 | Backend tests: users, no login, fresh install, `urlBase` | Reuse the scenarios that fit. Keep `admin-bootstrap.txt` behavior. |
+
+Verify interactively with the Dex container (see AGENTS.md).
+
+### P06 — Session UX & API error statuses (M, security)
+
+Branch `port/upstream-p06-session-ux`.
+
+| Commit | Change | Notes |
+| --- | --- | --- |
+| `207eef3f` | Error message formatting | |
+| `6abd72d6`, `ba061baf` (#1370) | Every API error carries its HTTP status | Update fork Mocha expectations. Check CSRF and `RateLimiter` responses keep their codes. |
+| `c76f1daf` (#1370) | Log out on NOT_AUTHORISED | **Adapt** (see decisions). Add Vitest cases for the 401 loop. |
+| `14122e83` (#1372) | Return to the deep link after login | Validate the return URL as same-origin app path (no open redirect). |
+| `7de24347` (#1372) | "Session ended" toast | |
+| `93cfd4b5` (#1372) | Clear the password after a wrong login | |
+| `527c8abc` (#1379) | Admin cannot lower their own role | Compare with PR #44's checks first; may already be covered. |
+| `09baecd1` (#1379) | Normal user sent from admin page to the gallery with a warning | |
+| `6c74f3e1` (#1379) | Show setting limits; refuse out-of-range values | |
+| #1348 | Backend API error tests | Reuse scenarios. |
+
+`4cfcebfc`, `8c624135` (#1370), `f31ddcc4`, `451bd3a8` (#1372) stay skipped (e2e markers, AGENTS.md, lockfile).
+
+### P07 — Search correctness fixes (M)
+
+Branch `port/upstream-p07-search-fixes`.
+
+| Commit | Change | Notes |
+| --- | --- | --- |
+| `12bccc5a`, `eb9b96b4` | SQL escaping fixes | Escaping hunks only (see decisions). Test SQLite and MariaDB. |
+| `dea51c73` | Saved-search albums by date range | Vitest for query builder. |
+| `0d262ff3` | Report an invalid search query instead of crashing on a missing value | |
+| #1214 | Phone Enter key launches search; every button gets a `type` | 29 files; mostly templates. |
+| `a9066201` (#1274) | Search fields are valid when they have no errors | |
+
+### P08 — Accent-insensitive search (M)
+
+Branch `port/upstream-p08-accent-search`.
+
+| Commit | Change | Notes |
+| --- | --- | --- |
+| `e0d265c6` (#1380) | `Database.sqlite.accentInsensitiveSearch` (default off) | Keep `ESCAPE '\\'` handling. |
+| `38fc861f` (#1380) | Text cache; skip empty columns | |
+| `74473bc5` (#1380) | Bold typed text in autocomplete across accents | Vitest (`AutoCompleteRenderItem`). |
+| `3a8428de` (#1380) | Performance warning in settings and docs | |
+| `3f7f68ff` (#1380) | `fold()` once per keyword; Greek final sigma | |
+| `7177c0e1` (#1380) | `LocationLookUp_ERROR` on geocoding failure | Was Deferred; `LocationManager` is touched anyway. |
+| `8bb42c88`, `f70ed4bc` (#1383) | Accent-aware directory allow/block lists | Was Deferred. Needs P03 and the helpers above. |
+
+Document the `ł`/`ø`/`ß` limitation in `docs/user-guide/configuration.md`. `e8dd72cb` stays skipped.
+
+### P09 — Sort/group by directory & navigator (M)
+
+Branch `port/upstream-p09-directory-sort`.
+
+| Commit | Change | Notes |
+| --- | --- | --- |
+| `8f06e072`, `68f0f0fb`, `19f02757` (#1198) | Sort/group by directory path, search only, tree order | Re-implement grouping in `GridLayout`/`GridScroller`. Check the Timeline still groups by date. Skip translation commit `75299af5`. |
+| `97dfe73a` (#1371) | Group by name, accent-aware | Uses P08 helpers. |
+| `91e374dc` (#1371) | Flatten only the folder and its subfolders | |
+| #1343 (`e60006ac`) | Breadcrumb Home links to `/gallery` | |
+| `9fe9eaaf` | Sort/group menu stays on screen on phones | Check against Prism. |
+
+### P10 — Grid & lightbox parity (M)
+
+Branch `port/upstream-p10-grid-lightbox`. Step 0 matters most here: PR #45 hand-ported much of the virtual grid. Several of these are probably already in.
+
+| Commit | Change | Notes |
+| --- | --- | --- |
+| `aa1a5fea`, `e4476463`, `420bdbe4`, `15eacc82`, `2379cd7f`, `74d8ce3c` (#1376) | Back/forward scroll restore, keyboard open, face tap, fade only new photos | Likely partly in PR #45. Keep `LightboxGesturesDirective` (no Hammer). |
+| `2a83005f`, `1ade9d14` (#1394) | Full-height grid, touch scroll handle, render lines that scroll in | Ledger marks them Planned under #1394. |
+| `c214d5c5`, `a41d5577` | Grouped rows with equal heights; distant date groups do not share a line | |
+| `8b5b6419`, `947f95d7` (#1410) | Open a partially visible photo; info bar anchored to photo bottom | Behavior only, not the modern theme. |
+| #1416 | Day group with inline blog gets its own line | |
+| #1391 | Smaller restart icon, hidden for a single photo | Ledger says PR #45 included the loop icon; verify. `9ae9151b` likewise. |
+| `bdc57a25` | Stop lightbox animations on destroy | Compare with the fork's #1210 adaptation (Web Animations API). |
+| `1d17b220`, `2cb691c4` | Video control icons vs sliders on phones; reload button style | Check against Prism. |
+
+### P11 — Loading, empty & error states (M)
+
+Branch `port/upstream-p11-states`.
+
+| Commit | Change | Notes |
+| --- | --- | --- |
+| `990af75e`, `7dab232d`, `3aec0c9e`, `182f0912` (#1373) | Spinners, empty states, folder load errors, "Page not found" | Restyle to Prism. `182f0912` touches `PublicRouter`/`ErrorRouter`; run `PublicRouter` tests. Folder errors use `DIRECTORY_NOT_FOUND` from P03. |
+| `68ca3a26` | Long toasts scroll inside their card | |
+| `7eafcd1e` (#1371) | Notification badge appears once notifications arrive | |
+| `be5da765`, `f01bf7e5` (#1371) | Duplicates page loading state; translated summary | |
+| `94e26454` | Old browsers told they are unsupported | Verify; may already be in the fork. |
+
+### P12 — Prism shell, admin & PWA polish (M)
+
+Branch `port/upstream-p12-shell-polish`. Fork design wins every styling conflict.
+
+| Commit | Change | Notes |
+| --- | --- | --- |
+| `8ba350db` | Close navbar menu on outside click | |
+| `36fc6635` (#1274) | Remove unused navbar collapse hidden from assistive tech | |
+| `bcad49e0` | Underline photo info links on hover | |
+| `d5fd716b` | Loop lightbox slideshow by default | Verify; may already be in the fork. |
+| `c4f66156` | Log client version/build/commit to console | Compare with [Build-Version.md](Build-Version.md); the gulp part does not apply. |
+| `9b6911b1`, `5c161414` (#1274) | Job counted finished when gone; job progress on settings cards | |
+| #1390 | Installed app (PWA) on phones | Manifest/meta behavior only; drop `.xlf` churn. |
+| #1393 | Clickable git commit in admin version popover | |
+| #1352 | Backend admin and job tests | Reuse scenarios. |
+
+### P13 — Indexing, extensions & config (M)
+
+Branch `port/upstream-p13-indexing-extensions`. Independent; can run any time.
+
+| Commit | Change | Notes |
+| --- | --- | --- |
+| #1168, `de4c72a4`, `33b99240`, `eebd645f` | Glob wildcards in `excludeFolderList`; case-sensitive matching; clearer names | Existing configurations must keep working; add a `DiskManagerWorker` test with an old-style entry. |
+| #1200, `36caf087` | `contains` / `!contains` in extension media-button `metadataFilter` | |
+| #1386 | Extension reload runs changed code and drops old routes | Check that dropped routes really stop serving. |
+| `bf6b8bc9` (#1394) | Remove `enableOnScrollRendering` | Fork still has the setting (`ClientConfig.ts`). Remove only if the PR #45 grid ignores it; keep old configs loading. |
+
+### P14 — Test infrastructure & regression scenarios (M)
+
+Branch `port/upstream-p14-tests`.
+
+| Commit | Change | Notes |
+| --- | --- | --- |
+| `a82bec8b`, `3a43889a`, `1084031d`, `10165e9c` | DB test races, `clearDB`, teardown, faster MySQL reset | Compare with `test/root-hooks.cjs` and `DBTestHelper`; keep fork isolation. |
+| `c7564ca8` | Deterministic album covers; lazy column collation | **Runtime change** in `CoverManager` and entities. Test on MariaDB; collation must match existing columns. |
+| `8d8a22c2` | Benchmark runner fix | |
+| #1353 and leftovers of #1348, #1349, #1351, #1352 | Backend regression scenarios not already used in P02–P12 | Keep the fork's upload-limit coverage. |
+
+### P15 — Stack-PR runtime-hunk sweep (S–M)
+
+Branch `port/upstream-p15-stack-sweep`. Last pack, after all the others.
+
+For #1220, #1221, #1255, #1259, #1262, #1265, #1296 and #1301, diff `src/` per PR and ignore framework, tooling, signal and control-flow migration. Port only real runtime fixes: blog rendering, stable list keys, job defaults, notifications, share navigation, diagnostics, search input checks. Record each PR's outcome in the ledger as "behavioral hunks ported: …" or "nothing applicable". Time-box: if a hunk needs framework changes to apply, skip it with that reason.
+
+---
+
+## 5. Finishing
+
+After P15:
+- The ledger's **Planned**, **Deferred** and **Deferred pending fork comparison** tables are empty or only contain items the user deferred on purpose.
+- `node scripts/upstream-status.mjs --fetch --check` passes.
+- New upstream commits after `c36b1fdc` go into a new pack list at the end of this file.
