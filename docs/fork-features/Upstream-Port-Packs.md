@@ -33,7 +33,7 @@ The workflow for every pack — presence check, impact report and approval, port
 | #1414 log file location | **Contained.** `Server.Log.file` resolves inside the configured data folder via `SafePath`; paths outside it are rejected and logged. | Upstream `ProjectPath.getAbsolutePath(file)` lets an admin setting create files anywhere the process can write. |
 | #1205 schema | **`DatabaseMigrations` step**, no drop-and-rebuild. | New nullable columns: `UserEntity.allowDirectoryList` / `blockDirectoryList`, `SharingEntity.directoryQuery`. `SharingEntity.searchQuery` becomes nullable, which needs a table rebuild on SQLite. Test the migration on populated SQLite and MariaDB databases. |
 | #1205 SQLite LIKE escaping (in `0583c8c8`) | **Skip that hunk.** | The fork has its own escaping (`ESCAPE '\\'`). Keep the user-cache fix from the same commit. |
-| #1205 split | **P03a** backend, migration and tests (PR [#48](https://github.com/GitchalWoo/pigallery2.5/pull/48)); **P03b** UI. | P03 changed 59 `src/` files upstream and mixed backend and UI review. |
+| #1205 split | **P03a** backend, migration and tests (PR [#48](https://github.com/GitchalWoo/pigallery2.5/pull/48)); **P03b** UI (PR [#49](https://github.com/GitchalWoo/pigallery2.5/pull/49)). | P03 changed 59 `src/` files upstream and mixed backend and UI review. |
 | `39ce8072` media lists | **Port as upstream.** A `directory:` search in `Users.allowQuery` / `blockQuery` only filters media; folders are hidden by the directory lists. | User decision during P03a. `ConfigDiagnostics` warns at startup when the global media lists contain a directory search; `user-rights.md` explains the upgrade. |
 | `e25f3fda` `NOT_AUTHENTICATED_SHARING` | **Only for requests that carry a sharing key.** Other unauthenticated requests keep `NOT_AUTHENTICATED`. | The fork client clears the user on `NOT_AUTHENTICATED`; upstream answers every unauthenticated request with the sharing code. |
 | #1370 `c76f1daf` "Log out on NOT_AUTHORISED for every request" | **Adapt.** | Keep the fork guard: log out only when `isAuthenticated()` is true and the URL is not `/user/me`, `/login` or `/logout`. Otherwise the 401 loop returns. |
@@ -129,7 +129,7 @@ Container check: upload through the 8086 instance.
 
 ### P03 — Directory access & folder sharing core (L, security, schema)
 
-Split into **P03a** (backend, migration, tests; branch `port/upstream-p03a-directory-access`, PR [#48](https://github.com/GitchalWoo/pigallery2.5/pull/48)) and **P03b** (branch `port/upstream-p03b-directory-access-ui`).
+Split into **P03a** (backend, migration, tests; branch `port/upstream-p03a-directory-access`, PR [#48](https://github.com/GitchalWoo/pigallery2.5/pull/48)) and **P03b** (branch `port/upstream-p03b-directory-access-ui`, PR [#49](https://github.com/GitchalWoo/pigallery2.5/pull/49)).
 
 **P03b scope** (what P03a left out): the frontend hunks of `2615d2a5` (share dialog with folder sharing and "Include subfolders", users settings lists, `ContentLoaderService` folder-not-found navigation, navigator breadcrumb parents, `ShareService.getDefaultRoute` / `getPublicSharing` / `dropSharing`, logout of a sharing without password), of `39ce8072` (sharing lists, share popup copy button, `directory-search-list` editor, settings entry, `TextSearchMatchingTypes`), of `0583c8c8` (gallery cache dropped on user change, Cypress `share.cy.ts` scenarios), and the `ShareService` default-view hunk of `d12e0936`. Prism styling, fork component style, Vitest for each adapted behavior.
 
