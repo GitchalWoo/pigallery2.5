@@ -273,6 +273,14 @@ describe('GalleryRouter', (sqlHelper: DBTestHelper) => {
       const res = await get('/gallery/random/not-json');
       expect(res.body.error.code).to.equal(ErrorCodes.INPUT_ERROR);
     });
+
+    it('returns a plain-text 404 if no photo matches the random link', async () => {
+      const query = SearchQueryUtils.urlify({type: SearchQueryTypes.file_name, value: 'missing photo'} as TextSearch);
+      const res = await get('/gallery/random/' + encodeURIComponent(query));
+      expect(res.status).to.equal(404);
+      expect(res.headers['content-type']).to.include('text/plain');
+      expect(res.text).to.equal('No photos match this random link.');
+    });
   });
 
   describe('role based access', async () => {

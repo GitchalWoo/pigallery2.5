@@ -517,7 +517,9 @@ export class GalleryMWs {
           req.session.context,
           query, [{method: SortByTypes.Random, ascending: null}], 1, true);
       if (!photos || photos.length !== 1) {
-        return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No photo found'));
+        // The link can open directly in a browser, a frame or an image element.
+        res.status(404).type('text/plain').send('No photos match this random link.');
+        return;
       }
 
       req.params['mediaPath'] = path.join(
