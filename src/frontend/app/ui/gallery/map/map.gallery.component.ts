@@ -110,14 +110,10 @@ export class GalleryMapComponent implements OnChanges, IRenderable {
 
   ngOnChanges(): void {
     this.markerLayer = this.photos
-      .filter((p): number => {
-        return (
-          p.metadata &&
-          p.metadata.positionData &&
-          p.metadata.positionData.GPSData &&
-          p.metadata.positionData.GPSData.latitude &&
-          p.metadata.positionData.GPSData.longitude
-        );
+      .filter((p): boolean => {
+        const gps = p.metadata?.positionData?.GPSData;
+        // 0 is a valid coordinate (the equator, the prime meridian)
+        return typeof gps?.latitude === 'number' && typeof gps?.longitude === 'number';
       })
       .slice(0, Config.Map.maxPreviewMarkers)
       .map((p): Marker => {
