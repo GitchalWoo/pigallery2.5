@@ -41,10 +41,12 @@ Review any new upstream commits/PRs since the watermark in [Upstream-Ledger.md](
 
 ```bash
 git fetch origin && git fetch upstream master
-git switch -c port/upstream-<pr-or-topic> origin/master
+git switch -c port/upstream-<pack-or-topic> origin/master   # packs: port/upstream-p<NN>-<topic>
 ```
 
-Never commit directly to `master`. Use one branch per candidate (or per tightly related group).
+- Never commit port work directly to `master`.
+- One branch and one PR per pack from [Upstream-Port-Packs.md](Upstream-Port-Packs.md), or per candidate outside the packs. Never combine two packs in one PR.
+- Start a pack only after the packs it depends on are merged.
 
 ### 3. Find the PR's own commits (and follow-ups)
 
@@ -56,9 +58,52 @@ git log --no-merges --reverse --format='%H %an | %s' $b..$m^2
 git log --oneline $m..upstream/master -- <files>
 ```
 
-### 3a. Post an impact report and wait for approval
+### 3a. Presence check
 
-Before changing any code, report to the user what the port changes, its impact on the current fork behavior, regression risks and any scope change against the plan. Then wait for approval. The required contents are in [Upstream-Port-Packs.md](Upstream-Port-Packs.md#impact-report-before-any-code-mandatory-for-every-pack).
+Several upstream commits may already be in the fork, hand-ported without trailers (mostly in PR #41 and PR #45). For each commit in scope:
+
+- Read the upstream diff (`git show <hash> -- src test docs`) and the fork code it touches.
+- Check whether the behavior already exists on `master`.
+- If it does, port nothing. Move it to **Obsolete / Skipped** in the ledger with the reason "Already in fork via PR #NN".
+- If only part of it exists, port the missing part and say so in the impact report and the PR.
+- Dry-run the conflicts without touching the working tree:
+  ```bash
+  git merge-tree --write-tree --name-only --merge-base=<hash>^ origin/master <hash>
+  ```
+
+### 3b. Impact report — post it and wait for approval
+
+Before writing or cherry-picking any code, post an **impact report** to the user and **wait for approval**. Until then, only research is allowed (steps 1–3a); do not change files.
+
+The report covers:
+
+1. **What changes.** Per commit:
+   - the user-visible behavior;
+   - the fork files and modules it touches;
+   - whether it will be cherry-picked, adapted, or was found already present.
+2. **Impact on the current solution.**
+   - What existing fork behavior changes, including defaults, config keys, API responses and error codes, UI flows and styling.
+   - Effects on stored data, on existing configurations, and on Docker or nginx setups.
+3. **Regression risks.**
+   - Which fork hardening or fork-only features the change touches: the conflict-rule table above, plus Prism, Zone.js, `LightboxGesturesDirective` and the PR #45 grid.
+   - What could break, and which tests will cover it, both existing tests and the new ones planned.
+4. **Scope changes** against the plan in [Upstream-Port-Packs.md](Upstream-Port-Packs.md):
+   - commits already in the fork;
+   - commits needing hunks from another pack;
+   - a pack too large and needing a split;
+   - a pre-made decision that does not fit the code;
+   - extra work found (migrations, config renames, docs).
+
+   Say what is proposed instead.
+5. **Open questions**, each with a recommended answer.
+
+Keep it compact: a table per commit plus short bullet lists. After approval, proceed as reported. If the scope or a risk turns out different during the work, stop and post a short report update before continuing.
+
+**Stop and ask the user** at any point if:
+- a change would weaken the fork's hardening (see the conflict-rule table above);
+- upstream styling would override the Prism design;
+- a pre-made decision in [Upstream-Port-Packs.md](Upstream-Port-Packs.md) turns out to be wrong for the fork's code;
+- a change needs a database schema change outside the pack that is allowed to make one.
 
 ### 4. Cherry-pick (preserving authorship) or adapt
 
@@ -74,6 +119,10 @@ git cherry-pick -x <commit>
   # End commit message with:
   # (adapted from commit <full 40-char upstream hash>)
   ```
+- Restore `.xlf` churn: `git checkout HEAD -- src/frontend/translate/`.
+- Apply frontend behavior in the fork's component style: constructor injection, RxJS, `ChangeDetectionStrategy.Eager`. Do not migrate components to signals.
+- Config additions update `test/common/unit/config/ConfigTypes.snapshot.json` in the same commit.
+- Replace upstream Playwright tests with Vitest (frontend) or Mocha (backend) tests of the same behavior.
 - Fork-only follow-ups (docs, ledger updates, fork-specific config) get their own commit under the user's name.
 - Fold small corrections (missing imports, test adjustments) into the commit they belong to instead of stacking fix commits:
   ```bash
@@ -120,6 +169,8 @@ grep -E 'passing|failing|^\s+[0-9]+\) ' /tmp/pg-tests.log
 
 ### 6. Container / Browser Verification
 
+For UI changes, also check the behavior in a browser: `npm run build-en`, then `npm start -- --Server-port=8081` (use 8082 if 8081 is busy). List each check in the PR.
+
 For auth, session, upload, or UI changes, verify in the user's 8086 test container. **Always warn the user before running this script** because it replaces `pigallery25-test` and wipes its `db`, `tmp`, and `config` folders (and requires the branch to be pushed to `origin` first):
 
 ```bash
@@ -133,6 +184,18 @@ The generated admin password is in `/home/michalwalczak/.cache/pigallery25-test/
 
 ### 7. Update Ledger, Push & Open PR
 
-- Update [Upstream-Ledger.md](Upstream-Ledger.md) (move items from **Planned** to **Ported** with fork PR #, and note any **Obsolete / Skipped** hunks).
-- Push and open PRs **only when the user asks**, to `origin` only, targeting `GitchalWoo/pigallery2.5` `master`.
-- Include in the PR description: a table of ported upstream PRs/commits with adaptation notes, a **Skipped** list with reasons, and full test results (including anything not tested).
+1. Update [Upstream-Ledger.md](Upstream-Ledger.md):
+   - move items to **Ported** with the fork PR number, or to **Obsolete / Skipped** with the reason;
+   - update the pack's row in the Planned table and the matching rows of "Commit decisions within selective PRs";
+   - run `node scripts/upstream-status.mjs --fetch --check`; it must pass.
+2. Push and open PRs **only when the user asks** (a pack handover that says so counts). Push to `origin` only, targeting `GitchalWoo/pigallery2.5` `master`.
+   - Branch: `git push -u origin <branch>`.
+   - Title: `port(upstream): P<NN> <pack topic> (#<upstream PRs>)`.
+3. The PR description contains:
+   - the **final impact report**: the approved report from step 3b, updated, with every difference from the approved version marked;
+   - a table of ported upstream commits: hash, upstream PR, fork commit, cherry-picked or adapted, adaptation notes;
+   - a **Skipped / already in fork** list with reasons;
+   - security-relevant adaptations, called out explicitly for review;
+   - full test results: Vitest count, Mocha passing/failing on SQLite and MariaDB, lint, build, browser and container checks. State anything not tested and why.
+4. After the PR exists, put its number into the ledger's **Ported** rows, commit, and push.
+5. Do **not** merge. Report the PR link and a short summary to the user, including anything the user should decide.

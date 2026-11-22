@@ -2,68 +2,23 @@
 
 Execution plan for porting every remaining upstream change from [bpatrik/pigallery2](https://github.com/bpatrik/pigallery2) up to watermark `c36b1fdc` (2026-11-21). The plan is meant for an agent working **one pack at a time, one PR per pack**.
 
-- Rules, conflict policy and the test gate: [Upstream-Porting.md](Upstream-Porting.md). Read it before starting a pack.
-- Status of every upstream PR and commit: [Upstream-Ledger.md](Upstream-Ledger.md). Update it in every pack PR.
-- This file says **what goes into which PR, in which order, and which decisions are already made**.
+- How to port (workflow, impact report, conflict rules, tests, PR process): [Upstream-Porting.md](Upstream-Porting.md).
+- Status of every upstream PR and commit: [Upstream-Ledger.md](Upstream-Ledger.md).
+- This file only says **what goes into which PR, in which order, and which decisions are already made**.
 
 ---
 
 ## 1. How the work is split
 
-1. **One pack = one branch = one PR.** The branch is `port/upstream-p<NN>-<topic>` from the latest `origin/master`. Never combine two packs into one PR. A pack may be split into smaller PRs (rule 6). Packs are never merged together.
-2. **Packs run in the numbered order.** Start a pack only after the previous one is merged to `master`, unless the dependency table (section 3) marks it as independent. Rebase on `master` before starting.
+The workflow for every pack — presence check, impact report and approval, porting, tests, ledger, PR — is in [Upstream-Porting.md](Upstream-Porting.md). This section only covers how the plan is laid out.
+
+1. **One pack = one branch = one PR**, named `port/upstream-p<NN>-<topic>`. A pack may be split into smaller PRs (rule 5). Packs are never merged together.
+2. **Packs run in the numbered order.** Start a pack only after the packs it depends on (section 3) are merged to `master`.
 3. **Order follows upstream chronology where packs share files.** Upstream merged #1205 (directory access) before #1212, #1372, #1380 and #1383, and merged #1198 before its virtual grid. The fork already ported some later changes without those earlier ones (PR #42, PR #45). Porting the remaining base changes first, and their followers after them, keeps each conflict in one PR.
-4. **Security-sensitive work is isolated.** Uploads (P02), directory access (P03), sharing (P04), OIDC (P05) and session handling (P06) each have their own pack. That lets a reviewer read them with the fork's hardening rules in mind.
-5. **Only P03 may change the database schema.** It adds a `DatabaseMigrations` step. If any other pack seems to need a schema change or a `DataStructureVersion` bump, stop and ask the user.
-6. **Split a pack when it grows too large.** If a pack exceeds about 60 changed source files (excluding `.xlf`) or mixes backend and UI review, split it into `p<NN>a`/`p<NN>b` along the line given in the pack. The first part must leave `master` working and must fail closed.
-7. **Step 0 of every pack is a presence check, followed by the impact report** (see "Impact report before any code" below). No code changes before the user approves the report. Several commits may already be in the fork, hand-ported without trailers (mostly in PR #45 and PR #41). For each commit in the pack:
-   - Read the upstream diff (`git show <hash> -- src`).
-   - Check whether the behavior already exists on `master`.
-   - If it does, port nothing. Move it to **Obsolete / Skipped** in the ledger with the reason "Already in fork via PR #NN".
-   - If only part of it exists, port the missing part and say so in the PR.
-8. **Stop and ask the user** if:
-   - a change would weaken fork hardening (`SafePath`, `wx`, signed/CSRF cookies, `AUD2`, `RateLimiter`, the `ErrorInterceptor` 401 guard, `admin-bootstrap.txt`, `DatabaseMigrations`);
-   - upstream styling would override the Prism design;
-   - a "Decision" below turns out to be wrong for the fork's code.
-9. **Per-pack deliverables:**
-   - commits with `cherry-pick -x` or `adapted from commit <full hash>` trailers;
-   - a Vitest spec for every hand-adapted frontend behavior;
-   - Mocha coverage on SQLite **and** MariaDB for backend changes;
-   - a ledger update that moves items to **Ported** with the fork PR number, or to **Obsolete / Skipped** with a reason;
-   - a PR description with the final impact report (see below), ported, adapted and skipped tables, and full test results.
-   - Push and open the PR only when the user asks.
-
-### Impact report before any code (mandatory for every pack)
-
-Before writing or cherry-picking any code for a pack, the agent posts an **impact report** to the user and **waits for approval**. Research is allowed: reading upstream diffs, the step 0 presence check, `git merge-tree` dry runs, reading fork code. Changing files is not. The report covers:
-
-1. **What changes.** Per commit: the user-visible behavior, the files and modules it touches in the fork, and whether it will be cherry-picked, adapted, or found already present.
-2. **Impact on the current solution.**
-   - What existing fork behavior changes, including defaults, config keys, API responses and error codes, UI flows and styling.
-   - Effects on stored data, on existing configurations, and on Docker or nginx setups.
-3. **Regression risks.**
-   - Which fork hardening or fork-only features the change touches (`SafePath`, `wx`, cookies/CSRF, `AUD2`, `RateLimiter`, 401 guard, `DatabaseMigrations`, Prism, Zone.js, `LightboxGesturesDirective`, PR #45 grid).
-   - What could break, and which tests will cover it, both existing tests and the new ones planned.
-4. **Scope changes.** Anything that differs from this file:
-   - commits already in the fork;
-   - commits needing hunks from another pack;
-   - a pack too large and needing a split;
-   - a decision in section 2 that does not fit the code;
-   - extra work found (migrations, config renames, docs).
-
-   Say what is proposed instead.
-5. **Open questions** for the user, each with a recommended answer.
-
-Keep it short: a table per commit plus bullet lists. If the user approves, proceed as reported. If, during the work, the scope or a risk turns out different from the report, stop and post a short report update before continuing. The PR description repeats the final impact report, marking what changed since the approved version.
-
-### Ground rules for every pack (from Upstream-Porting.md)
-
-- Drop `RELEASE_NOTES.md`, `test/playwright/*`, upstream e2e fixtures and `.xlf` churn. Restore with `git checkout HEAD -- src/frontend/translate/`.
-- Apply frontend behavior in the fork's component style: constructor injection, RxJS, `ChangeDetectionStrategy.Eager`. Do not migrate components to signals.
-- Keep `req.params` + `normalizePathParam`. Do not use `RequestParams.get`.
-- Config additions update `test/common/unit/config/ConfigTypes.snapshot.json` in the same commit.
-- Run the gate before every PR: `build-backend`, the spec `tsc`, `build-en`, `ng lint`, `ng test`, and full Mocha on SQLite + MariaDB.
-- Packs that touch auth, sessions, sharing, uploads or UI also need verification in the 8086 test container. Warn the user before running it.
+4. **Security-sensitive work is isolated.** Uploads (P02), directory access (P03), sharing (P04), OIDC (P05) and session handling (P06) each have their own pack, so a reviewer can read them with the fork's hardening rules in mind.
+5. **Split a pack when it grows too large.** If a pack exceeds about 60 changed source files (excluding `.xlf`) or mixes backend and UI review, split it into `p<NN>a`/`p<NN>b` along the line given in the pack. The first part must leave `master` working and must fail closed.
+6. **Only P03 may change the database schema.** It adds a `DatabaseMigrations` step. Any other pack that seems to need a schema change or a `DataStructureVersion` bump stops and asks the user.
+7. **Pack tables list the expected scope and fork-specific notes.** A "Notes" entry is a requirement for that commit; a "verify" note means the commit is likely already in the fork.
 
 ---
 
@@ -123,21 +78,29 @@ git log --no-merges --reverse --format='%h %s' $(git merge-base $m^1 $m^2)..$m^2
 
 ### P01 — Small independent fixes (S)
 
-Branch `port/upstream-p01-small-fixes`.
+Branch `port/upstream-p01-small-fixes`. PR title topic: `small independent fixes (#1418, #1414, #1379, #1381, #1371)`.
 
 | Commit | Change | Notes |
 | --- | --- | --- |
-| `4b416523` (#1418) | Styled pin on the info panel map before the folder map loads | Clean. Move the CSS into the fork's styles without breaking Prism. |
-| `0b72047c` (#1418) | Info panel map recenters when switching photos | Conflicts in `info-panel.lightbox.gallery.component.{html,ts}`. Replace the Playwright test with a Vitest spec. |
-| `d80050bb` (#1414) | `Server.Log.file`, rotated at 10 MB | Apply the containment decision. Add a `ConfigDiagnostics` warning for an unwritable path. Update `docs` (Fail2Ban guide) and the config snapshot. Port `Logger.spec.ts`. |
-| `23e9b9b2` (#1379) | Confirm before deleting an album | Vitest spec. |
-| `13b54a9b` (#1381) | Folder zip named after the folder (`res.attachment`) | Not in fork yet. Port the Mocha tests. |
+| `4b416523` (#1418) | Styled pin on the info panel map before the folder map loads | No conflicts in a dry run. The CSS moves into global `styles.css`; it must not break Prism. |
+| `0b72047c` (#1418) | Info panel map recenters when switching photos | Conflicts in `info-panel.lightbox.gallery.component.{html,ts}`. Vitest spec for pin and recentering. |
+| `d80050bb` (#1414) | `Server.Log.file`, rotated at 10 MB | Conflicts in `Logger.ts`, `PrivateConfig.ts`, config snapshot. Apply the containment decision (section 2): a rejected path is logged, file logging stays off, the server keeps running. Add a `ConfigDiagnostics` warning for a rejected or unwritable path. Update the Fail2Ban guide. Port `Logger.spec.ts` and add tests for rotation (`.1` file) and rejected traversal/outside paths. |
+| `23e9b9b2` (#1379) | Confirm before deleting an album | Conflicts in `album.component.{html,ts}`. Vitest spec. |
+| `13b54a9b` (#1381) | Folder zip named after the folder (`res.attachment`) | Not in fork yet. Conflicts only in tests; port the Mocha tests. |
 | `01790a52` (#1381) | Toast when downloading a deleted file from the lightbox | Vitest spec. |
 | `053ea9f7` (#1371) | Map marker at latitude 0; short GPX track stats | Vitest spec. |
 | `7b5b6e51` (#1371) | Join query params of the zip download link | Vitest spec. |
-| `85edb8da` (#1371) | Wrap long face names on phones | CSS only. Check against Prism. |
+| `85edb8da` (#1371) | Wrap long face names on phones | CSS only. Prism styling wins. |
 
-Done when: gate is green, and the info panel map and album delete have been checked in the browser.
+Ledger selective rows to update: #1371, #1379, #1381.
+
+Browser checks:
+- the info panel map shows a pin and recenters on the next photo;
+- album delete asks for confirmation;
+- a folder zip downloads with the folder's name;
+- `Server.Log.file` creates and rotates the file inside the data folder.
+
+The 8086 container check is not needed: no auth, session or upload changes.
 
 ### P02 — Streaming uploads (M–L, security)
 
