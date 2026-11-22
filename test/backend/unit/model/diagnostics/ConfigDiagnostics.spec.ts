@@ -1,14 +1,21 @@
 import {expect} from 'chai';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {ConfigDiagnostics} from '../../../../../src/backend/model/diagnostics/ConfigDiagnostics';
+import {ProjectPath} from '../../../../../src/backend/ProjectPath';
+import {ServerLogConfig} from '../../../../../src/common/config/private/PrivateConfig';
 import {
   NavBarConfig,
   NavigationLinkConfig,
   NavigationLinkTypes
 } from '../../../../../src/common/config/public/ClientConfig';
 import {SearchQueryDTO, SearchQueryTypes, TextSearch} from '../../../../../src/common/entities/SearchQueryDTO';
+import {TestHelper} from '../../../../TestHelper';
 
 declare const describe: any;
 declare const it: any;
+declare const beforeEach: any;
+declare const afterEach: any;
 
 describe('ConfigDiagnostics', () => {
 
@@ -97,6 +104,61 @@ describe('ConfigDiagnostics', () => {
       const nb = navBar([new NavigationLinkConfig(NavigationLinkTypes.search)]);
       ConfigDiagnostics.removeInvalidNavigationLinks(nb);
       expect(nb.links.map(l => l.type)).to.deep.equal(new NavBarConfig().links.map(l => l.type));
+    });
+  });
+
+  describe('testLogConfig', () => {
+    const dir = path.join(TestHelper.TMP_DIR, 'diag-log');
+    const origDBFolder = ProjectPath.DBFolder;
+
+    beforeEach(() => {
+      fs.rmSync(dir, {recursive: true, force: true});
+      fs.mkdirSync(dir, {recursive: true});
+      ProjectPath.DBFolder = dir;
+    });
+
+    afterEach(() => {
+      ProjectPath.DBFolder = origDBFolder;
+      fs.rmSync(dir, {recursive: true, force: true});
+    });
+
+    it('should accept empty log file setting', async () => {
+      const cfg = new ServerLogConfig();
+      await ConfigDiagnostics.testLogConfig(cfg);
+    });
+
+    it('should accept a relative path inside the data folder', async () => {
+      const cfg = new ServerLogConfig();
+      cfg.file = path.join('logs', 'pigallery2.log');
+      await ConfigDiagnostics.testLogConfig(cfg);
+    });
+
+    it('should reject a path escaping the data folder', async () => {
+      const cfg = new ServerLogConfig();
+      cfg.file = '../outside.log';
+      let error: Error = null;
+      try {
+        await ConfigDiagnostics.testLogConfig(cfg);
+      } catch (e) {
+        error = e;
+      }
+      expect(error).to.not.equal(null);
+      expect(error.message).to.match(/escape|inside/i);
+    });
+
+    it('should reject a path pointing to an existing directory', async () => {
+      const subDir = path.join(dir, 'existing-dir');
+      fs.mkdirSync(subDir, {recursive: true});
+      const cfg = new ServerLogConfig();
+      cfg.file = 'existing-dir';
+      let error: Error = null;
+      try {
+        await ConfigDiagnostics.testLogConfig(cfg);
+      } catch (e) {
+        error = e;
+      }
+      expect(error).to.not.equal(null);
+      expect(error.message).to.contain('directory');
     });
   });
 });

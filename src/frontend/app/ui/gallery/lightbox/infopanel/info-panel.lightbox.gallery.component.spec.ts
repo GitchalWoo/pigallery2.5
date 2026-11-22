@@ -1,7 +1,9 @@
 import {ComponentFixture, TestBed} from '@angular/core/testing';
 import {BehaviorSubject} from 'rxjs';
 import {NgIconsModule} from '@ng-icons/core';
-import {ionCalendarOutline, ionImageOutline, ionVideocamOutline} from '@ng-icons/ionicons';
+import {ionCalendarOutline, ionImageOutline, ionLocationOutline, ionVideocamOutline} from '@ng-icons/ionicons';
+import {By} from '@angular/platform-browser';
+import {LeafletDirective} from '@bluehalo/ngx-leaflet';
 
 import {InfoPanelLightboxComponent} from './info-panel.lightbox.gallery.component';
 import {QueryService} from '../../../../model/query.service';
@@ -72,6 +74,7 @@ describe('InfoPanelLightboxComponent - Live Photo', () => {
           ionImageOutline,
           ionVideocamOutline,
           ionCalendarOutline,
+          ionLocationOutline,
         }),
       ],
       providers: [
@@ -139,5 +142,53 @@ describe('InfoPanelLightboxComponent - Live Photo', () => {
   it('isLivePhoto() should return false for regular photos', () => {
     component.media = makePhoto();
     expect(component.isLivePhoto()).toBe(false);
+  });
+
+  it('should place a marker and recenter the map when switching photos', () => {
+    component.media = makePhoto({
+      metadata: {
+        size: {width: 4032, height: 3024},
+        creationDate: Date.now(),
+        fileSize: 2048000,
+        positionData: {GPSData: {latitude: 47.4979, longitude: 19.0402}},
+      },
+    });
+    component.ngOnChanges();
+    fixture.detectChanges();
+
+    expect(component.mapCenter).toEqual(expect.objectContaining({lat: 47.4979, lng: 19.0402}));
+    expect(component.markerLayer).toHaveLength(1);
+    expect(component.markerLayer[0].getLatLng()).toEqual(expect.objectContaining({lat: 47.4979, lng: 19.0402}));
+
+    const leafletDir = fixture.debugElement.query(By.directive(LeafletDirective))?.injector.get(LeafletDirective);
+    expect(leafletDir).toBeTruthy();
+    expect(leafletDir.center).toEqual(expect.objectContaining({lat: 47.4979, lng: 19.0402}));
+
+    // Switch to a second photo (including 0 coordinate on prime meridian)
+    component.media = makePhoto({
+      name: 'Greenwich.jpg',
+      metadata: {
+        size: {width: 4032, height: 3024},
+        creationDate: Date.now(),
+        fileSize: 2048000,
+        positionData: {GPSData: {latitude: 51.4779, longitude: 0}},
+      },
+    });
+    component.ngOnChanges();
+    fixture.detectChanges();
+
+    expect(component.mapCenter).toEqual(expect.objectContaining({lat: 51.4779, lng: 0}));
+    expect(component.markerLayer).toHaveLength(1);
+    expect(component.markerLayer[0].getLatLng()).toEqual(expect.objectContaining({lat: 51.4779, lng: 0}));
+    expect(leafletDir.center).toEqual(expect.objectContaining({lat: 51.4779, lng: 0}));
+
+    // Switch to a photo without GPS
+    component.media = makePhoto({name: 'NoGps.jpg'});
+    component.ngOnChanges();
+    fixture.detectChanges();
+
+    expect(component.mapCenter).toBeNull();
+    expect(component.markerLayer).toHaveLength(0);
+    expect(fixture.nativeElement.querySelector('#map')).toBeNull();
   });
 });

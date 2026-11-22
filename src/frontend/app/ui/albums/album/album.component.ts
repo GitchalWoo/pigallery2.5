@@ -1,4 +1,5 @@
-import {Component, Input, type OnDestroy, type OnInit, ChangeDetectionStrategy} from '@angular/core';
+import {Component, Input, type OnDestroy, type OnInit, TemplateRef, ChangeDetectionStrategy} from '@angular/core';
+import {BsModalRef, BsModalService} from 'ngx-bootstrap/modal';
 import {RouterLink} from '@angular/router';
 import {DomSanitizer, type SafeStyle} from '@angular/platform-browser';
 import {Thumbnail, ThumbnailManagerService,} from '../../gallery/thumbnailManager.service';
@@ -30,11 +31,13 @@ export class AlbumComponent implements OnInit, OnDestroy {
   public readonly svgIcon = Config.Server.svgIcon;
 
   public thumbnail: Thumbnail = null;
+  private modalRef: BsModalRef | null = null;
 
   constructor(
       private thumbnailService: ThumbnailManagerService,
       private sanitizer: DomSanitizer,
       private albumService: AlbumsService,
+      private modalService: BsModalService,
       public authenticationService: AuthenticationService
   ) {
   }
@@ -81,11 +84,23 @@ export class AlbumComponent implements OnInit, OnDestroy {
     if (this.thumbnail != null) {
       this.thumbnail.destroy();
     }
+    this.hideModal();
   }
 
-  async deleteAlbum($event: MouseEvent): Promise<void> {
+  // the icon is inside the link of the album: it must not open the album (#1312)
+  askDelete($event: MouseEvent, confirm: TemplateRef<unknown>): void {
     $event.preventDefault();
     $event.stopPropagation();
+    this.modalRef = this.modalService.show(confirm);
+  }
+
+  hideModal(): void {
+    this.modalRef?.hide();
+    this.modalRef = null;
+  }
+
+  async deleteAlbum(): Promise<void> {
+    this.hideModal();
     await this.albumService.deleteAlbum(this.album).catch(console.error);
   }
 }

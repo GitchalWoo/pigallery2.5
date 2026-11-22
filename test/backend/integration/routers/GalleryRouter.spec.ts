@@ -13,7 +13,7 @@ import {ErrorCodes} from '../../../../src/common/entities/Error';
 import {UserRoles} from '../../../../src/common/entities/UserDTO';
 import {ObjectManagers} from '../../../../src/backend/model/ObjectManagers';
 import {SearchQueryUtils} from '../../../../src/common/SearchQueryUtils';
-import {SearchQueryTypes, TextSearch} from '../../../../src/common/entities/SearchQueryDTO';
+import {SearchQueryDTO, SearchQueryTypes, TextSearch, TextSearchQueryMatchTypes} from '../../../../src/common/entities/SearchQueryDTO';
 import * as fs from 'fs';
 
 process.env.NODE_ENV = 'test';
@@ -308,6 +308,97 @@ describe('GalleryRouter', (sqlHelper: DBTestHelper) => {
       Config.Users.unAuthenticatedUserRole = UserRoles.User;
       const result = await get('/notifications');
       (result.should as any).have.status(200);
+    });
+  });
+
+  describe('/GET /api/gallery/zip/', () => {
+    const origDownloadZip = Config.Gallery.NavBar.enableDownloadZip;
+    const origSearchEnabled = Config.Search.enabled;
+
+    beforeEach(async () => {
+      await setUp();
+      Config.Gallery.NavBar.enableDownloadZip = true;
+      Config.Search.enabled = true;
+    });
+
+    afterEach(async () => {
+      Config.Gallery.NavBar.enableDownloadZip = origDownloadZip;
+      Config.Search.enabled = origSearchEnabled;
+      Config.Users.authenticationRequired = true;
+      await tearDown();
+    });
+
+    const getZip = (query: SearchQueryDTO) => (request.execute(server.Server) as SuperAgentStatic)
+      .get(Config.Server.apiPath + '/gallery/zip/' + encodeURIComponent(JSON.stringify(query)));
+
+    const fileName = (res: any): string => {
+      const encoded = /filename\*=UTF-8''([^;]+)/.exec(res.headers['content-disposition']);
+      return encoded ? decodeURIComponent(encoded[1]) : /filename="?([^";]+)"?/.exec(res.headers['content-disposition'])[1];
+    };
+
+    it('should name the zip of the root folder after the gallery', async () => {
+      await ObjectManagers.getInstance().IndexingManager.indexDirectory('.', true);
+      const res = await getZip({
+        type: SearchQueryTypes.directory,
+        matchType: TextSearchQueryMatchTypes.exact_match,
+        value: '.'
+      } as TextSearch);
+
+      (res.should as any).have.status(200);
+      expect(res.headers['content-disposition']).to.equal('attachment; filename="' + Config.Server.applicationTitle + '.zip"');
+    });
+
+    it('should name the zip of a folder after the folder', async () => {
+      await ObjectManagers.getInstance().IndexingManager.indexDirectory('.', true);
+      await ObjectManagers.getInstance().IndexingManager.indexDirectory('orientation', true);
+      const res = await getZip({
+        type: SearchQueryTypes.directory,
+        matchType: TextSearchQueryMatchTypes.exact_match,
+        value: './orientation'
+      } as TextSearch);
+
+      (res.should as any).have.status(200);
+      expect(fileName(res)).to.equal('orientation.zip');
+    });
+
+    it('should keep SearchResults.zip for non-folder searches', async () => {
+      await ObjectManagers.getInstance().IndexingManager.indexDirectory('.', true);
+      const res = await getZip({
+        type: SearchQueryTypes.file_name,
+        value: 'old_photo'
+      } as TextSearch);
+
+      (res.should as any).have.status(200);
+      expect(fileName(res)).to.equal('SearchResults.zip');
+    });
+
+    it('should preserve non-ASCII folder names via RFC 5987 filename*', async () => {
+      const tmpMedia = path.join(TestHelper.TMP_DIR, 'zip-accent-media');
+      const accentedDir = 'Été 2026';
+      fs.rmSync(tmpMedia, {recursive: true, force: true});
+      fs.mkdirSync(path.join(tmpMedia, accentedDir), {recursive: true});
+      fs.copyFileSync(
+        path.join(__dirname, '../../assets/old_photo.jpg'),
+        path.join(tmpMedia, accentedDir, 'old_photo.jpg')
+      );
+      try {
+        Config.Media.folder = tmpMedia;
+        ProjectPath.reset();
+        await ObjectManagers.getInstance().IndexingManager.indexDirectory('.', true);
+        await ObjectManagers.getInstance().IndexingManager.indexDirectory(accentedDir, true);
+
+        const res = await getZip({
+          type: SearchQueryTypes.directory,
+          matchType: TextSearchQueryMatchTypes.exact_match,
+          value: accentedDir
+        } as TextSearch);
+
+        (res.should as any).have.status(200);
+        expect(res.headers['content-disposition']).to.match(/^attachment;/);
+        expect(fileName(res)).to.equal(accentedDir + '.zip');
+      } finally {
+        fs.rmSync(tmpMedia, {recursive: true, force: true});
+      }
     });
   });
 

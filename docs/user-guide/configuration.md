@@ -41,6 +41,7 @@ App CLI options:
   --Server-host                                                             Server will accept connections from this IPv6 or IPv4 address. (default: '0.0.0.0')
   --Server-Log-level                                                        Logging level. (default: 'info')
   --Server-Log-sqlLevel                                                     Logging level for SQL queries. (default: 'error')
+  --Server-Log-file                                                         If set, the app also writes its log to this file inside the configured DB/data folder (e.g. "logs/pigallery2.log"), e.g. for Fail2Ban. Paths outside the data folder are rejected. Lines have an ISO timestamp and no colours. Above 10 MB the file is renamed to .1 and a new one is started. Leave it empty to only log to the console. (default: '')
   --Server-Log-logServerTiming                                              If enabled, the app adds "Server-Timing" http header to the response. (default: false)
   --Users-authenticationRequired                                            Enables user management with login to password protect the gallery. (default: true)
   --Users-unAuthenticatedUserRole                                           Default user right when password protection is disabled. (default: 'Admin')
@@ -226,6 +227,7 @@ Environmental variables:
   Server-host                                                           Server will accept connections from this IPv6 or IPv4 address. (default: '0.0.0.0')
   Server-Log-level                                                      Logging level. (default: 'info')
   Server-Log-sqlLevel                                                   Logging level for SQL queries. (default: 'error')
+  Server-Log-file                                                       If set, the app also writes its log to this file inside the configured DB/data folder (e.g. "logs/pigallery2.log"), e.g. for Fail2Ban. Paths outside the data folder are rejected. Lines have an ISO timestamp and no colours. Above 10 MB the file is renamed to .1 and a new one is started. Leave it empty to only log to the console. (default: '')
   Server-Log-logServerTiming                                            If enabled, the app adds "Server-Timing" http header to the response. (default: false)
   Users-authenticationRequired                                          Enables user management with login to password protect the gallery. (default: true)
   Users-unAuthenticatedUserRole                                         Default user right when password protection is disabled. (default: 'Admin')
@@ -437,6 +439,8 @@ Environmental variables:
             "level": "info",
             "//[sqlLevel]": "Logging level for SQL queries.",
             "sqlLevel": "error",
+            "//[file]": "If set, the app also writes its log to this file inside the configured DB/data folder (e.g. \"logs/pigallery2.log\"), e.g. for Fail2Ban. Paths outside the data folder are rejected. Lines have an ISO timestamp and no colours. Above 10 MB the file is renamed to .1 and a new one is started. Leave it empty to only log to the console.",
+            "file": "",
             "//[logServerTiming]": "If enabled, the app adds \"Server-Timing\" http header to the response.",
             "logServerTiming": false
         }
