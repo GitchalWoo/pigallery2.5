@@ -5,6 +5,7 @@ import {NextFunction, Request, Response} from 'express';
 import {ErrorCodes, ErrorDTO} from '../../common/entities/Error';
 import {ParentDirectoryDTO,} from '../../common/entities/DirectoryDTO';
 import {ObjectManagers} from '../model/ObjectManagers';
+import {DirectoryAccessTypes} from '../model/DirectoryAccess';
 import {ContentWrapper, ContentWrapperUtils} from '../../common/entities/ContentWrapper';
 import {ProjectPath} from '../ProjectPath';
 import {SafePath} from '../model/fileaccess/SafePath';
@@ -70,22 +71,20 @@ export class GalleryMWs {
     next: NextFunction
   ): Promise<void> {
     const directoryName = (req.params['directory'] || '/') as string;
-    let absoluteDirectoryName: string;
+    // set by AuthenticationMWs.authoriseDirectory
+    const access = req.directoryAccess ?? DirectoryAccessTypes.available;
+    let isDirectory = false;
     try {
-      absoluteDirectoryName = await SafePath.resolveExisting(
-        ProjectPath.ImageFolder,
-        directoryName
-      );
-    } catch (err) {
-      if (err.code === 'ENOENT' || err.code === 'ENOTDIR') return next();
-      return next(new ErrorDTO(ErrorCodes.PATH_ERROR, 'Path traversal detected'));
+      // also rejects paths (and symbolic links) that lead out of the image folder
+      const absoluteDirectoryName = await SafePath.resolveExisting(ProjectPath.ImageFolder, directoryName);
+      isDirectory = (await fsp.stat(absoluteDirectoryName)).isDirectory();
+    } catch {
+      // not existing or outside the image folder
     }
-    try {
-      if ((await fsp.stat(absoluteDirectoryName)).isDirectory() === false) {
-        return next();
-      }
-    } catch (e) {
-      return next();
+    if (!isDirectory) {
+      // the same answer as AuthenticationMWs.authoriseDirectory gives for not available directories
+      res.status(404);
+      return next(new ErrorDTO(ErrorCodes.DIRECTORY_NOT_FOUND, 'Directory not found'));
     }
 
     try {
@@ -100,13 +99,20 @@ export class GalleryMWs {
           parseInt(
             req.query[QueryParams.gallery.knownLastScanned] as string,
             10
-          )
+          ),
+          {
+            // sharing without directory query only sees already indexed directories with visible photos
+            allowIndexing: !req.session.context.directoryAccess.byPhotos,
+            // parents only show the way to the available directories
+            withMetaFiles: access === DirectoryAccessTypes.available
+          }
         );
 
       if (directory == null) {
         req.resultPipe = ContentWrapperUtils.build(null, null, true);
         return next();
       }
+      directory.availableParents = req.session.context.directoryAccess.getAvailableParents(directoryName);
       req.resultPipe = ContentWrapperUtils.build(directory, null);
       return next();
     } catch (err) {

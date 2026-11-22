@@ -21,6 +21,7 @@ import {ProjectedAlbumCacheEntity} from '../../../../../src/backend/model/databa
 import {SavedSearchEntity} from '../../../../../src/backend/model/database/enitites/album/SavedSearchEntity';
 import {ProjectedPersonCacheEntity} from '../../../../../src/backend/model/database/enitites/person/ProjectedPersonCacheEntity';
 import {PersonEntry} from '../../../../../src/backend/model/database/enitites/person/PersonEntry';
+import {GalleryManager} from '../../../../../src/backend/model/database/GalleryManager';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const chai = require('chai');
@@ -338,4 +339,24 @@ describe('ProjectedCacheManager', (sqlHelper: DBTestHelper) => {
     });
   });
 
+
+  describe('recursiveMediaCount of the root', () => {
+    before(async () => {
+      await sqlHelper.initDB();
+      await sqlHelper.setUpNestedTestGallery();
+    });
+
+    after(sqlHelper.clearDB);
+
+    it('counts the media of all levels below the root', async () => {
+      const conn = await SQLConnection.getConnection();
+      const root = GalleryManager.parseRelativeDirPath('.');
+      const rootDir = await conn.getRepository(DirectoryEntity).findOneBy({name: root.name, path: root.parent});
+      const cache = await ObjectManagers.getInstance().ProjectedCacheManager
+        .getCacheForDirectory(conn, DBTestHelper.defaultSession, rootDir);
+      // nested gallery: one photo in each of the 6 directories, 3 of them are deeper than the root's children
+      expect(cache.mediaCount).to.equal(1);
+      expect(cache.recursiveMediaCount).to.equal(6);
+    });
+  });
 });

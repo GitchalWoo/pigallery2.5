@@ -23,7 +23,7 @@ Evergreen guide for porting changes from upstream [bpatrik/pigallery2](https://g
 | DB schema | `DatabaseMigrations` (in-place migrations with backup) | Drop and rebuild on version change | Keep `DatabaseMigrations`; never drop user DBs. |
 | Uploads | Streams to `TempFolder/upload` (P02), `Upload.maxFileSizeMB` default 50, 10 files, 5 concurrent, moves with `link()` / exclusive `wx` copy (never overwrites) | Temp-folder storage with `rename()` (#1378), 500 MB default | Keep `SafePath`, no-overwrite moves, concurrency semaphore and the 50 MB default. |
 | Frontend components | Constructor-injected with RxJS & `ChangeDetectionStrategy.Eager` (mostly) | Signals, `inject()`, `computed()` | Apply behavior changes in the fork's existing component style. |
-| Error codes | No `DIRECTORY_NOT_FOUND` (until #1205) | Has `DIRECTORY_NOT_FOUND` (#1205) | Omit `#1205`-dependent hunks until `#1205` is ported; note in PR. |
+| Error codes | `DIRECTORY_NOT_FOUND` since P03a (#1205); `NOT_AUTHENTICATED_SHARING` only for requests with a sharing key | `DIRECTORY_NOT_FOUND` (#1205); `NOT_AUTHENTICATED_SHARING` for every unauthenticated request | Port `#1205`-dependent hunks. Keep `NOT_AUTHENTICATED` for requests without a sharing key. |
 | Tests | Mocha backend (SQLite + MariaDB), Vitest frontend, Cypress e2e | Mocha backend, Jasmine-style specs, Playwright e2e | Drop upstream Jasmine/Playwright specs; write Vitest/Mocha equivalents. |
 | Translations & release notes | Keep fork `.xlf` files; no `RELEASE_NOTES.md` | Updates `.xlf` and `RELEASE_NOTES.md` | `git rm RELEASE_NOTES.md`; `git checkout HEAD -- src/frontend/translate/` unless updating translations. |
 

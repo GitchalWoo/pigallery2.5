@@ -18,6 +18,8 @@ export class UploadRouter {
       AuthenticationMWs.authenticate,
       AuthenticationMWs.authorise(Config.Upload.minimumRole),
       AuthenticationMWs.normalizePathParam('directory'),
+      // the user needs to see the content of the folder (before the body is read)
+      AuthenticationMWs.authoriseDirectory('directory'),
       VersionMWs.injectGalleryVersion,
 
       UploadMWs.upload,

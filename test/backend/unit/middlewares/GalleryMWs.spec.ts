@@ -7,8 +7,18 @@ import {ContentWrapper} from '../../../../src/common/entities/ContentWrapper';
 import {MediaDTO} from '../../../../src/common/entities/MediaDTO';
 import {ParentDirectoryDTO} from '../../../../src/common/entities/DirectoryDTO';
 import {DatabaseType} from '../../../../src/common/config/private/PrivateConfig';
+import {ObjectManagers} from '../../../../src/backend/model/ObjectManagers';
+import {GalleryManager} from '../../../../src/backend/model/database/GalleryManager';
+import {promises as fsp} from 'fs';
+import {DirectoryAccess, DirectoryAccessTypes} from '../../../../src/backend/model/DirectoryAccess';
+import {SessionContext} from '../../../../src/backend/model/SessionContext';
+import {ErrorCodes, ErrorDTO} from '../../../../src/common/entities/Error';
+import {DirectorySearch, SearchQueryTypes, TextSearchQueryMatchTypes} from '../../../../src/common/entities/SearchQueryDTO';
+import {SafePath} from '../../../../src/backend/model/fileaccess/SafePath';
 
 declare const before: any;
+declare const beforeEach: any;
+declare const afterEach: any;
 declare const describe: any;
 declare const it: any;
 
@@ -232,6 +242,105 @@ describe('GalleryMWs', () => {
         }
       };
       GalleryMWs.cleanUpGalleryResults(req, null, next);
+    });
+  });
+
+  describe('listDirectory - directory access', () => {
+    let origGalleryManager: GalleryManager;
+    let origStat: typeof fsp.stat;
+    let origResolveExisting: typeof SafePath.resolveExisting;
+    let listArgs: any[];
+
+    const dq = (value: string): DirectorySearch =>
+      ({type: SearchQueryTypes.directory, value, matchType: TextSearchQueryMatchTypes.exact_match});
+
+    const sessionContext = (user: any, access: Partial<DirectoryAccess> = {}): SessionContext => {
+      const c = new SessionContext();
+      c.user = user;
+      c.directoryAccess = new DirectoryAccess(c, access);
+      return c;
+    };
+
+    const callListDirectory = async (directory: string, context: SessionContext, directoryAccess?: DirectoryAccessTypes) => {
+      const req: any = {session: {context}, params: {directory}, query: {}, directoryAccess};
+      let status: number = null;
+      const res: any = {
+        status: (s: number) => {
+          status = s;
+          return res;
+        }
+      };
+      let nextArgs: any[] = null;
+      await GalleryMWs.listDirectory(req, res, (...args: any[]) => {
+        nextArgs = args;
+      });
+      return {req, status, nextArgs};
+    };
+
+    beforeEach(() => {
+      origGalleryManager = ObjectManagers.getInstance().GalleryManager;
+      origStat = fsp.stat;
+      origResolveExisting = SafePath.resolveExisting;
+      listArgs = null;
+      (fsp as any).stat = async () => ({isDirectory: () => true});
+      // the fork resolves the directory with realpath first (SafePath), the test gallery is not on the disk
+      // (the lexical containment check stays)
+      (SafePath as any).resolveExisting = async (base: string, p: string) => SafePath.resolve(base, p);
+      ObjectManagers.getInstance().GalleryManager = {
+        listDirectory: async (...args: any[]) => {
+          listArgs = args;
+          return {name: 'sub', path: 'public/', directories: [], media: [], metaFile: []} as any;
+        }
+      } as unknown as GalleryManager;
+    });
+
+    afterEach(() => {
+      ObjectManagers.getInstance().GalleryManager = origGalleryManager;
+      (fsp as any).stat = origStat;
+      (SafePath as any).resolveExisting = origResolveExisting;
+    });
+
+    it('answers not existing directories the same way as not available ones', async () => {
+      (SafePath as any).resolveExisting = async () => {
+        throw Object.assign(new Error('ENOENT'), {code: 'ENOENT'});
+      };
+      const notExisting = await callListDirectory('not_existing', sessionContext({}));
+      expect(notExisting.status).to.equal(404);
+      expect((notExisting.nextArgs[0] as ErrorDTO).code).to.equal(ErrorCodes.DIRECTORY_NOT_FOUND);
+      expect(listArgs).to.be.null;
+
+      // AuthenticationMWs.authoriseDirectory answers not available directories with the same error (see its spec)
+      expect(notExisting.nextArgs).to.deep.equal([new ErrorDTO(ErrorCodes.DIRECTORY_NOT_FOUND, 'Directory not found')]);
+    });
+
+    it('does not list a directory outside of the image folder', async () => {
+      // fsp.stat is stubbed to "exists": only the path check can stop it
+      for (const dir of ['..', '../other', 'a/../../other']) {
+        const outside = await callListDirectory(dir, sessionContext({}));
+        expect(outside.status, dir).to.equal(404);
+        expect((outside.nextArgs[0] as ErrorDTO).code, dir).to.equal(ErrorCodes.DIRECTORY_NOT_FOUND);
+        expect(listArgs, dir).to.be.null;
+      }
+    });
+
+    it('lists metafiles only for available directories', async () => {
+      await callListDirectory('public', sessionContext({}), DirectoryAccessTypes.available);
+      expect(listArgs[4].withMetaFiles).to.be.true;
+      await callListDirectory('public', sessionContext({}), DirectoryAccessTypes.parent);
+      expect(listArgs[4].withMetaFiles).to.be.false;
+    });
+
+    it('does not let sharing without directory query trigger indexing', async () => {
+      await callListDirectory('public', sessionContext({}), DirectoryAccessTypes.available);
+      expect(listArgs[4].allowIndexing).to.be.true;
+      await callListDirectory('public', sessionContext({usedSharingKey: 'key'}, {byPhotos: true}), DirectoryAccessTypes.available);
+      expect(listArgs[4].allowIndexing).to.be.false;
+    });
+
+    it('sends the available parents', async () => {
+      const r = await callListDirectory('a/b/c', sessionContext({}, {blockList: [dq('a')]}), DirectoryAccessTypes.available);
+      // root, a, a/b -> a is blocked
+      expect(r.req.resultPipe.directory.availableParents).to.deep.equal([true, false, true]);
     });
   });
 });

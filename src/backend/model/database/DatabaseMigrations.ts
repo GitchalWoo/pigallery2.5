@@ -2,6 +2,7 @@ import {Connection} from 'typeorm';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import {UserEntity} from './enitites/UserEntity';
+import {SharingEntity} from './enitites/SharingEntity';
 import {VersionEntity} from './enitites/VersionEntity';
 import {DataStructureVersion} from '../../../common/DataStructureVersion';
 import {Logger} from '../../Logger';
@@ -26,10 +27,16 @@ export class DatabaseMigrations {
     Logger.info(LOG_TAG, 'Updating database scheme');
     await this.backupSQLite(connection);
 
-    // Version 43 was shipped both with and without the OIDC identity columns.
-    // Apply only the known additive changes, without general schema synchronization.
-    if (version?.version === 43) {
-      await this.migrateOIDCIdentity(connection, version);
+    // Known versions get only their own changes, without general schema synchronization:
+    // that would drop unknown columns and rebuilds SQLite tables (a rebuilt user table deletes the sharings).
+    if (version?.version === 43 || version?.version === 44) {
+      if (version.version === 43) {
+        // Version 43 was shipped both with and without the OIDC identity columns.
+        await this.migrateOIDCIdentity(connection, version);
+      }
+      if (version.version === 44) {
+        await this.migrateDirectoryAccess(connection, version);
+      }
       return;
     }
     if (!version) {
@@ -88,7 +95,7 @@ export class DatabaseMigrations {
         }
       }
       // MySQL DDL commits implicitly; checking each column makes a retry safe after partial failure.
-      version.version = DataStructureVersion;
+      version.version = 44;
       await runner.manager.getRepository(VersionEntity).save(version);
       if (sqlite) {
         await runner.commitTransaction();
@@ -100,6 +107,78 @@ export class DatabaseMigrations {
       }
       throw err;
     } finally {
+      await runner.release();
+    }
+  }
+
+  /**
+   * Version 45: directory allow/block lists of the users and the directory query of the sharings (#1205).
+   * The new columns are nullable, so the existing users and sharings keep seeing what they saw.
+   * searchQuery of the sharings becomes nullable (a sharing can be a directory sharing only):
+   * SQLite can't change a column, the sharing table is rebuilt with its rows.
+   */
+  private static async migrateDirectoryAccess(connection: Connection, version: VersionEntity): Promise<void> {
+    const runner = connection.createQueryRunner();
+    const sqlite = connection.options.type === 'better-sqlite3';
+    const escape = (name: string) => connection.driver.escape(name);
+    try {
+      if (sqlite) {
+        // the rebuild drops the sharing table, nothing may cascade from it. The pragma is a no-op inside a transaction.
+        await runner.query('PRAGMA foreign_keys = OFF');
+        await runner.startTransaction();
+      }
+      const addColumns = async (tableName: string, columns: string[]): Promise<void> => {
+        const table = await runner.getTable(tableName);
+        if (!table) {
+          throw new Error(`Cannot migrate directory access: missing table ${tableName}`);
+        }
+        for (const column of columns) {
+          if (!table.findColumnByName(column)) {
+            // Raw ADD COLUMN avoids TypeORM rebuilding the table and its relations.
+            await runner.query(`ALTER TABLE ${escape(tableName)} ADD COLUMN ${escape(column)} TEXT NULL`);
+          }
+        }
+      };
+      const userTable = connection.getMetadata(UserEntity).tableName;
+      const sharingTable = connection.getMetadata(SharingEntity).tableName;
+      await addColumns(userTable, ['allowDirectoryList', 'blockDirectoryList']);
+      await addColumns(sharingTable, ['directoryQuery']);
+
+      const table = await runner.getTable(sharingTable);
+      const searchQuery = table.findColumnByName('searchQuery');
+      if (!searchQuery) {
+        throw new Error(`Cannot migrate directory access: missing column ${sharingTable}.searchQuery`);
+      }
+      if (!searchQuery.isNullable) {
+        if (sqlite) {
+          const nullable = searchQuery.clone();
+          nullable.isNullable = true;
+          await runner.changeColumn(table, searchQuery, nullable);
+        } else {
+          await runner.query(`ALTER TABLE ${escape(sharingTable)} MODIFY ${escape('searchQuery')} TEXT NULL`);
+        }
+      }
+      if (sqlite) {
+        const violations = await runner.query('PRAGMA foreign_key_check');
+        if (violations.length > 0) {
+          throw new Error('Cannot migrate directory access: foreign key check failed: ' + JSON.stringify(violations));
+        }
+      }
+      version.version = 45;
+      await runner.manager.getRepository(VersionEntity).save(version);
+      if (sqlite) {
+        await runner.commitTransaction();
+      }
+      Logger.info(LOG_TAG, 'Migrated directory access columns to database schema version 45');
+    } catch (err) {
+      if (runner.isTransactionActive) {
+        await runner.rollbackTransaction();
+      }
+      throw err;
+    } finally {
+      if (sqlite) {
+        await runner.query('PRAGMA foreign_keys = ON');
+      }
       await runner.release();
     }
   }
