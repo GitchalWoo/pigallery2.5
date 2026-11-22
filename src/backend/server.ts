@@ -12,6 +12,7 @@ import {Localizations} from './model/Localizations';
 import {CookieNames} from '../common/CookieNames';
 import {Router} from './routes/Router';
 import {PhotoProcessing} from './model/fileaccess/fileprocessing/PhotoProcessing';
+import {UploadManager} from './model/UploadManager';
 import {Event} from '../common/event/Event';
 import {ConfigClassBuilder} from 'typeconfig/node';
 import {ConfigClassOptions} from 'typeconfig/src/decorators/class/IConfigClass';
@@ -103,6 +104,12 @@ export class Server {
 
     PhotoProcessing.init();
     Localizations.init();
+    try {
+      // no upload is running yet: whatever is in the upload temp folder was left behind by a previous run
+      await UploadManager.removeStaleTempFiles();
+    } catch (err) {
+      Logger.warn(LOG_TAG, 'Could not remove the stale upload temp files: ' + err);
+    }
 
     this.app.use((req, res, next) => {
       const match = req.acceptsLanguages(Config.Server.languages);
