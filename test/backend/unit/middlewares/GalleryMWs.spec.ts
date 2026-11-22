@@ -12,7 +12,6 @@ import {GalleryManager} from '../../../../src/backend/model/database/GalleryMana
 import {promises as fsp} from 'fs';
 import {DirectoryAccess, DirectoryAccessTypes} from '../../../../src/backend/model/DirectoryAccess';
 import {SessionContext} from '../../../../src/backend/model/SessionContext';
-import {AuthenticationMWs} from '../../../../src/backend/middlewares/user/AuthenticationMWs';
 import {ErrorCodes, ErrorDTO} from '../../../../src/common/entities/Error';
 import {DirectorySearch, SearchQueryTypes, TextSearchQueryMatchTypes} from '../../../../src/common/entities/SearchQueryDTO';
 import {SafePath} from '../../../../src/backend/model/fileaccess/SafePath';
@@ -285,7 +284,8 @@ describe('GalleryMWs', () => {
       listArgs = null;
       (fsp as any).stat = async () => ({isDirectory: () => true});
       // the fork resolves the directory with realpath first (SafePath), the test gallery is not on the disk
-      (SafePath as any).resolveExisting = async (base: string, p: string) => path.join(base, p);
+      // (the lexical containment check stays)
+      (SafePath as any).resolveExisting = async (base: string, p: string) => SafePath.resolve(base, p);
       ObjectManagers.getInstance().GalleryManager = {
         listDirectory: async (...args: any[]) => {
           listArgs = args;
@@ -309,18 +309,18 @@ describe('GalleryMWs', () => {
       expect((notExisting.nextArgs[0] as ErrorDTO).code).to.equal(ErrorCodes.DIRECTORY_NOT_FOUND);
       expect(listArgs).to.be.null;
 
-      const res: any = {
-        status: (s: number) => {
-          res.statusCode = s;
-          return res;
-        }
-      };
-      let notAvailableArgs: any[] = null;
-      AuthenticationMWs.directoryNotFound(res, (...args: any[]) => {
-        notAvailableArgs = args;
-      });
-      expect(res.statusCode).to.equal(notExisting.status);
-      expect(notAvailableArgs).to.deep.equal(notExisting.nextArgs);
+      // AuthenticationMWs.authoriseDirectory answers not available directories with the same error (see its spec)
+      expect(notExisting.nextArgs).to.deep.equal([new ErrorDTO(ErrorCodes.DIRECTORY_NOT_FOUND, 'Directory not found')]);
+    });
+
+    it('does not list a directory outside of the image folder', async () => {
+      // fsp.stat is stubbed to "exists": only the path check can stop it
+      for (const dir of ['..', '../other', 'a/../../other']) {
+        const outside = await callListDirectory(dir, sessionContext({}));
+        expect(outside.status, dir).to.equal(404);
+        expect((outside.nextArgs[0] as ErrorDTO).code, dir).to.equal(ErrorCodes.DIRECTORY_NOT_FOUND);
+        expect(listArgs, dir).to.be.null;
+      }
     });
 
     it('lists metafiles only for available directories', async () => {

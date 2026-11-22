@@ -6,7 +6,6 @@ import {ErrorCodes, ErrorDTO} from '../../common/entities/Error';
 import {ParentDirectoryDTO,} from '../../common/entities/DirectoryDTO';
 import {ObjectManagers} from '../model/ObjectManagers';
 import {DirectoryAccessTypes} from '../model/DirectoryAccess';
-import {AuthenticationMWs} from './user/AuthenticationMWs';
 import {ContentWrapper, ContentWrapperUtils} from '../../common/entities/ContentWrapper';
 import {ProjectPath} from '../ProjectPath';
 import {SafePath} from '../model/fileaccess/SafePath';
@@ -72,26 +71,20 @@ export class GalleryMWs {
     next: NextFunction
   ): Promise<void> {
     const directoryName = (req.params['directory'] || '/') as string;
-    let absoluteDirectoryName: string;
-    try {
-      absoluteDirectoryName = await SafePath.resolveExisting(
-        ProjectPath.ImageFolder,
-        directoryName
-      );
-    } catch (err) {
-      if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
-        return AuthenticationMWs.directoryNotFound(res, next);
-      }
-      return next(new ErrorDTO(ErrorCodes.PATH_ERROR, 'Path traversal detected'));
-    }
     // set by AuthenticationMWs.authoriseDirectory
     const access = req.directoryAccess ?? DirectoryAccessTypes.available;
+    let isDirectory = false;
     try {
-      if ((await fsp.stat(absoluteDirectoryName)).isDirectory() === false) {
-        return AuthenticationMWs.directoryNotFound(res, next);
-      }
-    } catch (e) {
-      return AuthenticationMWs.directoryNotFound(res, next);
+      // also rejects paths (and symbolic links) that lead out of the image folder
+      const absoluteDirectoryName = await SafePath.resolveExisting(ProjectPath.ImageFolder, directoryName);
+      isDirectory = (await fsp.stat(absoluteDirectoryName)).isDirectory();
+    } catch {
+      // not existing or outside the image folder
+    }
+    if (!isDirectory) {
+      // the same answer as AuthenticationMWs.authoriseDirectory gives for not available directories
+      res.status(404);
+      return next(new ErrorDTO(ErrorCodes.DIRECTORY_NOT_FOUND, 'Directory not found'));
     }
 
     try {
