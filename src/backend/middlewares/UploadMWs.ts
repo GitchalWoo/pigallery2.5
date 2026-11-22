@@ -10,6 +10,8 @@ import {Config} from '../../common/config/private/Config';
 import {UploadUtils} from '../../common/UploadUtils';
 import {UploadedFile, UploadManager} from '../model/UploadManager';
 import {FolderNotWritable} from '../exceptions/FolderNotWritable';
+import {DirectoryNotFound} from '../exceptions/DirectoryNotFound';
+import {DirectoryAccessTypes} from '../model/DirectoryAccess';
 import multer = require('multer');
 
 /**
@@ -87,6 +89,13 @@ export class UploadMWs {
     res: Response,
     next: NextFunction
   ): Promise<void> {
+    // set by AuthenticationMWs.authoriseDirectory. Only the content of available folders is visible, so only those can be written:
+    // a parent folder (navigable, content hidden) gets the same answer as a not existing one.
+    // Checked before reading the body and taking an upload slot.
+    if (req.directoryAccess !== DirectoryAccessTypes.available) {
+      res.status(404);
+      return next(new ErrorDTO(ErrorCodes.DIRECTORY_NOT_FOUND, 'Directory not found'));
+    }
     if (activeUploads >= MAX_CONCURRENT_UPLOADS) {
       res.status(429);
       return next(new ErrorDTO(ErrorCodes.UPLOAD_ERROR, 'Too many concurrent uploads in progress. Please retry shortly.'));
@@ -119,6 +128,10 @@ export class UploadMWs {
               if (e instanceof FolderNotWritable) {
                 res.status(403);
                 error = new ErrorDTO(ErrorCodes.PERMISSION_DENIED, e.message);
+              } else if (e instanceof DirectoryNotFound) {
+                // the same answer as for a folder the user can't see
+                res.status(404);
+                error = new ErrorDTO(ErrorCodes.DIRECTORY_NOT_FOUND, 'Directory not found');
               } else {
                 error = new ErrorDTO(ErrorCodes.UPLOAD_ERROR, e.message || e);
               }

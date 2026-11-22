@@ -63,6 +63,8 @@ export class UploaderService {
               private contentLoaderService: ContentLoaderService) {
   }
 
+  // Known gap: a folder the user can only navigate (its content is hidden) still offers the upload,
+  // the server then answers "Directory not found". The client does not know the access of a folder.
   public canUpload(): boolean {
     const dir = this.contentLoaderService.content.value.directory;
     if (!Config.Upload.enabled ||
@@ -253,7 +255,8 @@ export class UploaderService {
       },
       // the error interceptor passes on the ErrorDTO of the server, or a text when there was no answer from it
       error: (err: ErrorDTO | string) => {
-        if (typeof err === 'object' && err?.code === ErrorCodes.PERMISSION_DENIED) {
+        if (typeof err === 'object' && UploaderService.isFolderError(err)) {
+          // sending it again would fail the same way
           this.onUploadFailed(upload, UploaderService.describeError(err));
           return;
         }
@@ -271,8 +274,16 @@ export class UploaderService {
     this.uploadProgressSignal.update(list => list.filter(i => i !== item));
   }
 
+  /**
+   * The folder can't be saved to: not writable, or the user can't see its content
+   * (a hidden or not existing folder answers DIRECTORY_NOT_FOUND, the two are not told apart).
+   */
+  private static isFolderError(err: ErrorDTO): boolean {
+    return err?.code === ErrorCodes.PERMISSION_DENIED || err?.code === ErrorCodes.DIRECTORY_NOT_FOUND;
+  }
+
   private static describeError(err: ErrorDTO): string {
-    if (err.code === ErrorCodes.PERMISSION_DENIED) {
+    if (UploaderService.isFolderError(err)) {
       return $localize`Can't save to this folder`;
     }
     return err.message || $localize`Upload failed.`;

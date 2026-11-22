@@ -18,6 +18,7 @@ import {CookieNames} from '../../../../src/common/CookieNames';
 import {DBTestHelper} from '../../DBTestHelper';
 import {RateLimiter} from '../../../../src/backend/middlewares/RateLimiter';
 import {ErrorCodes} from '../../../../src/common/entities/Error';
+import {DirectorySearch, SearchQueryTypes, TextSearchQueryMatchTypes} from '../../../../src/common/entities/SearchQueryDTO';
 import * as http from 'http';
 import {AddressInfo} from 'net';
 
@@ -372,7 +373,10 @@ describe('UploadRouter', () => {
 
       should.not.equal(res.body.error, null);
       res.body.error.message.should.contain('Directory not found');
+      res.body.error.code.should.equal(ErrorCodes.DIRECTORY_NOT_FOUND);
+      res.should.have.status(404);
       fs.existsSync(path.join(testDir, 'missing_dir')).should.be.false;
+      tempFiles().should.deep.equal([]);
     });
 
     it('should keep the accented letters of the file name', async () => {
@@ -429,6 +433,83 @@ describe('UploadRouter', () => {
         .attach('files', Buffer.from('test'), 'test.jpg');
 
       res.should.have.status(401);
+    });
+  });
+
+  describe('/POST upload with directory access', () => {
+    const dq = (value: string, matchType = TextSearchQueryMatchTypes.exact_match): DirectorySearch =>
+      ({type: SearchQueryTypes.directory, value, matchType});
+    // can only open the family folder (not its private subfolder), so the root is only a parent (navigable, content hidden)
+    const familyUser = {
+      name: 'family', password: 'family', role: UserRoles.User,
+      overrideAllowBlockList: true,
+      allowDirectoryList: [dq('family/*', TextSearchQueryMatchTypes.globMatch)],
+      blockDirectoryList: [dq('family/private')]
+    } as UserDTO;
+    const origMinimumRole = Config.Upload.minimumRole;
+
+    beforeEach(async () => {
+      Config.Upload.minimumRole = UserRoles.User; // read when the routes are set up
+      await setUp();
+      await ObjectManagers.getInstance().UserManager.createUser(Utils.clone(familyUser));
+      for (const dir of ['family', path.join('family', 'private'), 'other']) {
+        fs.mkdirSync(path.join(testDir, dir), {recursive: true});
+      }
+    });
+    afterEach(async () => {
+      Config.Upload.minimumRole = origMinimumRole;
+      await tearDown();
+    });
+
+    const uploadAsFamily = async (dir: string, filename: string): Promise<any> => {
+      const loginRes = await (request.execute(server.Server) as SuperAgentStatic)
+        .post(Config.Server.apiPath + '/user/login')
+        .send({loginCredential: {username: familyUser.name, password: familyUser.password, rememberMe: false} as LoginCredential});
+      return request.execute(server.Server)
+        .post(Config.Server.apiPath + '/upload/' + dir)
+        .set('Cookie', loginRes.headers['set-cookie'] as unknown as string[])
+        .set(CustomHeaders.csrfToken, RouteTestingHelper.getCsrfToken(loginRes))
+        .attach('files', Buffer.from('test image'), filename);
+    };
+
+    it('should upload to an available folder', async () => {
+      const res = await uploadAsFamily('family', 'allowed.jpg');
+
+      res.should.have.status(200);
+      should.equal(res.body.error, null);
+      fs.existsSync(path.join(testDir, 'family', 'allowed.jpg')).should.be.true;
+      tempFiles().should.deep.equal([]);
+    });
+
+    it('should answer a hidden folder like a not existing one, before saving the file', async () => {
+      const hidden = await uploadAsFamily('other', 'hidden.jpg');
+      const missing = await uploadAsFamily('family/missing', 'missing.jpg');
+
+      hidden.should.have.status(404);
+      hidden.body.error.code.should.equal(ErrorCodes.DIRECTORY_NOT_FOUND);
+      // nothing tells them apart
+      hidden.body.should.deep.equal(missing.body);
+      missing.should.have.status(hidden.status);
+      fs.existsSync(path.join(testDir, 'other', 'hidden.jpg')).should.be.false;
+      tempFiles().should.deep.equal([]);
+    });
+
+    it('should not upload to a blocked folder inside an allowed one (block list wins)', async () => {
+      const res = await uploadAsFamily('family/private', 'blocked.jpg');
+
+      res.should.have.status(404);
+      res.body.error.code.should.equal(ErrorCodes.DIRECTORY_NOT_FOUND);
+      fs.existsSync(path.join(testDir, 'family', 'private', 'blocked.jpg')).should.be.false;
+      tempFiles().should.deep.equal([]);
+    });
+
+    it('should not upload to a folder that can only be navigated', async () => {
+      const res = await uploadAsFamily('', 'parent.jpg');
+
+      res.should.have.status(404);
+      res.body.error.code.should.equal(ErrorCodes.DIRECTORY_NOT_FOUND);
+      fs.existsSync(path.join(testDir, 'parent.jpg')).should.be.false;
+      tempFiles().should.deep.equal([]);
     });
   });
 

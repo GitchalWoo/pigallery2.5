@@ -91,6 +91,15 @@ describe('UploaderService', () => {
     expect(notification.error).toHaveBeenCalledWith('Upload failed.');
   });
 
+  it('should say "Can\'t save to this folder" when the user can\'t see the folder', async () => {
+    await service.uploadFiles([file('beach.jpg')]);
+    // a hidden folder (or one that the user can only navigate) answers 404 like a not existing one
+    network.requests[0].subject.error({code: ErrorCodes.DIRECTORY_NOT_FOUND, message: 'Directory not found'});
+    expect(item('beach.jpg')).toEqual(expect.objectContaining({status: 'error', error: 'Can\'t save to this folder'}));
+    expect(item('beach.jpg').onRetry).toBeUndefined(); // it would fail the same way
+    expect(notification.error).toHaveBeenCalledWith('Upload failed.');
+  });
+
   it('should show an error of the whole request in the response body as a failure, not a success', async () => {
     await service.uploadFiles([file('beach.jpg')]);
     respond(0, {error: {code: ErrorCodes.UPLOAD_ERROR, message: 'Directory not found'}, result: null});
