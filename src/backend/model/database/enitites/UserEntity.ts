@@ -1,6 +1,6 @@
 import {UserDTO, UserRoles} from '../../../../common/entities/UserDTO';
 import {Column, Entity, PrimaryGeneratedColumn, Unique} from 'typeorm';
-import {SearchQueryDTO} from '../../../../common/entities/SearchQueryDTO';
+import {DirectorySearch, SearchQueryDTO} from '../../../../common/entities/SearchQueryDTO';
 import {SessionUser} from '../../SessionContext';
 
 @Entity()
@@ -55,4 +55,32 @@ export class UserEntity implements UserDTO,SessionUser {
     },
   })
   blockQuery?: SearchQueryDTO;
+
+  @Column({
+    type: 'text',
+    nullable: true,
+    transformer: {
+      from: (val: string) => {
+        return val ? JSON.parse(val) : null;
+      },
+      to: (val: object) => {
+        return val ? JSON.stringify(val) : null;
+      },
+    },
+  })
+  allowDirectoryList?: DirectorySearch[];
+
+  @Column({
+    type: 'text',
+    nullable: true,
+    transformer: {
+      from: (val: string) => {
+        return val ? JSON.parse(val) : null;
+      },
+      to: (val: object) => {
+        return val ? JSON.stringify(val) : null;
+      },
+    },
+  })
+  blockDirectoryList?: DirectorySearch[];
 }

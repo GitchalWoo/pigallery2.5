@@ -57,12 +57,14 @@ describe('SharingMWs management', () => {
     expect(calls).to.have.length(0);
   });
 
+  // since #1205 a sharing without a search query is a directory sharing (directoryQuery), not a directory search
   it('uses an exact directory query when creating without an explicit search query', async () => {
     const req: any = {body: {createSharing: {valid: -1}}, params: {directory: '/photos'}, session: {context: {user: {id: 1}}}};
     await invoke(SharingMWs.createSharing, req);
     expect(error).to.equal(undefined);
     const created = calls.find(c => c.name === 'createSharing')!.args[0] as any;
-    expect(created.searchQuery).to.include({type: SearchQueryTypes.directory, value: '/photos', matchType: TextSearchQueryMatchTypes.exact_match, negate: false});
+    expect(created.searchQuery).to.equal(null);
+    expect(created.directoryQuery).to.include({type: SearchQueryTypes.directory, value: '/photos', matchType: TextSearchQueryMatchTypes.exact_match, negate: false});
     expect(created.expires).to.be.greaterThan(Date.now());
   });
 
@@ -75,7 +77,8 @@ describe('SharingMWs management', () => {
       const update = calls.find(c => c.name === 'updateSharing')!;
       expect(update.args[1]).to.equal(force);
       expect((update.args[0] as any).password).to.equal(null);
-      expect((update.args[0] as any).searchQuery.value).to.equal('/album');
+      expect((update.args[0] as any).searchQuery).to.equal(null);
+      expect((update.args[0] as any).directoryQuery.value).to.equal('/album');
     }
   });
 

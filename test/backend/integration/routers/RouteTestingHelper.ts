@@ -4,10 +4,25 @@ import {Utils} from '../../../../src/common/Utils';
 import {SearchQueryTypes, TextSearch, TextSearchQueryMatchTypes} from '../../../../src/common/entities/SearchQueryDTO';
 import * as chai from 'chai';
 import {SharingEntity} from '../../../../src/backend/model/database/enitites/SharingEntity';
+import {CookieNames} from '../../../../src/common/CookieNames';
 
 const should = chai.should();
 
 export class RouteTestingHelper {
+
+  /**
+   * The CSRF token that a login response sets as a cookie. Mutating requests need it in the CSRF header.
+   */
+  static getCsrfToken(loginRes: { headers: Record<string, unknown> }): string {
+    const cookies = [].concat(loginRes.headers['set-cookie'] || []) as string[];
+    for (const c of cookies) {
+      const match = c.match(new RegExp(`${CookieNames.csrfToken}=([^;]+)`));
+      if (match) {
+        return match[1];
+      }
+    }
+    return '';
+  }
 
 
   static async createSharing(testUser: UserDTO, password: string = null): Promise<SharingEntity> {

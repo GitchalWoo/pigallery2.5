@@ -35,12 +35,15 @@ export class GalleryRouter {
     app.get(
       [
         new RegExp(`^${Config.Server.apiPath}/gallery/content(?:/(?<directory>.*))?$`),
-        new RegExp(`^${Config.Server.apiPath}/gallery(?:/(?<directory>.*))?$`)
+        // only the gallery root: other paths below /gallery are other routes (e.g.: zip, random)
+        new RegExp(`^${Config.Server.apiPath}/gallery/{0,2}$`)
       ],
       // common part
       AuthenticationMWs.authenticate,
-      AuthenticationMWs.authorise(UserRoles.Guest), //sharing user can only go through search. They can't just wander through the whole gallery
+      // sharing users can only list the directories of the sharing
+      AuthenticationMWs.authorise(UserRoles.LimitedGuest),
       AuthenticationMWs.normalizePathParam('directory'),
+      AuthenticationMWs.authoriseDirectory('directory'),
       VersionMWs.injectGalleryVersion,
 
       // specific part

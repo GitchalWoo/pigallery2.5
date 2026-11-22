@@ -12,6 +12,8 @@ import {SessionUser, SessionContext} from '../../model/SessionContext';
 import {SafePath} from '../../model/fileaccess/SafePath';
 import {NotificationManager} from '../../model/NotifocationManager';
 import {OIDCAuthService} from './OIDCAuthService';
+import {Brackets} from 'typeorm';
+import {DirectoryAccess, DirectoryAccessTypes} from '../../model/DirectoryAccess';
 
 const LOG_TAG = 'AuthenticationMWs';
 
@@ -97,12 +99,15 @@ export class AuthenticationMWs {
     } catch (err) {
     }
 
-    // no sharing user yet (eg.: its password protected)
     if (!user) {
       res.status(401);
-      return next(
-        new ErrorDTO(ErrorCodes.NOT_AUTHENTICATED_SHARING, 'Not authenticated sharing')
-      );
+      // no sharing user yet (eg.: its password protected). The client needs to know it, so it does not log out in a loop
+      if (Config.Sharing.enabled && AuthenticationMWs.getSharingKey(req)) {
+        return next(
+          new ErrorDTO(ErrorCodes.NOT_AUTHENTICATED_SHARING, 'Not authenticated sharing')
+        );
+      }
+      return next(new ErrorDTO(ErrorCodes.NOT_AUTHENTICATED, 'Not authenticated'));
     }
 
 
@@ -159,18 +164,57 @@ export class AuthenticationMWs {
         const p: string = req.params[paramName] as string;
 
         if (!await ObjectManagers.getInstance().GalleryManager.authoriseMetaFile(req.session.context, p)) {
-          res.sendStatus(403);
+          res.sendStatus(404); // same as not existing
           return;
         }
 
         return next();
       } catch (e) {
         // On error, fail closed to be safe
-        Logger.warn(LOG_TAG, 'authoriseMedia error:', e);
-        res.sendStatus(403);
+        Logger.warn(LOG_TAG, 'authoriseMetaFiles error:', e);
+        res.sendStatus(404); // same as not existing
         return;
       }
     };
+  }
+
+  /**
+   * Authorises the directory against the directory allow and block lists of the session (see DirectoryAccess).
+   * Not available directories get the same error as not existing ones, so it can't be used to find out if a directory exists.
+   * It sets req.directoryAccess for the next middlewares.
+   */
+  public static authoriseDirectory(
+    paramName: string
+  ): (req: Request, res: Response, next: NextFunction) => Promise<void> {
+    return async function authoriseDirectory(
+      req: Request,
+      res: Response,
+      next: NextFunction
+    ): Promise<void> {
+      try {
+        const dirRelPath: string = (req.params[paramName] as string) || path.sep;
+        const access = req.session.context?.directoryAccess
+          ? await req.session.context.directoryAccess.getAccess(dirRelPath)
+          : DirectoryAccessTypes.none;
+        if (access === DirectoryAccessTypes.none) {
+          return AuthenticationMWs.directoryNotFound(res, next);
+        }
+        req.directoryAccess = access;
+        return next();
+      } catch (e) {
+        // On error, fail closed to be safe
+        Logger.warn(LOG_TAG, 'authoriseDirectory error:', e);
+        return AuthenticationMWs.directoryNotFound(res, next);
+      }
+    };
+  }
+
+  /**
+   * The response for not existing and not available directories. They need to be the same.
+   */
+  public static directoryNotFound(res: Response, next: NextFunction): void {
+    res.status(404);
+    return next(new ErrorDTO(ErrorCodes.DIRECTORY_NOT_FOUND, 'Directory not found'));
   }
 
   public static authoriseMedia(
@@ -423,7 +467,12 @@ export class AuthenticationMWs {
     if (!context.user?.projectionKey) {
       return false; // context was never built
     }
-    return !context.projectionQuery || Object.keys(context.projectionQuery).length === 0;
+    // Rebuild also if there is no projection, so config changes (e.g.: new allow/block lists) are applied
+    if (!(context.projectionQuery instanceof Brackets)) {
+      return true;
+    }
+    // its methods and SQL filters are lost too
+    return !(context.directoryAccess instanceof DirectoryAccess);
   }
 
   private static getSharingKey(req: Request): string {
