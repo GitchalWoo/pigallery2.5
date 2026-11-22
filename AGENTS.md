@@ -130,4 +130,4 @@
 ## Security Context
 
 - Security remediation status and audit controls (S1–S5, AUD1–AUD14) are detailed in [Security-Updates.md](docs/fork-features/Security-Updates.md).
-- Upload limits: 50 MiB/file, 10 file parts/request, bounded by concurrency semaphore (`MAX_CONCURRENT_UPLOADS = 5`) and exclusive write creation (`wx`).
+- Uploads stream to `TempFolder/upload` (stale files removed at startup) and move into the gallery with `link()` + `unlink()` or an exclusive `wx` copy, never overwriting. Limits: `Upload.maxFileSizeMB` (default 50) per file, 10 file parts/request, concurrency semaphore (`MAX_CONCURRENT_UPLOADS = 5`). `Upload.blockedExtensions` (default `pg2conf`, `svg`).

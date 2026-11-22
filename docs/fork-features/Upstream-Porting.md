@@ -21,7 +21,7 @@ Evergreen guide for porting changes from upstream [bpatrik/pigallery2](https://g
 | OIDC | `openid-client` 6, `AUD2` `(oidcIssuer, oidcSubject)` binding, blocks auto-bind to Admin/Developer, `urlBase` redirect | `openid-client` 6, `strictLinkMaxRole`, `Config.Server.getAppUrl()` | Keep fork `AUD2` binding rules and `RateLimiter` on `OIDCRouter`. |
 | First admin | Random bootstrap password written to `admin-bootstrap.txt` | `admin` / `admin` | Keep `admin-bootstrap.txt`. |
 | DB schema | `DatabaseMigrations` (in-place migrations with backup) | Drop and rebuild on version change | Keep `DatabaseMigrations`; never drop user DBs. |
-| Uploads | `multer.memoryStorage`, 50 MiB/file, 10 files, 5 concurrent, `wx` exclusive writes | Temp-folder storage (#1378) | Keep `SafePath`, `wx`, concurrency semaphore, 50 MiB default when porting #1378. |
+| Uploads | Streams to `TempFolder/upload` (P02), `Upload.maxFileSizeMB` default 50, 10 files, 5 concurrent, moves with `link()` / exclusive `wx` copy (never overwrites) | Temp-folder storage with `rename()` (#1378), 500 MB default | Keep `SafePath`, no-overwrite moves, concurrency semaphore and the 50 MB default. |
 | Frontend components | Constructor-injected with RxJS & `ChangeDetectionStrategy.Eager` (mostly) | Signals, `inject()`, `computed()` | Apply behavior changes in the fork's existing component style. |
 | Error codes | No `DIRECTORY_NOT_FOUND` (until #1205) | Has `DIRECTORY_NOT_FOUND` (#1205) | Omit `#1205`-dependent hunks until `#1205` is ported; note in PR. |
 | Tests | Mocha backend (SQLite + MariaDB), Vitest frontend, Cypress e2e | Mocha backend, Jasmine-style specs, Playwright e2e | Drop upstream Jasmine/Playwright specs; write Vitest/Mocha equivalents. |
@@ -121,7 +121,7 @@ git cherry-pick -x <commit>
   ```
 - Restore `.xlf` churn: `git checkout HEAD -- src/frontend/translate/`.
 - Apply frontend behavior in the fork's component style: constructor injection, RxJS, `ChangeDetectionStrategy.Eager`. Do not migrate components to signals.
-- Config additions update `test/common/unit/config/ConfigTypes.snapshot.json` in the same commit.
+- Config additions update `docs/user-guide/configuration.md` in the same commit (the fork has no `ConfigTypes.snapshot.json`).
 - Replace upstream Playwright tests with Vitest (frontend) or Mocha (backend) tests of the same behavior.
 - Fork-only follow-ups (docs, ledger updates, fork-specific config) get their own commit under the user's name.
 - Fold small corrections (missing imports, test adjustments) into the commit they belong to instead of stacking fix commits:

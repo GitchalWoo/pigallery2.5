@@ -111,8 +111,8 @@ Branch `port/upstream-p02-uploads`. Commits in this order:
 | `c98c2151` | Harden upload filenames; block `pg2conf` and `svg` uploads | Upstream base for #1378's `blockedExtensions`. Keep `SafePath`. |
 | `1e65ca19` (#1274) | Keep accented letters of uploaded file names | Keep the fork's filename sanitizing. |
 | `4ebb11e5` (#1378) | Stream to `TempFolder/upload`; `Upload.maxFileSizeMB` | Default `maxFileSizeMB` = **50**. Keep `MAX_CONCURRENT_UPLOADS = 5` and the 10-file limit. Apply the move-without-overwrite decision. Remove stale temp files at startup. |
-| `b22d438a` (#1378) | Uploader names rejected files, explains unwritable folders, offers retry | Keep PR #41 `DirectoryNotFound` handling. Vitest for `uploader.service` and the toast container. |
-| `6d52e24d` (#1378) | nginx examples allow 500 MB + `proxy_request_buffering off` | Replace the fork's `55m` note in the docker-compose and NPM guides. |
+| `b22d438a` (#1378) | Uploader names rejected files, explains unwritable folders, offers retry | Keep PR #41 `DirectoryNotFound` handling. The fork has no upstream toast system: apply it to the uploader's progress cards; Vitest for `uploader.service` and the uploader component. |
+| `6d52e24d` (#1378) | nginx examples allow 500 MB + `proxy_request_buffering off` | **Not applied** (decided during P02): keep `55m` with request buffering on, so slow clients cannot hold the 5 upload slots; only the comments in the docker-compose and NPM guides change. |
 | `9c3e7e2b` (#1378) | Remove temp files before answering | Also on error paths. |
 
 Required tests (Mocha):
@@ -265,6 +265,7 @@ Branch `port/upstream-p11-states`.
 | `7eafcd1e` (#1371) | Notification badge appears once notifications arrive | |
 | `be5da765`, `f01bf7e5` (#1371) | Duplicates page loading state; translated summary | |
 | `94e26454` | Old browsers told they are unsupported | Verify; may already be in the fork. |
+| `222d67b6` (#1421) | Empty folder that accepts uploads offers an Upload button; `*.pg2conf` files no longer count as content | Builds on the #1373 empty state above. Reviewed in P02 and moved here. Vitest spec. |
 
 ### P12 — Prism shell, admin & PWA polish (M)
 
