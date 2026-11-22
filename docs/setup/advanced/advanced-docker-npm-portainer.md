@@ -205,9 +205,10 @@ location ~* ^/pgapi/(user|share)/login/?$ {
 
 # API handles all methods (GET, POST, PUT, DELETE, etc.)
 location /pgapi {
-    # uploads: the web UI sends one file per request, PiGallery2 accepts up to 50 MiB per file.
-    # Keep request buffering on: PiGallery2 holds uploads in memory with few upload slots,
-    # nginx shields them from slow clients.
+    # uploads: the web UI sends one file per request, PiGallery2 accepts up to Upload.maxFileSizeMB
+    # (default 50 MB) per file and streams it to its temp folder. Raise client_max_body_size together
+    # with Upload.maxFileSizeMB (+ ~5 MB multipart overhead). Keep request buffering on:
+    # PiGallery2 has few upload slots, nginx shields them from slow clients.
     client_max_body_size 55m;
     limit_req zone=pigallery2_api burst=500 nodelay;
     proxy_pass http://pigallery2:80;
