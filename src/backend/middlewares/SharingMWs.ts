@@ -195,6 +195,10 @@ export class SharingMWs {
         );
       }
       const updateSharing: CreateSharingDTO = req.body.updateSharing;
+      if (!Number.isInteger(updateSharing?.id) || updateSharing.id < 1 || updateSharing.id > 0xffffffff) {
+        res.status(400);
+        return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Invalid sharing ID'));
+      }
       const directoryName = path.normalize((req.params['directory'] as string) || '/');
 
       const searchQuery = updateSharing.searchQuery || null;

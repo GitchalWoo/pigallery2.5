@@ -64,6 +64,28 @@ describe('SharingManager', (sqlHelper: DBTestHelper) => {
     expect(saved.expires).to.equals(sharing.expires);
   });
 
+  it('allows an admin to edit a share without changing its owner', async () => {
+    const sm = new SharingManager();
+    const connection = await SQLConnection.getConnection();
+    const users = connection.getRepository(UserEntity);
+    const admin = await users.save({name: 'admin actor', password: '', role: UserRoles.Admin});
+    const developer = await users.save({name: 'developer actor', password: '', role: UserRoles.Developer});
+    const other = await users.save({name: 'other actor', password: '', role: UserRoles.User});
+    const share = await sm.createSharing({
+      id: null, sharingKey: 'editable', creator, expires: Date.now() + 60_000,
+      timeStamp: Date.now(), searchQuery: {type: SearchQueryTypes.directory, value: '/'} as TextSearch,
+    });
+    const expires = share.expires + 60_000;
+    await expect(sm.updateSharing({...share, creator: other, expires}, false)).to.be.rejectedWith('Sharing not found');
+    expect((await sm.updateSharing({...share, creator: admin, expires}, true)).expires).to.equal(expires);
+    expect((await sm.findOne(share.sharingKey)).creator.id).to.equal(creator.id);
+
+    await users.update(creator.id, {role: UserRoles.Developer});
+    await expect(sm.updateSharing({...share, creator: admin}, true)).to.be.rejectedWith('Sharing not found');
+    expect((await sm.updateSharing({...share, creator: developer}, true)).expires).to.equal(share.expires);
+    expect((await sm.findOne(share.sharingKey)).creator.id).to.equal(creator.id);
+  });
+
 
   it('should find sharing', async () => {
     const sm = new SharingManager();
