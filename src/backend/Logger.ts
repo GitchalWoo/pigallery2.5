@@ -1,6 +1,11 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as util from 'node:util';
 import {Config} from '../common/config/private/Config';
 import {LogLevel} from '../common/config/private/PrivateConfig';
 import {ErrorCodes} from '../common/entities/Error';
+import {ProjectPath} from './ProjectPath';
+import {SafePath} from './model/fileaccess/SafePath';
 
 
 const forcedDebug = process.env['NODE_ENV'] === 'debug';
@@ -46,43 +51,47 @@ export const createLoggerWrapper = (TAG: string): ILogger => ({
 });
 
 export class Logger {
+  // the log file is renamed to .1 above this size
+  public static fileSizeLimit = 10 * 1024 * 1024;
+  private static logFile: { path: string, resolved: string | null, fd: number | null, size: number } | null = null;
+
   public static silly(...args: LoggerArgs[]): void {
     if (!forcedDebug && Config.Server.Log.level < LogLevel.silly) {
       return;
     }
-    Logger.log(`[\x1b[35mSILLY\x1b[0m]`, console.debug, ...args);
+    Logger.log('SILLY', '35', console.debug, ...args);
   }
 
   public static debug(...args: LoggerArgs[]): void {
     if (!forcedDebug && Config.Server.Log.level < LogLevel.debug) {
       return;
     }
-    Logger.log(`[\x1b[34mDEBUG\x1b[0m]`, console.debug, ...args);
+    Logger.log('DEBUG', '34', console.debug, ...args);
   }
 
   public static verbose(...args: LoggerArgs[]): void {
     if (!forcedDebug && Config.Server.Log.level < LogLevel.verbose) {
       return;
     }
-    Logger.log(`[\x1b[36mVERBS\x1b[0m]`, console.debug, ...args);
+    Logger.log('VERBS', '36', console.debug, ...args);
   }
 
   public static info(...args: LoggerArgs[]): void {
     if (!forcedDebug && Config.Server.Log.level < LogLevel.info) {
       return;
     }
-    Logger.log(`[\x1b[32mINFO_\x1b[0m]`, console.log, ...args);
+    Logger.log('INFO_', '32', console.log, ...args);
   }
 
   public static warn(...args: LoggerArgs[]): void {
     if (!forcedDebug && Config.Server.Log.level < LogLevel.warn) {
       return;
     }
-    Logger.log(`[\x1b[33mWARN_\x1b[0m]`, console.warn, ...args);
+    Logger.log('WARN_', '33', console.warn, ...args);
   }
 
   public static error(...args: LoggerArgs[]): void {
-    Logger.log(`[\x1b[31mERROR\x1b[0m]`, console.error, ...args);
+    Logger.log('ERROR', '31', console.error, ...args);
   }
 
   public static logLevelForError(e: ErrorCodes): LoggerFunction {
@@ -106,8 +115,116 @@ export class Logger {
     }
   }
 
-  private static log(tag: string, fn: (...data: unknown[]) => void, ...args: LoggerArgs[]): void {
-    const date = new Date().toLocaleString();
+  public static closeFile(): void {
+    if (Logger.logFile?.fd != null) {
+      fs.closeSync(Logger.logFile.fd);
+    }
+    Logger.logFile = null;
+  }
+
+  /**
+   * Resolves Config.Server.Log.file strictly inside the configured data folder (ProjectPath.DBFolder).
+   * Rejects null bytes, paths outside the data folder, and symlink escapes.
+   */
+  public static resolveLogFilePath(file: string): string {
+    if (typeof file !== 'string' || file.trim().length === 0 || file.includes('\0')) {
+      throw new Error('Invalid log file path');
+    }
+    const baseDir = ProjectPath.DBFolder || ProjectPath.getAbsolutePath(Config.Database.dbFolder);
+    const safeBase = path.resolve(baseDir);
+    const normalizedInput = file.replace(/\\/g, '/');
+    let target: string;
+    if (path.isAbsolute(normalizedInput)) {
+      const resolvedInput = path.resolve(normalizedInput);
+      const rel = path.relative(safeBase, resolvedInput);
+      if (rel === '' || rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)) {
+        throw new Error(`Log file path must stay inside the data folder (${safeBase}): ${file}`);
+      }
+      target = SafePath.resolve(safeBase, rel);
+    } else {
+      target = SafePath.resolve(safeBase, normalizedInput);
+    }
+    if (target === safeBase) {
+      throw new Error(`Log file path must point to a file inside the data folder (${safeBase}): ${file}`);
+    }
+
+    // Synchronous symlink containment check on the nearest existing ancestor (mirrors SafePath.resolveForWrite)
+    if (fs.existsSync(safeBase)) {
+      const realBase = fs.realpathSync(safeBase);
+      let current = target;
+      while (true) {
+        try {
+          fs.lstatSync(current);
+          break;
+        } catch (err) {
+          if ((err as NodeJS.ErrnoException).code !== 'ENOENT' || current === safeBase) {
+            throw err;
+          }
+          current = path.dirname(current);
+        }
+      }
+      const realExisting = fs.realpathSync(current);
+      const relReal = path.relative(realBase, realExisting);
+      if (relReal === '..' || relReal.startsWith('..' + path.sep) || path.isAbsolute(relReal)) {
+        throw new Error(`Path traversal detected: log file symlink escapes data folder (${safeBase})`);
+      }
+    }
+
+    return target;
+  }
+
+  /**
+   * Appends a line to Config.Server.Log.file (if set), e.g. for Fail2Ban on hosts without journald (#519).
+   * Writes are synchronous, like console output to a file or pipe.
+   * If the file is outside the data folder or can't be written, it logs that once to the console and skips the file until the setting changes.
+   */
+  private static writeToFile(line: string): void {
+    const file = Config.Server.Log.file;
+    if (Logger.logFile?.path !== file) {
+      Logger.closeFile();
+      if (!file) {
+        return;
+      }
+      Logger.logFile = {path: file, resolved: null, fd: null, size: 0};
+      try {
+        const absolute = Logger.resolveLogFilePath(file);
+        fs.mkdirSync(path.dirname(absolute), {recursive: true});
+        // Re-verify symlink containment after mkdirSync
+        const verified = Logger.resolveLogFilePath(file);
+        Logger.logFile.resolved = verified;
+        Logger.logFile.fd = fs.openSync(verified, 'a');
+        Logger.logFile.size = fs.fstatSync(Logger.logFile.fd).size;
+      } catch (e) {
+        console.error(`Can't write the log file ${file}, logging only to the console:`, e);
+        return;
+      }
+    }
+    const lf = Logger.logFile;
+    if (!lf || lf.fd === null || lf.resolved === null) {
+      return;
+    }
+    try {
+      const data = Buffer.from(line + '\n', 'utf8');
+      if (lf.size > 0 && lf.size + data.length > Logger.fileSizeLimit) {
+        fs.closeSync(lf.fd);
+        lf.fd = null;
+        fs.renameSync(lf.resolved, lf.resolved + '.1');
+        lf.fd = fs.openSync(lf.resolved, 'a');
+        lf.size = 0;
+      }
+      fs.writeSync(lf.fd, data);
+      lf.size += data.length;
+    } catch (e) {
+      console.error(`Can't write the log file ${file}, logging only to the console:`, e);
+      if (lf.fd !== null) {
+        fs.closeSync(lf.fd);
+        lf.fd = null;
+      }
+    }
+  }
+
+  private static log(level: string, color: string, fn: (...data: unknown[]) => void, ...args: LoggerArgs[]): void {
+    const now = new Date();
     let LOG_TAG = '';
     if (
       args.length > 0 &&
@@ -123,6 +240,11 @@ export class Logger {
         args[index] = element(); //execute function, put resulting string in the array
       }
     });
-    fn(date + tag + LOG_TAG, ...args);
+    fn(now.toLocaleString() + `[\x1b[${color}m${level}\x1b[0m]` + LOG_TAG, ...args);
+    if (Config.Server.Log.file) {
+      Logger.writeToFile(util.format('%s', `${now.toISOString()} [${level}]${LOG_TAG}`, ...args));
+    } else if (Logger.logFile) {
+      Logger.closeFile();
+    }
   }
 }

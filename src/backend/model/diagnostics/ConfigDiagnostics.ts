@@ -25,6 +25,7 @@ import {
   ServerAlbumCoverConfig,
   ServerDataBaseConfig,
   ServerJobConfig,
+  ServerLogConfig,
   ServerPhotoConfig,
   ServerVideoConfig,
 } from '../../../common/config/private/PrivateConfig';
@@ -154,6 +155,31 @@ export class ConfigDiagnostics {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const sharp = require('sharp');
     sharp();
+  }
+
+  static async testLogConfig(logConfig: ServerLogConfig): Promise<void> {
+    Logger.debug(LOG_TAG, 'Testing log config');
+    if (!logConfig || !logConfig.file) {
+      return;
+    }
+    const target = Logger.resolveLogFilePath(logConfig.file);
+    if (fs.existsSync(target)) {
+      const stat = fs.statSync(target);
+      if (stat.isDirectory()) {
+        throw new Error(`Log file path points to a directory: ${target}`);
+      }
+      await this.checkReadWritePermission(target);
+      return;
+    }
+    let dir = path.dirname(target);
+    while (!fs.existsSync(dir)) {
+      const parent = path.dirname(dir);
+      if (parent === dir) {
+        break;
+      }
+      dir = parent;
+    }
+    await this.checkReadWritePermission(dir);
   }
 
   static async testTempFolder(folder: string): Promise<void> {
@@ -387,6 +413,7 @@ export class ConfigDiagnostics {
   static async testConfig(config: PrivateConfigClass): Promise<void> {
 
     await ConfigDiagnostics.testDatabase(config.Database);
+    await ConfigDiagnostics.testLogConfig(config.Server.Log);
     await ConfigDiagnostics.testSharp();
     await ConfigDiagnostics.testTempFolder(config.Media.tempFolder);
     await ConfigDiagnostics.testVideoConfig(config.Media.Video, config);
@@ -453,6 +480,15 @@ export class ConfigDiagnostics {
       const err: Error = ex;
       NotificationManager.error('Thumbnail folder error', err.toString());
       Logger.error(LOG_TAG, 'Thumbnail folder error', err.toString());
+    }
+
+    try {
+      await ConfigDiagnostics.testLogConfig(Config.Server.Log);
+    } catch (ex) {
+      const err: Error = ex;
+      const errorText = 'Log file setting is invalid or not writable; logging only to the console. ' + ConfigDiagnostics.adjustConfigWarn;
+      NotificationManager.warning(errorText, err.toString());
+      Logger.warn(LOG_TAG, errorText, err.toString());
     }
 
     try {
