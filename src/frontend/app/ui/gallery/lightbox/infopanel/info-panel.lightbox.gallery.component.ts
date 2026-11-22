@@ -14,7 +14,7 @@ import {
   TextSearchQueryMatchTypes,
 } from '../../../../../../common/entities/SearchQueryDTO';
 import {AuthenticationService} from '../../../../model/network/authentication.service';
-import {type LatLngLiteral, marker, Marker, TileLayer, tileLayer} from 'leaflet';
+import {latLng, type LatLng, type LatLngLiteral, type MapOptions, marker, Marker, TileLayer, tileLayer} from 'leaflet';
 import {ThemeService} from '../../../../model/theme.service';
 import {ContentLoaderService} from '../../contentLoader.service';
 import { DatePipe } from '@angular/common';
@@ -49,6 +49,9 @@ export class InfoPanelLightboxComponent implements OnInit, OnChanges {
   public readonly SearchQueryTypes: typeof SearchQueryTypes = SearchQueryTypes;
 
   public baseLayer: TileLayer;
+  public readonly mapOptions: MapOptions;
+  // leafletOptions is only read when the map is created, so the view follows the media through leafletCenter (and leafletZoom for the first view)
+  public mapCenter: LatLng | null = null;
   public markerLayer: Marker[] = [];
 
   constructor(
@@ -69,6 +72,7 @@ export class InfoPanelLightboxComponent implements OnInit, OnChanges {
         attribution: mapService.ShortAttributions,
       });
     }
+    this.mapOptions = {layers: [this.baseLayer], zoomControl: false};
   }
 
   get FullPath(): string {
@@ -118,12 +122,17 @@ export class InfoPanelLightboxComponent implements OnInit, OnChanges {
 
   ngOnChanges(): void {
     if (this.hasGPS()) {
+      const {latitude, longitude} = this.PositionData.GPSData;
+      this.mapCenter = latLng(latitude, longitude);
       this.markerLayer = [
         marker({
-          lat: this.PositionData.GPSData.latitude,
-          lng: this.PositionData.GPSData.longitude,
+          lat: latitude,
+          lng: longitude,
         } as LatLngLiteral),
       ];
+    } else {
+      this.mapCenter = null;
+      this.markerLayer = [];
     }
   }
 
@@ -187,12 +196,8 @@ export class InfoPanelLightboxComponent implements OnInit, OnChanges {
   }
 
   hasGPS(): boolean {
-    return !!(
-      (this.media as PhotoDTO).metadata.positionData &&
-      (this.media as PhotoDTO).metadata.positionData.GPSData &&
-      (this.media as PhotoDTO).metadata.positionData.GPSData.latitude &&
-      (this.media as PhotoDTO).metadata.positionData.GPSData.longitude
-    );
+    const gps = (this.media as PhotoDTO)?.metadata?.positionData?.GPSData;
+    return typeof gps?.latitude === 'number' && typeof gps?.longitude === 'number';
   }
 
   getPositionText(): string {
