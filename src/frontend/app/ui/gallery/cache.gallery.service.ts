@@ -15,6 +15,8 @@ import {
 } from '../../../../common/entities/ContentWrapper';
 import {ThemeModes} from '../../../../common/config/public/ClientConfig';
 import {GridSizes} from '../../../../common/entities/GridSizes';
+import {AuthenticationService} from '../../model/network/authentication.service';
+import {ShareService} from './share.service';
 
 interface CacheItem<T> {
   timestamp: number;
@@ -31,10 +33,17 @@ export class GalleryCacheService {
   private static readonly GROUPING_PREFIX = 'GROUPING:';
   private static readonly GRID_SIZE_PREFIX = 'GRID_SIZE:';
   private static readonly VERSION = 'VERSION';
+  private static readonly MEDIA_CACHE_OWNER = 'MEDIA_CACHE_OWNER';
   private static readonly SLIDESHOW_SPEED = 'SLIDESHOW_SPEED';
   private static THEME_MODE = 'THEME_MODE';
 
-  constructor(private versionService: VersionService) {
+  private owner: string | null = null;
+  private scope: string | null = null;
+  private cacheGeneration = 0;
+
+  constructor(private versionService: VersionService,
+              private authenticationService: AuthenticationService,
+              private shareService: ShareService) {
     // if it was a forced reload not a navigation, clear cache
     if (GalleryCacheService.wasAReload()) {
       GalleryCacheService.deleteCache();
@@ -50,7 +59,52 @@ export class GalleryCacheService {
       }
     };
     this.versionService.version.subscribe(onNewVersion);
-    onNewVersion(this.versionService.version.value);
+    this.authenticationService.user.subscribe(() => this.updateMediaCacheOwner());
+  }
+
+  private updateMediaCacheOwner(): void {
+    const user = this.authenticationService.user.value;
+    const shareKey = this.shareService.getSharingKey();
+    const scope = JSON.stringify([
+      user?.id, user?.name, user?.role, user?.usedSharingKey ?? null, shareKey, user?.projectionKey ?? null
+    ]);
+    if (this.scope !== scope) {
+      this.scope = scope;
+      this.cacheGeneration++;
+    }
+    const owner = user && (user.usedSharingKey || null) === shareKey ? scope : null;
+    this.owner = owner;
+    if (!owner) {
+      // A session can still be loading. Keep its previous owner unclaimed.
+      return;
+    }
+    try {
+      if (localStorage.getItem(GalleryCacheService.MEDIA_CACHE_OWNER) !== owner) {
+        GalleryCacheService.deleteCache();
+        localStorage.setItem(GalleryCacheService.MEDIA_CACHE_OWNER, owner);
+      }
+    } catch {
+      // Storage can be unavailable.
+    }
+  }
+
+  public getMediaCacheGeneration(): number {
+    this.updateMediaCacheOwner();
+    return this.cacheGeneration;
+  }
+
+  private canUseMediaCache(): boolean {
+    this.updateMediaCacheOwner();
+    try {
+      return Config.Gallery.enableCache && this.owner !== null &&
+        localStorage.getItem(GalleryCacheService.MEDIA_CACHE_OWNER) === this.owner;
+    } catch {
+      return false;
+    }
+  }
+
+  private mediaKey(prefix: string, suffix: string): string {
+    return prefix + this.owner + ':' + suffix;
   }
 
   private static wasAReload(): boolean {
@@ -221,13 +275,10 @@ export class GalleryCacheService {
       text: string,
       type: SearchQueryTypes
   ): IAutoCompleteItem[] {
-    if (Config.Gallery.enableCache === false) {
+    if (!this.canUseMediaCache()) {
       return null;
     }
-    const key =
-        GalleryCacheService.AUTO_COMPLETE_PREFIX +
-        text +
-        (type ? '_' + type : '');
+    const key = this.mediaKey(GalleryCacheService.AUTO_COMPLETE_PREFIX, JSON.stringify([text, type]));
     const tmp = localStorage.getItem(key);
     if (tmp != null) {
       const value: CacheItem<IAutoCompleteItem[]> = JSON.parse(tmp);
@@ -248,13 +299,10 @@ export class GalleryCacheService {
       type: SearchQueryTypes,
       items: Array<IAutoCompleteItem>
   ): void {
-    if (Config.Gallery.enableCache === false) {
+    if (!this.canUseMediaCache()) {
       return;
     }
-    const key =
-        GalleryCacheService.AUTO_COMPLETE_PREFIX +
-        text +
-        (type ? '_' + type : '');
+    const key = this.mediaKey(GalleryCacheService.AUTO_COMPLETE_PREFIX, JSON.stringify([text, type]));
     const tmp: CacheItem<Array<IAutoCompleteItem>> = {
       timestamp: Date.now(),
       item: items,
@@ -268,25 +316,25 @@ export class GalleryCacheService {
   }
 
   public getSearch(query: SearchQueryDTO): PackedContentWrapperWithError {
-    if (Config.Gallery.enableCache === false) {
+    if (!this.canUseMediaCache()) {
       return null;
     }
     if (typeof query === 'string') {
       throw new Error('query expected to by object. Got:' + query);
     }
-    const key = GalleryCacheService.SEARCH_PREFIX + JSON.stringify(query);
+    const key = this.mediaKey(GalleryCacheService.SEARCH_PREFIX, JSON.stringify(query));
     return GalleryCacheService.loadCacheItem(key);
   }
 
   public setSearch(cw: PackedContentWrapperWithError): void {
-    if (Config.Gallery.enableCache === false) {
+    if (!this.canUseMediaCache()) {
       return;
     }
     const tmp: CacheItem<PackedContentWrapperWithError> = {
       timestamp: Date.now(),
       item: cw,
     };
-    const key = GalleryCacheService.SEARCH_PREFIX + JSON.stringify(cw.searchResult.searchQuery);
+    const key = this.mediaKey(GalleryCacheService.SEARCH_PREFIX, JSON.stringify(cw.searchResult.searchQuery));
     try {
       localStorage.setItem(key, JSON.stringify(tmp));
     } catch (e) {
@@ -296,12 +344,12 @@ export class GalleryCacheService {
   }
 
   public getDirectory(directoryName: string): PackedContentWrapperWithError {
-    if (Config.Gallery.enableCache === false) {
+    if (!this.canUseMediaCache()) {
       return null;
     }
     try {
       const value = localStorage.getItem(
-          GalleryCacheService.CONTENT_PREFIX + Utils.concatUrls(directoryName)
+          this.mediaKey(GalleryCacheService.CONTENT_PREFIX, Utils.concatUrls(directoryName))
       );
       if (value != null) {
         return JSON.parse(value);
@@ -313,13 +361,11 @@ export class GalleryCacheService {
   }
 
   public setDirectory(cw: PackedContentWrapperWithError): void {
-    if (Config.Gallery.enableCache === false) {
+    if (!this.canUseMediaCache()) {
       return;
     }
 
-    const key =
-        GalleryCacheService.CONTENT_PREFIX +
-        Utils.concatUrls(cw?.directory.path, cw?.directory.name);
+    const key = this.mediaKey(GalleryCacheService.CONTENT_PREFIX, Utils.concatUrls(cw.directory.path, cw.directory.name));
     if (cw?.directory?.isPartial === true && localStorage.getItem(key)) {
       return;
     }
@@ -338,14 +384,13 @@ export class GalleryCacheService {
    * @param media: MediaBaseDTO
    */
   public mediaUpdated(media: MediaDTO): void {
-    if (Config.Gallery.enableCache === false) {
+    if (!this.canUseMediaCache()) {
       return;
     }
 
     try {
-      const directoryKey =
-          GalleryCacheService.CONTENT_PREFIX +
-          Utils.concatUrls(media.directory.path, media.directory.name);
+      const directoryKey = this.mediaKey(GalleryCacheService.CONTENT_PREFIX,
+        Utils.concatUrls(media.directory.path, media.directory.name));
       const value = localStorage.getItem(directoryKey);
       if (value != null) {
         const directory: ParentDirectoryDTO = JSON.parse(value);

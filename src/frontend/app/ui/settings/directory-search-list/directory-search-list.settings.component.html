@@ -1,0 +1,24 @@
+@for (rule of list; track rule; let i = $index) {
+  <div class="input-group input-group-sm mb-2">
+    <select class="form-select flex-grow-0 w-auto" [disabled]="disabled"
+      [id]="idName + '-match-' + i" aria-label="Directory match type" i18n-aria-label
+      [ngModel]="matching.get(rule)" (ngModelChange)="setMatchingType(rule, $event)"
+      [ngModelOptions]="{standalone: true}">
+      @for (type of matching.values; track type) {
+        <option [value]="type" [title]="matching.getDescription(type, false)">{{ type }}</option>
+      }
+    </select>
+    <input class="form-control" type="text" [disabled]="disabled"
+      [id]="idName + '-path-' + i" placeholder="/photos/folder" aria-label="Directory path" i18n-aria-label
+      [ngModel]="rule.value" (ngModelChange)="rule.value = $event; changed.emit()"
+      [ngModelOptions]="{standalone: true}">
+    <button class="btn btn-outline-danger" type="button" [disabled]="disabled" (click)="remove(i)"
+      aria-label="Remove directory rule" i18n-aria-label>
+      <ng-icon name="ionTrashOutline"></ng-icon>
+    </button>
+  </div>
+}
+<button class="btn btn-sm btn-outline-secondary" type="button" [disabled]="disabled" (click)="add()">
+  <ng-icon name="ionAddOutline" class="me-1"></ng-icon>
+  <span i18n>Add directory</span>
+</button>

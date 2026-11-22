@@ -153,6 +153,7 @@ export class AutoCompleteService {
     items = items || new BehaviorSubject([]);
 
     const cached = this.galleryCacheService.getAutoComplete(text, type);
+    const generation = this.galleryCacheService.getMediaCacheGeneration();
     try {
       if (cached == null) {
         const acParams: any = {};
@@ -162,6 +163,9 @@ export class AutoCompleteService {
         this.networkService
           .getJson<IAutoCompleteItem[]>('/autocomplete/' + encodeURIComponent(text), acParams)
           .then((ret) => {
+            if (generation !== this.galleryCacheService.getMediaCacheGeneration()) {
+              return;
+            }
             this.galleryCacheService.setAutoComplete(text, type, ret);
             items.next(
               this.sortResults(

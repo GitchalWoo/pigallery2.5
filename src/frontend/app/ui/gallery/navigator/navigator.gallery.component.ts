@@ -128,8 +128,11 @@ export class GalleryNavigatorComponent {
           }
         }
 
-        const user = this.authService.user.value;
+        const user = this.authService.user?.value;
         const arr: NavigatorPath[] = [];
+        const parents = c.directory?.availableParents;
+        const canOpenParent = (index: number): boolean =>
+          Array.isArray(parents) ? parents[index] === true : user?.role > UserRoles.LimitedGuest;
 
         // create root link
         if (dirs.length === 0) {
@@ -137,9 +140,7 @@ export class GalleryNavigatorComponent {
         } else {
           arr.push({
             name: this.RootFolderName,
-            route: user.role > UserRoles.LimitedGuest // it's basically a sharing. they should not just navigate wherever
-              ? '/'
-              : null,
+            route: canOpenParent(0) ? '/' : null,
           });
         }
 
@@ -151,9 +152,7 @@ export class GalleryNavigatorComponent {
           } else {
             arr.push({
               name,
-              route: user.role > UserRoles.LimitedGuest // it's basically a sharing. they should not just navigate wherever
-                ? route
-                : null,
+              route: canOpenParent(index + 1) ? route : null,
             });
 
           }

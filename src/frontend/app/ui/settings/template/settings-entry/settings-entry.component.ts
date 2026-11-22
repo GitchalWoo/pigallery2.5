@@ -31,6 +31,7 @@ import { SafeHtmlPipe } from '../../../../pipes/SafeHTMLPipe';
 
 import {UserRoles} from '../../../../../../common/entities/UserDTO';
 import {AuthenticationService} from '../../../../model/network/authentication.service';
+import {DirectorySearchListSettingsComponent} from '../../directory-search-list/directory-search-list.settings.component';
 
 interface IState {
   shouldHide(): boolean;
@@ -75,6 +76,7 @@ interface IState {
     NgIconComponent,
     SortingMethodSettingsEntryComponent,
     WorkflowComponent,
+    DirectorySearchListSettingsComponent,
     NgClass,
     PopoverDirective,
     SafeHtmlPipe
@@ -403,6 +405,7 @@ export class SettingsEntryComponent
     // empty
   };
   newThemeName: string;
+  readonly newDirectorySearch = () => new this.state.arrayType();
 
   public writeValue(obj: IState): void {
     this.state = obj;

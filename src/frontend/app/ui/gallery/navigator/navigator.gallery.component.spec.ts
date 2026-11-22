@@ -1,6 +1,6 @@
 import {ComponentFixture, TestBed} from '@angular/core/testing';
 import {provideRouter} from '@angular/router';
-import {BehaviorSubject} from 'rxjs';
+import {BehaviorSubject, firstValueFrom} from 'rxjs';
 import {GalleryNavigatorComponent} from './navigator.gallery.component';
 import {AuthenticationService} from '../../../model/network/authentication.service';
 import {QueryService} from '../../../model/query.service';
@@ -8,6 +8,7 @@ import {ContentLoaderService} from '../contentLoader.service';
 import {FilterService} from '../filter/filter.service';
 import {GallerySortingService} from './sorting.service';
 import {GalleryNavigatorService} from './navigator.service';
+import {UserRoles} from '../../../../../common/entities/UserDTO';
 import {type ContentWrapperWithError} from '../../../../../common/entities/ContentWrapper';
 
 class MockAuthenticationService {
@@ -100,5 +101,29 @@ describe('GalleryNavigatorComponent - zip download link', () => {
     const url = zipUrl();
     expect(url.searchParams.get('sk')).toBe('abc');
     expect(url.searchParams.get('foo')).toBe('bar');
+  });
+});
+
+describe('GalleryNavigatorComponent directory parents', () => {
+  it('links available parents and clears the shortcut when the immediate parent is unavailable', async () => {
+    const content = new BehaviorSubject<ContentWrapperWithError>({
+      directory: {path: 'one/two', name: 'three', availableParents: [false, true, true]},
+      searchResult: null
+    } as ContentWrapperWithError);
+    const router = {navigate: vi.fn().mockResolvedValue(true)};
+    const component = new GalleryNavigatorComponent(
+      {user: {value: {role: UserRoles.LimitedGuest}}} as any, {getParams: () => ({sk: 'share'})} as any,
+      {content} as any, null, null, null, router as any, null
+    );
+
+    expect((await firstValueFrom(component.routes)).map(crumb => crumb.route))
+      .toEqual([null, 'one', 'one/two', null]);
+    component.navigateToParentDirectory();
+    expect(router.navigate).toHaveBeenCalledWith(['/gallery', 'one/two'], {queryParams: {sk: 'share'}});
+
+    content.next({...content.value, directory: {...content.value.directory, availableParents: [true, true, false]}});
+    expect((await firstValueFrom(component.routes)).map(crumb => crumb.route)).toEqual(['/', 'one', null, null]);
+    component.navigateToParentDirectory();
+    expect(router.navigate).toHaveBeenCalledOnce();
   });
 });
