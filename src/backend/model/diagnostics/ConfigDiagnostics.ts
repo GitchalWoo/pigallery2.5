@@ -29,7 +29,7 @@ import {
   ServerPhotoConfig,
   ServerVideoConfig,
 } from '../../../common/config/private/PrivateConfig';
-import {SearchQueryTypes, TextSearch,} from '../../../common/entities/SearchQueryDTO';
+import {SearchListQuery, SearchQueryDTO, SearchQueryTypes, TextSearch,} from '../../../common/entities/SearchQueryDTO';
 import {SearchQueryUtils} from '../../../common/SearchQueryUtils';
 import {JobRepository} from '../jobs/JobRepository';
 import {ConfigClassBuilder} from '../../../../node_modules/typeconfig/node';
@@ -360,6 +360,35 @@ export class ConfigDiagnostics {
     SearchQueryUtils.validateDirectoryList(config.Users.blockDirectoryList, 'Directory block list');
   }
 
+  /**
+   * True if the query has a directory search. In the media allow/block lists these only filter the media,
+   * the directories are listed anyway (since the directory allow/block lists were added, #1205).
+   */
+  static hasDirectorySearch(query: SearchQueryDTO): boolean {
+    if (!query) {
+      return false;
+    }
+    if (query.type === SearchQueryTypes.directory) {
+      return !!(query as TextSearch).value?.trim();
+    }
+    return ((query as SearchListQuery).list || []).some(q => ConfigDiagnostics.hasDirectorySearch(q));
+  }
+
+  /**
+   * The media lists used to hide the directories of a directory search too. They don't anymore:
+   * warn, so the admin can move them to the directory lists.
+   */
+  static warnDirectorySearchInMediaLists(config: PrivateConfigClass): void {
+    const lists = [['Users.allowQuery', config.Users.allowQuery], ['Users.blockQuery', config.Users.blockQuery]] as const;
+    for (const [name, query] of lists) {
+      if (ConfigDiagnostics.hasDirectorySearch(query)) {
+        NotificationManager.warning(name + ' has a directory search. It only hides the photos and videos of those folders, ' +
+          'the folders are still listed. To hide folders, use Users.allowDirectoryList / Users.blockDirectoryList ' +
+          '(see docs/user-guide/user-rights.md).');
+      }
+    }
+  }
+
   static async testAlbumCoverConfig(settings: ServerAlbumCoverConfig): Promise<void> {
     Logger.debug(LOG_TAG, 'Testing cover config');
     SearchQueryUtils.validateSearchQuery(settings.SearchQuery, 'SearchQuery');
@@ -446,6 +475,8 @@ export class ConfigDiagnostics {
     if (process.env['NODE_ENV'] === 'debug') {
       NotificationManager.warning('You are running the application with NODE_ENV=debug. This exposes a lot of debug information that can be a security vulnerability. Set NODE_ENV=production, when you finished debugging.');
     }
+
+    ConfigDiagnostics.warnDirectorySearchInMediaLists(Config);
 
     if(!global.gc){
       Logger.debug(LOG_TAG, 'Garbage collector is not available, the app won\'t be able to manually trigger it to save RAM.');

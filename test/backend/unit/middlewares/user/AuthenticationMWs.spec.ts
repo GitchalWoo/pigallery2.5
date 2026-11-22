@@ -1192,7 +1192,7 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
       expect(result).to.eql('ok');
     });
 
-    it('should deny if GalleryManager.authoriseMedia denies', async () => {
+    it('should deny (404) if GalleryManager.authoriseMedia denies', async () => {
       const req = buildReq('/allowed/dir/photo.jpg');
 
       // Mock GalleryManager to deny
@@ -1201,10 +1201,10 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
       } as any;
 
       const result = await run(req);
-      expect(result).to.eql(403);
+      expect(result).to.eql(404);
     });
 
-    it('should deny (403) on error thrown by GalleryManager.authoriseMedia', async () => {
+    it('should deny (404) on error thrown by GalleryManager.authoriseMedia', async () => {
       const req = buildReq('/allowed/dir/photo.jpg');
 
       (ObjectManagers.getInstance() as any).GalleryManager = {
@@ -1214,7 +1214,7 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
       } as any;
 
       const result = await run(req);
-      expect(result).to.eql(403);
+      expect(result).to.eql(404);
     });
   });
 

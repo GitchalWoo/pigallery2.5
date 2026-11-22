@@ -11,6 +11,9 @@ import {
 } from '../../../../../src/common/config/public/ClientConfig';
 import {SearchQueryDTO, SearchQueryTypes, TextSearch} from '../../../../../src/common/entities/SearchQueryDTO';
 import {TestHelper} from '../../../../TestHelper';
+import {NotificationManager} from '../../../../../src/backend/model/NotifocationManager';
+import {NotificationDTO} from '../../../../../src/common/entities/NotificationDTO';
+import {PrivateConfigClass} from '../../../../../src/common/config/private/PrivateConfigClass';
 
 declare const describe: any;
 declare const it: any;
@@ -159,6 +162,38 @@ describe('ConfigDiagnostics', () => {
       }
       expect(error).to.not.equal(null);
       expect(error.message).to.contain('directory');
+    });
+  });
+
+  describe('warnDirectorySearchInMediaLists', () => {
+    const configWith = (allowQuery: SearchQueryDTO, blockQuery: SearchQueryDTO): PrivateConfigClass =>
+      ({Users: {allowQuery, blockQuery}} as unknown as PrivateConfigClass);
+    const emptyQuery = {type: SearchQueryTypes.any_text, value: ''} as TextSearch;
+    let saved: NotificationDTO[];
+
+    beforeEach(() => {
+      saved = NotificationManager.notifications;
+      NotificationManager.notifications = [];
+    });
+
+    afterEach(() => {
+      NotificationManager.notifications = saved;
+    });
+
+    it('warns when a media list hides folders with a directory search', () => {
+      ConfigDiagnostics.warnDirectorySearchInMediaLists(configWith(emptyQuery, {
+        type: SearchQueryTypes.OR,
+        list: [validQuery, {type: SearchQueryTypes.directory, value: '/private'} as TextSearch]
+      } as SearchQueryDTO));
+      expect(NotificationManager.notifications.map(n => n.message)).to.have.length(1);
+      expect(NotificationManager.notifications[0].message).to.contain('Users.blockQuery');
+      expect(NotificationManager.notifications[0].message).to.contain('Users.blockDirectoryList');
+    });
+
+    it('does not warn for the default and non-directory media lists', () => {
+      ConfigDiagnostics.warnDirectorySearchInMediaLists(configWith(emptyQuery, emptyQuery));
+      ConfigDiagnostics.warnDirectorySearchInMediaLists(configWith(validQuery, {type: SearchQueryTypes.directory, value: ' '} as TextSearch));
+      expect(NotificationManager.notifications).to.deep.equal([]);
     });
   });
 });

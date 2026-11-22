@@ -33,7 +33,14 @@ and can be overridden for every user separately (Settings / Users / edit user / 
 
 The block list always wins over the allow list.
 
-The media lists are meant to filter photos and videos. To hide a directory, use the directory lists.
+The media lists only filter photos and videos. To hide a directory, use the directory lists.
+A `directory:` search in a media list hides the photos and videos of the matching directories,
+but the directories themselves are still listed and can be opened (users see them as empty).
+
+**Upgrading:** before the directory lists existed, a `directory:` search in a media list also hid the matching
+directories. It does not anymore. If your `Users.allowQuery` / `Users.blockQuery` (or a user's own lists) contain
+`directory:` searches to hide folders, move them to `Users.allowDirectoryList` / `Users.blockDirectoryList`.
+The server logs a warning at startup when the global media lists contain a directory search.
 
 ### Directory searches
 
@@ -66,6 +73,7 @@ For other searches (like, negated or other globs), parents are found from the al
 
 Opening a not available directory gives the same "directory not found" (`404`) error as opening a directory that does not exist,
 so it is not possible to find out what directories exist.
+The same applies to photos, videos and metafiles: a not available one answers `404`, like a not existing one.
 The app then navigates back to the default view.
 The breadcrumb (directory path at the top) only links the parent directories that can be opened.
 

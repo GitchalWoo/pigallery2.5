@@ -229,7 +229,7 @@ export class AuthenticationMWs {
         const mediaRelPath: string = req.params[paramName] as string;
 
         if (!await ObjectManagers.getInstance().GalleryManager.authoriseMedia(req.session.context, mediaRelPath)) {
-          res.sendStatus(403);
+          res.sendStatus(404); // same as a not existing media, so it can't be used to probe paths
           return;
         }
 
@@ -238,7 +238,7 @@ export class AuthenticationMWs {
       } catch (e) {
         // On error, fail closed to be safe
         Logger.warn(LOG_TAG, 'authoriseMedia error:', e);
-        res.sendStatus(403);
+        res.sendStatus(404); // same as a not existing media, so it can't be used to probe paths
         return;
       }
     };

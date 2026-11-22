@@ -8,7 +8,6 @@ export class SessionContext {
   // New structured projection with prebuilt SQL and params
   // It also contains the directory allow/block list, so media in a not available directory is filtered out
   projectionQuery?: Brackets;
-  projectionQueryForSubDir?: Brackets; // only the directory part of the media query, where it filters 'directories' instead of 'directory' aliases
   hasDirectoryProjection: boolean;
   // projection depends on the current date (date patterns), so its results change without new data
   hasTimeDependentProjection?: boolean;
