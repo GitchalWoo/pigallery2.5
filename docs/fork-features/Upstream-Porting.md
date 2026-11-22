@@ -56,6 +56,10 @@ git log --no-merges --reverse --format='%H %an | %s' $b..$m^2
 git log --oneline $m..upstream/master -- <files>
 ```
 
+### 3a. Post an impact report and wait for approval
+
+Before changing any code, report to the user what the port changes, its impact on the current fork behavior, regression risks and any scope change against the plan. Then wait for approval. The required contents are in [Upstream-Port-Packs.md](Upstream-Port-Packs.md#impact-report-before-any-code-mandatory-for-every-pack).
+
 ### 4. Cherry-pick (preserving authorship) or adapt
 
 ```bash
