@@ -478,11 +478,35 @@ describe('Projection leak', (sqlHelper: DBTestHelper) => {
       expect(listing.body.error.code).to.equal(ErrorCodes.NOT_AUTHENTICATED_SHARING);
     });
 
+    it('keeps a share key valid when its folder is renamed, without exposing the new location', async () => {
+      const originalPath = path.join(ProjectPath.ImageFolder, SHARED_DIR);
+      const movedPath = originalPath + ' renamed';
+      fs.renameSync(originalPath, movedPath);
+      try {
+        const publicInfo = await get(sharingGuest, '/share/' + sharingKey + '/publicInfo');
+        expect(publicInfo.status).to.equal(200);
+        expect(json(publicInfo).result.sharingKey).to.equal(sharingKey);
+        for (const directory of [SHARED_DIR, SHARED_DIR + ' renamed']) {
+          const listing = await get(sharingGuest, '/gallery/content/' + encodeURIComponent(directory));
+          expect(listing.status).to.equal(404);
+          expect(json(listing).error).to.have.property('code', ErrorCodes.DIRECTORY_NOT_FOUND);
+        }
+      } finally {
+        fs.renameSync(movedPath, originalPath);
+      }
+    });
+
     // keep it last: it ends the sharing
     it('should see nothing after the sharing expired', async () => {
       const conn = await SQLConnection.getConnection();
       await conn.getRepository(SharingEntity).update({sharingKey}, {expires: Date.now() - 1000});
       ObjectManagers.getInstance().SessionManager.invalidateSessionCache();
+      const invalid = await get(sharingGuest, '/share/unused-key/publicInfo');
+      const expired = await get(sharingGuest, '/share/' + sharingKey + '/publicInfo');
+      expect(expired.status).to.equal(404);
+      expect(invalid.status).to.equal(expired.status);
+      expect(json(expired)).to.deep.equal(json(invalid));
+      expect(json(expired).error).to.have.property('code', ErrorCodes.SHARING_NOT_FOUND);
       const listing = await get(sharingGuest, '/gallery/content/' + encodeURIComponent(SHARED_DIR));
       expect(listing.status).to.equal(401);
       expect(hiddenInResult(listing, ['shared.jpg'])).to.be.empty;
