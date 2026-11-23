@@ -110,6 +110,32 @@ describe('PublicRouter', () => {
 
   });
 
+  describe('Behind a proxy that strips the application prefix', () => {
+    beforeEach(setUp);
+    afterEach(async () => {
+      Config.Server.urlBase = '';
+      Config.Server.publicUrl = '';
+      await tearDown();
+    });
+
+    it('renders the base, serves the API and assets, and prefixes language and manifest URLs', async () => {
+      Config.Server.urlBase = 'photos/family/';
+      const app = () => request.execute(server.Server);
+      const html = await app().get('/').set('Accept-Language', 'en');
+      expect(html.status).to.equal(200);
+      expect(html.text).to.include('<base href="/photos/family/"');
+      expect(html.text).to.match(/"urlBase"\s*:\s*"photos\/family\/"/);
+      expect((await app().get('/icon_auto.svg')).status).to.equal(200);
+      expect((await app().get(Config.Server.apiPath + '/user/me')).status).to.equal(401);
+      const language = await app().get('/en/').redirects(0);
+      expect(language.status).to.equal(302);
+      expect(language.headers.location).to.equal('/photos/family/?ln=en');
+      expect((await app().get('/manifest.json')).body.start_url).to.equal('/photos/family/');
+      Config.Server.publicUrl = 'https://gallery.example/photos/family/';
+      expect((await app().get('/manifest.json')).body.start_url).to.equal('https://gallery.example/photos/family/');
+    });
+  });
+
   describe('Built-in Prism theme', () => {
     beforeEach(setUp);
     afterEach(tearDown);
