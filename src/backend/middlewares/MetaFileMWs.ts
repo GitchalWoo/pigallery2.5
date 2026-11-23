@@ -2,6 +2,7 @@ import {NextFunction, Request, Response} from 'express';
 import {Config} from '../../common/config/private/Config';
 import {GPXProcessing} from '../model/fileaccess/fileprocessing/GPXProcessing';
 import {Logger} from '../Logger';
+import {GalleryMWs} from './GalleryMWs';
 
 const LOG_TAG = 'MetaFileMWs';
 
@@ -14,33 +15,24 @@ export class MetaFileMWs {
     if (!req.resultPipe) {
       return next();
     }
-    // if conversion is not enabled redirect, so browser can cache the full
-    if (Config.MetaFile.GPXCompressing.enabled === false) {
-      return res.redirect(req.originalUrl.slice(0, -1 * '\\bestFit'.length));
-    }
-    const fullPath = req.resultPipe as string;
-    try {
-      const compressedGPX = GPXProcessing.generateConvertedPath(
-          fullPath,
-      );
+    if (Config.MetaFile.GPXCompressing.enabled) {
+      const fullPath = req.resultPipe as string;
+      try {
+        if (await GPXProcessing.compressedGPXExist(fullPath)) {
+          req.resultPipe = GPXProcessing.generateConvertedPath(fullPath);
+          return next();
+        }
 
-      // check if converted photo exist
-      if (await GPXProcessing.compressedGPXExist(fullPath)) {
-        req.resultPipe = compressedGPX;
-        return next();
+        if (Config.MetaFile.GPXCompressing.onTheFly) {
+          req.resultPipe = await GPXProcessing.compressGPX(fullPath);
+          return next();
+        }
+      } catch {
+        Logger.warn(LOG_TAG, 'Error during compressingGPX: ' + fullPath);
       }
-
-      if (Config.MetaFile.GPXCompressing.onTheFly === true) {
-        req.resultPipe = await GPXProcessing.compressGPX(fullPath);
-        return next();
-      }
-    } catch (err) {
-      // Graceful degradation if compression fails
-      Logger.warn(LOG_TAG, 'Error during compressingGPX, using original file: ' + fullPath);
-      return res.redirect(req.originalUrl.slice(0, -1 * '\\bestFit'.length));
     }
-    // not converted and won't be now
-    return res.redirect(req.originalUrl.slice(0, -1 * '\\bestFit'.length));
+    // The route has loaded the original file already. Check download permission before serving it.
+    return GalleryMWs.authoriseDownload(req, res, next);
   }
 }
 

@@ -30,6 +30,7 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
   @Input() windowAspect = 1;
   @Input() zoom = 1;
   @Input() drag = {x: 0, y: 0};
+  @Input() preventDownload = false;
   @Output() videoSourceError = new EventEmitter();
 
   @ViewChild('video', {static: false}) video: ElementRef<HTMLVideoElement>;
@@ -540,13 +541,13 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    const wantOriginal = this.zoom > 1 && Config.Gallery.Lightbox.loadFullImageOnZoom !== false;
+    const wantOriginal = !this.preventDownload && this.zoom > 1 && Config.Gallery.Lightbox.loadFullImageOnZoom !== false;
 
     if (this.photo.src == null) {
       let targetSrc: string;
       let isBestFit: boolean;
 
-      if (!wantOriginal && this.isPreviewAdequateForLightbox()) {
+      if (this.preventDownload || (!wantOriginal && this.isPreviewAdequateForLightbox())) {
         targetSrc = this.gridMedia.getBestSizedMediaPath(window.innerWidth, window.innerHeight);
         isBestFit = true;
       } else {

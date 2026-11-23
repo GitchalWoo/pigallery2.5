@@ -52,7 +52,7 @@ const openDirectory = (dir: string) => {
 /**
  * Creates a sharing from the share dialog of the current view and returns its link.
  */
-const createSharing = (options: { password?: string, recursive?: boolean } = {}): Cypress.Chainable<string> => {
+const createSharing = (options: { password?: string, recursive?: boolean, preventDownload?: boolean } = {}): Cypress.Chainable<string> => {
   cy.get('button#shareButton').click();
   // the dialog keeps its settings while the page is open
   cy.get('body').then(($body) => {
@@ -62,6 +62,9 @@ const createSharing = (options: { password?: string, recursive?: boolean } = {})
   });
   if (options.password) {
     cy.get('input#share-password').type(options.password, {force: true});
+  }
+  if (options.preventDownload) {
+    cy.get('input#share-prevent-download').check({force: true});
   }
   cy.get('button#getShareButton').click();
   cy.get('input#shareLink').should('contain.value', 'http');
@@ -75,8 +78,6 @@ const logout = () => {
   cy.get('button#button-frame-menu').click();
   cy.get('#dropdown-frame-menu  ng-icon[name="ionLogOutOutline"]').click({scrollBehavior: false});
 };
-
-const getSharingKey = (link: string) => new URL(link).pathname.split('/').pop();
 
 /**
  * Opens a sharing without password as a guest (not logged in user).
@@ -103,7 +104,7 @@ describe('Share', () => {
       createSharing().then((link) => {
         openSharingAsGuest(link, 'getSharedContent', contentUrl);
 
-        cy.url().should('include', '/gallery/timestamps');
+        cy.location('pathname').should('eq', new URL(link).pathname);
         cy.get('.photo-container img[alt="big_ben.jpg"]');
         // the parents are shown, but they can't be opened
         cy.get('#directory-path li').first().find('a').should('not.exist');
@@ -117,13 +118,14 @@ describe('Share', () => {
         logout();
         cy.get('#username').should('be.visible');
         interceptNoCache('getSharedContent', contentUrl);
-        cy.visit('/shareLogin?sk=' + getSharingKey(link));
+        cy.visit(link);
+        cy.location('pathname').should('eq', new URL(link).pathname);
         cy.get('input#password').type('secret');
         cy.get('button#button-share-login').click();
 
         cy.get('app-gallery', {timeout: 15000}).should('exist');
         expectContent('getSharedContent');
-        cy.url().should('include', '/gallery/timestamps');
+        cy.location('pathname').should('eq', new URL(link).pathname);
         cy.get('.photo-container img[alt="big_ben.jpg"]');
       });
     });
@@ -133,7 +135,7 @@ describe('Share', () => {
       createSharing({password: 'secret'}).then(link => {
         logout();
         cy.get('#username').should('be.visible');
-        cy.visit('/shareLogin?sk=' + getSharingKey(link));
+        cy.visit(link);
         cy.get('input#password').type('incorrect-password');
         cy.get('button#button-share-login').click();
         cy.get('.error-message').should('be.visible');
@@ -179,6 +181,9 @@ describe('Share', () => {
         cy.get('app-gallery-directory .directory-name').contains('timestamps').click();
         expectContent('getSubDir');
         cy.get('.photo-container img[alt="big_ben.jpg"]');
+        cy.go('back');
+        cy.location('pathname').should('eq', new URL(link).pathname);
+        cy.get('app-gallery-directory .directory-name').contains('timestamps').should('be.visible');
       });
     });
 
@@ -223,7 +228,7 @@ describe('Share', () => {
       createSharing().then((link) => {
         openSharingAsGuest(link, 'getSharedContent', '/pgapi/search/*');
 
-        cy.url().should('include', '/search/');
+        cy.location('pathname').should('eq', new URL(link).pathname);
         cy.get('.photo-container img[alt="big_ben.jpg"]');
         // only the directories with shared photos (and their parents) can be opened
         cy.request({url: '/pgapi/gallery/content/timestamps', failOnStatusCode: false})
@@ -258,15 +263,65 @@ describe('Share', () => {
       createSharing({password: 'secret'}).then((link) => {
         logout();
         cy.get('#username').should('be.visible');
-        cy.visit('/shareLogin?sk=' + getSharingKey(link));
+        cy.visit(link);
         cy.get('input#password').type('secret');
         cy.get('button#button-share-login').click();
         cy.get('app-gallery', {timeout: 15000}).should('exist');
 
         logout();
-        cy.url().should('include', '/shareLogin');
+        cy.location('pathname').should('eq', new URL(link).pathname);
         cy.get('input#password');
       });
     });
+  });
+
+  it('shows the invalid link page and keeps the URL after reload', () => {
+    logout();
+    cy.get('#username').should('be.visible');
+    const entry = '/share/unknown-p04-key?play=true';
+    cy.visit(entry);
+    cy.get('app-invalid-sharing').should('contain.text', 'This link is invalid or has expired.');
+    cy.location('pathname').should('eq', '/share/unknown-p04-key');
+    cy.location('search').should('eq', '?play=true');
+    cy.reload();
+    cy.get('app-invalid-sharing').should('contain.text', 'This link is invalid or has expired.');
+    cy.location('pathname').should('eq', '/share/unknown-p04-key');
+  });
+
+  it('replaces an open share with the invalid-link page when the link expires', () => {
+    cy.getCookie('pigallery2-csrf-token').then(cookie => {
+      cy.request({
+        method: 'POST',
+        url: '/pgapi/share/timestamps',
+        headers: {'PI-GALLERY2-CSRF-TOKEN': cookie.value},
+        body: {createSharing: {valid: 15_000}},
+      }).then(response => {
+        expect(response.body.error).to.equal(null);
+        const entry = '/share/' + response.body.result.sharingKey;
+        openSharingAsGuest(entry + '?auInt=1', 'getExpiringContent', contentUrl);
+        cy.get('.photo-container img[alt="big_ben.jpg"]').should('be.visible');
+        cy.get('app-invalid-sharing', {timeout: 20_000}).should('contain.text', 'This link is invalid or has expired.');
+        cy.location('pathname').should('eq', entry);
+      });
+    });
+  });
+
+  it('blocks direct downloads and hides download controls for a preview-only share', () => {
+    openDirectory('timestamps');
+    createSharing({preventDownload: true}).then(link => {
+      openSharingAsGuest(link, 'getSharedContent', contentUrl);
+      cy.get('a[href*="/gallery/zip/"]').should('not.exist');
+      cy.request({url: '/pgapi/gallery/content/timestamps/big_ben.jpg', failOnStatusCode: false})
+        .its('status').should('eq', 403);
+      cy.get('.photo-container img[alt="big_ben.jpg"]').first().click();
+      cy.get('app-lightbox-controls #button-basic').click();
+      cy.get('app-lightbox-controls a[download]').should('not.exist');
+    });
+  });
+
+  it('shows the full-screen message for an empty photo frame', () => {
+    const query = {type: SEARCH_FILE_NAME, value: 'P04 does not match a photo', matchType: EXACT_MATCH};
+    cy.visit('/search/' + encodeURIComponent(JSON.stringify(query)) + '?play=true&auInt=1');
+    cy.get('.empty-frame').should('be.visible').and('contain.text', 'No photos match this frame.');
   });
 });

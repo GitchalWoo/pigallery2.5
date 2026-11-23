@@ -21,6 +21,19 @@ import {ServerTime} from './ServerTimingMWs';
 import {SortByTypes} from '../../common/entities/SortingMethods';
 
 export class GalleryMWs {
+  public static noStore(req: Request, res: Response, next: NextFunction): void {
+    res.setHeader('Cache-Control', 'private, no-store');
+    next();
+  }
+
+  public static authoriseDownload(req: Request, res: Response, next: NextFunction): void {
+    if (req.session?.context?.user?.preventDownload === true) {
+      res.status(403);
+      return next(new ErrorDTO(ErrorCodes.PERMISSION_DENIED, 'Downloading is disabled for this sharing'));
+    }
+    next();
+  }
+
   /**
    * Middleware to safely parse searchQueryDTO from URL parameters
    * Handles URL decoding and JSON parsing with proper error handling
@@ -399,10 +412,10 @@ export class GalleryMWs {
     res: Response,
     next: NextFunction
   ): Promise<void> {
+    if (!req.resultPipe) {
+      return next();
+    }
     try {
-      if (!req.resultPipe) {
-        return next();
-      }
       const fullMediaPath = req.resultPipe as string;
 
       const convertedVideo =
@@ -412,11 +425,11 @@ export class GalleryMWs {
       await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, convertedVideo));
       await fsp.access(convertedVideo);
       req.resultPipe = convertedVideo;
-      // eslint-disable-next-line no-empty
+      return next();
     } catch (e) {
+      // An unconverted video would stream the original file.
+      return GalleryMWs.authoriseDownload(req, res, next);
     }
-
-    return next();
   }
 
   @ServerTime('1.db', 'Search')
@@ -517,7 +530,9 @@ export class GalleryMWs {
           req.session.context,
           query, [{method: SortByTypes.Random, ascending: null}], 1, true);
       if (!photos || photos.length !== 1) {
-        return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'No photo found'));
+        // The link can open directly in a browser, a frame or an image element.
+        res.status(404).type('text/plain').send('No photos match this random link.');
+        return;
       }
 
       req.params['mediaPath'] = path.join(

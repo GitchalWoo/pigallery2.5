@@ -29,13 +29,16 @@ export class DatabaseMigrations {
 
     // Known versions get only their own changes, without general schema synchronization:
     // that would drop unknown columns and rebuilds SQLite tables (a rebuilt user table deletes the sharings).
-    if (version?.version === 43 || version?.version === 44) {
+    if (version && [43, 44, 45].includes(version.version)) {
       if (version.version === 43) {
         // Version 43 was shipped both with and without the OIDC identity columns.
         await this.migrateOIDCIdentity(connection, version);
       }
       if (version.version === 44) {
         await this.migrateDirectoryAccess(connection, version);
+      }
+      if (version.version === 45) {
+        await this.migrateSharingDownloads(connection, version);
       }
       return;
     }
@@ -179,6 +182,37 @@ export class DatabaseMigrations {
       if (sqlite) {
         await runner.query('PRAGMA foreign_keys = ON');
       }
+      await runner.release();
+    }
+  }
+
+  private static async migrateSharingDownloads(connection: Connection, version: VersionEntity): Promise<void> {
+    const runner = connection.createQueryRunner();
+    const escape = (name: string) => connection.driver.escape(name);
+    try {
+      if (connection.options.type === 'better-sqlite3') {
+        await runner.startTransaction();
+      }
+      const tableName = connection.getMetadata(SharingEntity).tableName;
+      const table = await runner.getTable(tableName);
+      if (!table) {
+        throw new Error(`Cannot migrate sharing downloads: missing table ${tableName}`);
+      }
+      if (!table.findColumnByName('preventDownload')) {
+        await runner.query(`ALTER TABLE ${escape(tableName)} ADD COLUMN ${escape('preventDownload')} BOOLEAN NOT NULL DEFAULT FALSE`);
+      }
+      version.version = 46;
+      await runner.manager.getRepository(VersionEntity).save(version);
+      if (runner.isTransactionActive) {
+        await runner.commitTransaction();
+      }
+      Logger.info(LOG_TAG, 'Migrated sharing download policy to database schema version 46');
+    } catch (err) {
+      if (runner.isTransactionActive) {
+        await runner.rollbackTransaction();
+      }
+      throw err;
+    } finally {
       await runner.release();
     }
   }

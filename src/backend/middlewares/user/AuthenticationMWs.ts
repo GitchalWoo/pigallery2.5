@@ -60,7 +60,9 @@ export class AuthenticationMWs {
     }
     try {
       // the page rendering uses the session user too
-      await AuthenticationMWs.restoreSession(req);
+      if (await AuthenticationMWs.restoreSession(req)) {
+        return next();
+      }
       const user = await AuthenticationMWs.getSharingUser(req);
       if (user) {
         await AuthenticationMWs.startSession(req, user);
@@ -317,6 +319,16 @@ export class AuthenticationMWs {
     return next();
   }
 
+  public static async inverseShareAuthenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await AuthenticationMWs.restoreSession(req);
+      AuthenticationMWs.inverseAuthenticate(req, res, next);
+    } catch (err) {
+      res.status(500);
+      next(new ErrorDTO(ErrorCodes.INTERNAL, null, err));
+    }
+  }
+
   public static async login(
     req: Request,
     res: Response,
@@ -419,8 +431,13 @@ export class AuthenticationMWs {
     const sm = ObjectManagers.getInstance().SessionManager;
     const sessionUser = Utils.clone(user);
     delete sessionUser.password;
-    req.session.context = await sm.buildContext(sessionUser);
-    req.session.stamp = await sm.getSessionStamp(sessionUser);
+    const context = await sm.buildContext(sessionUser);
+    const stamp = await sm.getSessionStamp(sessionUser);
+    if (sessionUser.usedSharingKey && !stamp) {
+      throw new Error('Sharing changed during authentication');
+    }
+    req.session.context = context;
+    req.session.stamp = stamp;
     req.session.rememberMe = rememberMe;
     AuthenticationMWs.extendSession(req);
   }
@@ -435,7 +452,10 @@ export class AuthenticationMWs {
     if (typeof context === 'undefined') {
       return false;
     }
-    if (!context?.user || !(req.session.expires > Date.now()) || !req.session.stamp ||
+    const requestedKey = AuthenticationMWs.getSharingKey(req);
+    const usedKey = context?.user?.usedSharingKey;
+    const differentShare = usedKey && typeof requestedKey === 'string' && requestedKey && requestedKey !== usedKey;
+    if (!context?.user || differentShare || !(req.session.expires > Date.now()) || !req.session.stamp ||
       req.session.stamp !== await ObjectManagers.getInstance().SessionManager.getSessionStamp(context.user)) {
       delete req.session.context;
       delete req.session.stamp;
@@ -477,8 +497,8 @@ export class AuthenticationMWs {
   }
 
   private static getSharingKey(req: Request): string {
-    return (req.query[QueryParams.gallery.sharingKey_query] as string) ||
-      (req.params[QueryParams.gallery.sharingKey_params] as string);
+    return (req.query?.[QueryParams.gallery.sharingKey_query] as string) ||
+      (req.params?.[QueryParams.gallery.sharingKey_params] as string);
   }
 
   private static async getSharingUser(req: Request): Promise<SessionUser> {

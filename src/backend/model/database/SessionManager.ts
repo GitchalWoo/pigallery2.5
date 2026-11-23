@@ -24,7 +24,7 @@ export class SessionManager {
   public static readonly NO_PROJECTION_KEY = hashProjectionKey('No Key');
 
   // Session stamps by user id or sharing key (see getSessionStamp), so they do not need a DB query per request.
-  private stamps = new Map<string, { stamp: string, expires?: number }>();
+  private stamps = new Map<string, { stamp: string, expires?: number, preventDownload?: boolean }>();
   private stampGeneration = 0;
 
   private static andQueries(...queries: SearchQueryDTO[]): SearchQueryDTO {
@@ -55,6 +55,7 @@ export class SessionManager {
       name: 'Guest',
       role: UserRoles.LimitedGuest,
       usedSharingKey: sharing.sharingKey,
+      preventDownload: sharing.preventDownload === true,
       overrideAllowBlockList: true,
       allowQuery: SessionManager.andQueries(this.getMediaQueryForUser(sharing.creator), sharing.searchQuery ?? null),
       allowDirectoryList: creatorLists.allow,
@@ -75,17 +76,29 @@ export class SessionManager {
     if (!entry) {
       const generation = this.stampGeneration;
       const row = await this.loadSessionRow(user);
+      // The unrestricted value has the same stamp as a pre-migration share.
+      let signatureRow = row;
+      if (user.usedSharingKey && (row as SharingEntity)?.preventDownload === false) {
+        const share = {...row as SharingEntity};
+        delete share.preventDownload;
+        signatureRow = share;
+      }
       entry = {
         stamp: row ? crypto.createHmac('sha256', (Config.Server.sessionSecret || []).join(''))
-          .update(JSON.stringify(row)).digest('hex') : null,
-        expires: (row as SharingEntity)?.expires
+          .update(JSON.stringify(signatureRow)).digest('hex') : null,
+        expires: (row as SharingEntity)?.expires,
+        preventDownload: (row as SharingEntity)?.preventDownload
       };
       // do not cache it if the row changed during the query
       if (generation === this.stampGeneration) {
         this.stamps.set(key, entry);
       }
     }
-    return entry.expires < Date.now() ? null : entry.stamp;
+    if (entry.expires < Date.now() ||
+        (user.usedSharingKey && (user.preventDownload === true) !== (entry.preventDownload === true))) {
+      return null;
+    }
+    return entry.stamp;
   }
 
   /**

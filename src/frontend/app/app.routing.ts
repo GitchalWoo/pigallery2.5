@@ -10,6 +10,8 @@ import { ShareLoginComponent } from './ui/sharelogin/share-login.component';
 import { QueryParams } from '../../common/QueryParams';
 import { AuthGuard } from './model/network/helper/auth.guard';
 import { ErrorComponent } from './ui/error/error.component';
+import {ShareGuard} from './model/network/helper/share.guard';
+import {NavigationService} from './model/navigation.service';
 
 export function galleryMatcherFunction(
   segments: UrlSegment[]
@@ -58,6 +60,8 @@ const routes: Routes = [
   {
     path: 'shareLogin',
     component: ShareLoginComponent,
+    canActivate: [ShareGuard],
+    runGuardsAndResolvers: 'paramsOrQueryParamsChange',
   },
   {
     path: 'admin',
@@ -98,12 +102,17 @@ const routes: Routes = [
     component: ErrorComponent,
   },
   {
+    path: NavigationService.shareProblemPath,
+    loadComponent: () => import('./ui/invalid-sharing/invalid-sharing.component').then(m => m.InvalidSharingComponent),
+  },
+  {
     matcher: galleryMatcherFunction,
     loadComponent: () =>
       import('./ui/gallery/gallery.component').then(
         (m) => m.GalleryComponent
       ),
-    canActivate: [AuthGuard],
+    canActivate: [ShareGuard],
+    runGuardsAndResolvers: 'paramsOrQueryParamsChange',
   },
   { path: '', redirectTo: '/login', pathMatch: 'full' },
   { path: '**', redirectTo: '/error', pathMatch: 'full' },

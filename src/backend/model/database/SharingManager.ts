@@ -4,7 +4,8 @@ import {SharingEntity} from './enitites/SharingEntity';
 import {Config} from '../../../common/config/private/Config';
 import {PasswordHelper} from '../PasswordHelper';
 import {Brackets, DeleteResult, SelectQueryBuilder} from 'typeorm';
-import {UserDTO} from '../../../common/entities/UserDTO';
+import {UserDTO, UserRoles} from '../../../common/entities/UserDTO';
+import {UserEntity} from './enitites/UserEntity';
 import {DirectorySearch, SearchQueryDTO} from '../../../common/entities/SearchQueryDTO';
 import {SearchQueryUtils} from '../../../common/SearchQueryUtils';
 import {ObjectManagers} from '../ObjectManagers';
@@ -113,16 +114,26 @@ export class SharingManager {
     inSharing: UpdateSharingDTO,
     forceUpdate: boolean
   ): Promise<SharingEntity> {
+    if (!Number.isInteger(inSharing.id) || inSharing.id < 1 || inSharing.id > 0xffffffff ||
+      !Number.isInteger(inSharing.creator?.id) || !Number.isInteger(inSharing.creator?.role)) {
+      throw new Error('Invalid sharing or creator ID');
+    }
     const connection = await SQLConnection.getConnection();
+    const repository = connection.getRepository(SharingEntity);
+    const actor = inSharing.creator;
+    const canManageOthers = forceUpdate === true && actor.role >= UserRoles.Admin;
 
-    const sharing = await connection.getRepository(SharingEntity).findOneBy({
-      id: inSharing.id,
-      creator: inSharing.creator.id as unknown,
+    const sharing = await repository.findOne({
+      where: canManageOthers ? {id: inSharing.id} : {id: inSharing.id, creator: {id: actor.id}},
+      relations: {creator: true},
     });
+    if (!sharing || (canManageOthers && sharing.creator.role > actor.role)) {
+      throw new Error('Sharing not found');
+    }
 
     if (
       sharing.timeStamp < Date.now() - Config.Sharing.updateTimeout &&
-      forceUpdate !== true
+      !canManageOthers
     ) {
       throw new Error('Sharing is locked, can\'t update anymore');
     }
@@ -153,8 +164,30 @@ export class SharingManager {
     }
     sharing.expires = inSharing.expires;
 
-    const ret = await connection.getRepository(SharingEntity).save(sharing);
+    const update = repository.createQueryBuilder()
+      .update()
+      .set({
+        password: sharing.password,
+        searchQuery: sharing.searchQuery,
+        directoryQuery: sharing.directoryQuery,
+        defaultSearchView: sharing.defaultSearchView,
+        defaultDirectoryView: sharing.defaultDirectoryView,
+        expires: sharing.expires,
+        ...(typeof inSharing.preventDownload === 'boolean' ? {preventDownload: inSharing.preventDownload} : {}),
+      })
+      .where({id: sharing.id});
+    const creatorColumn = connection.driver.escape(repository.metadata.findRelationWithPropertyPath('creator').joinColumns[0].databaseName);
+    update.andWhere(`${creatorColumn} = :creatorId`, {creatorId: sharing.creator.id});
+    if (canManageOthers) {
+      const eligibleCreator = connection.getRepository(UserEntity).createQueryBuilder('creator')
+        .select('creator.id')
+        .where('creator.role <= :maxRole', {maxRole: actor.role});
+      update.andWhere(`${creatorColumn} IN (${eligibleCreator.getQuery()})`, eligibleCreator.getParameters());
+    }
+    if (!(await update.execute()).affected) {
+      throw new Error('Sharing not found');
+    }
     ObjectManagers.getInstance().SessionManager.invalidateSessionCache();
-    return ret;
+    return repository.findOneByOrFail({id: sharing.id});
   }
 }

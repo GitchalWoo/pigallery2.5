@@ -1,4 +1,4 @@
-import {Component, ElementRef, OnDestroy, Signal, computed, effect, inject, input, signal, untracked, viewChild} from '@angular/core';
+import {Component, ElementRef, Input, OnDestroy, Signal, computed, effect, inject, input, signal, untracked, viewChild} from '@angular/core';
 import {toSignal} from '@angular/core/rxjs-interop';
 import {Dimension, DimensionUtils} from '../../../model/IRenderable';
 import {FullScreenService} from '../fullscreen.service';
@@ -97,6 +97,7 @@ export class GalleryLightboxComponent implements OnDestroy {
   private location = inject(Location);
 
   readonly grid = input<LightboxGrid>();
+  @Input() preventDownload = false;
   readonly controls = viewChild<ControlsLightboxComponent>('controls');
   readonly mediaElement = viewChild.required<GalleryLightboxMediaComponent>('photo');
   readonly lightboxElement = viewChild.required<ElementRef>('lightbox');

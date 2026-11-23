@@ -95,6 +95,14 @@
       </div>
     }
 
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="checkbox" id="share-prevent-download" name="share-prevent-download"
+        [disabled]="shareRequestPending" [ngModel]="input.preventDownload" (ngModelChange)="input.preventDownload = $event; update()"
+        aria-describedby="share-prevent-download-info">
+      <label class="form-check-label" for="share-prevent-download" i18n>Prevent downloading</label>
+      <div id="share-prevent-download-info" class="form-text" i18n>Blocks ZIP and original-file downloads. Guests can still save previews they can see.</div>
+    </div>
+
     <div class="row">
       <div class="col-4">
         <label class="control-label" for="share-password">

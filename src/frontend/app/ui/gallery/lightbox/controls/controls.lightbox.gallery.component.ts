@@ -309,7 +309,7 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
   public async downloadOriginal(event?: Event): Promise<void> {
     event?.preventDefault();
     const gridMedia = this.activePhoto?.gridMedia;
-    if (!gridMedia) {
+    if (!gridMedia || this.preventDownload) {
       return;
     }
     const url = gridMedia.getOriginalMediaPath();
@@ -328,6 +328,10 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
     document.body.appendChild(link);
     link.click();
     link.remove();
+  }
+
+  get preventDownload(): boolean {
+    return this.authService.preventDownload;
   }
 
   public runSlideShow(): void {

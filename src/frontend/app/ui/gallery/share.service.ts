@@ -9,6 +9,7 @@ import {Utils} from '../../../../common/Utils';
 import {Config} from '../../../../common/config/public/Config';
 import {type DirectorySearch, type SearchQueryDTO, TextSearchQueryMatchTypes} from '../../../../common/entities/SearchQueryDTO';
 import {SearchQueryUtils} from '../../../../common/SearchQueryUtils';
+import {ErrorCodes} from '../../../../common/entities/Error';
 
 
 @Injectable()
@@ -28,6 +29,7 @@ export class ShareService {
     null
   );
   private resolve: () => void;
+  private publicSharingRequest: {key: string; promise: Promise<void>} = null;
   public publicSharingSubject: BehaviorSubject<PublicSharingDTO> = new BehaviorSubject(
     null
   );
@@ -43,11 +45,11 @@ export class ShareService {
     this.router.events.subscribe(async (val) => {
       if (val instanceof RoutesRecognized) {
         this.param =
-          val.state.root.firstChild.params[
+          val.state.root.firstChild?.params[
             QueryParams.gallery.sharingKey_params
             ] || null;
         this.queryParam =
-          val.state.root.firstChild.queryParams[
+          val.state.root.firstChild?.queryParams[
             QueryParams.gallery.sharingKey_query
             ] || null;
 
@@ -128,13 +130,15 @@ export class ShareService {
     password: string,
     valid: number,
     defaultDirectoryView?: string,
-    defaultSearchView?: SearchQueryDTO
+    defaultSearchView?: SearchQueryDTO,
+    preventDownload?: boolean
   ): Promise<ResponseSharingDTO> {
     return this.networkService.postJson('/share/', {
       createSharing: {
         valid,
         ...ShareService.defaultViews(defaultDirectoryView, defaultSearchView),
         ...(!!password && {password: password}),
+        ...(preventDownload !== undefined && {preventDownload}),
         searchQuery
       } as CreateSharingDTO,
     });
@@ -165,13 +169,15 @@ export class ShareService {
     password: string,
     valid: number,
     defaultDirectoryView?: string,
-    defaultSearchView?: SearchQueryDTO
+    defaultSearchView?: SearchQueryDTO,
+    preventDownload?: boolean
   ): Promise<ResponseSharingDTO> {
     return this.networkService.putJson('/share/', {
       updateSharing: {
         id: sharingId,
         valid,
         ...ShareService.defaultViews(defaultDirectoryView, defaultSearchView),
+        ...(preventDownload !== undefined && {preventDownload}),
         password,
         searchQuery
       } as CreateSharingDTO,
@@ -183,18 +189,20 @@ export class ShareService {
   }
 
   public createSharingByDirectory(
-    directoryQuery: DirectorySearch, password: string, valid: number, defaultDirectoryView: string
+    directoryQuery: DirectorySearch, password: string, valid: number, defaultDirectoryView: string, preventDownload?: boolean
   ): Promise<ResponseSharingDTO> {
     return this.networkService.postJson('/share/', {
-      createSharing: {directoryQuery, searchQuery: null, ...(password && {password}), valid, defaultDirectoryView} satisfies CreateSharingDTO
+      createSharing: {directoryQuery, searchQuery: null, ...(password && {password}), valid, defaultDirectoryView,
+        ...(preventDownload !== undefined && {preventDownload})} satisfies CreateSharingDTO
     });
   }
 
   public updateSharingByDirectory(
-    id: number, directoryQuery: DirectorySearch, password: string, valid: number, defaultDirectoryView: string
+    id: number, directoryQuery: DirectorySearch, password: string, valid: number, defaultDirectoryView: string, preventDownload?: boolean
   ): Promise<ResponseSharingDTO> {
     return this.networkService.putJson('/share/', {
-      updateSharing: {id, directoryQuery, password, valid, defaultDirectoryView}
+      updateSharing: {id, directoryQuery, password, valid, defaultDirectoryView,
+        ...(preventDownload !== undefined && {preventDownload})}
     });
   }
 
@@ -228,10 +236,18 @@ export class ShareService {
     if (!key) {
       return null;
     }
-    if (this.publicSharingSubject.value?.sharingKey !== key) {
+    if (this.sharingIsValid.value === null) {
       await this.checkSharing();
     }
     return this.getSharingKey() === key ? this.publicSharingSubject.value : null;
+  }
+
+  public async reloadPublicSharing(): Promise<PublicSharingDTO | null> {
+    const key = this.getSharingKey();
+    if (key) {
+      await this.checkSharing();
+    }
+    return key && this.getSharingKey() === key ? this.publicSharingSubject.value : null;
   }
 
   public async getCurrentSharing(): Promise<ResponseSharingDTO | null> {
@@ -294,10 +310,21 @@ export class ShareService {
     }
   }
 
-  private async checkSharing(): Promise<void> {
+  private checkSharing(): Promise<void> {
     const key = this.getSharingKey();
-    this.publicSharingSubject.next(null);
-    this.sharingIsValid.next(null);
+    if (this.publicSharingRequest?.key === key) {
+      return this.publicSharingRequest.promise;
+    }
+    const promise = this.fetchPublicSharing(key).finally(() => {
+      if (this.publicSharingRequest?.promise === promise) {
+        this.publicSharingRequest = null;
+      }
+    });
+    this.publicSharingRequest = {key, promise};
+    return promise;
+  }
+
+  private async fetchPublicSharing(key: string): Promise<void> {
     try {
       const sharing = await this.networkService.getJson<PublicSharingDTO>(
         '/share/' + encodeURIComponent(key) + '/publicInfo'
@@ -310,9 +337,8 @@ export class ShareService {
     } catch (e) {
       if (this.getSharingKey() === key) {
         this.publicSharingSubject.next(null);
-        this.sharingIsValid.next(false);
+        this.sharingIsValid.next(e?.code === ErrorCodes.SHARING_NOT_FOUND ? false : null);
       }
-      console.error(e);
     }
   }
 }

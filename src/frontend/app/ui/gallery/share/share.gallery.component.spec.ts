@@ -30,14 +30,15 @@ describe('GalleryShareComponent folder sharing', () => {
     const {component, service, exact, recursive} = setup();
     expect(component.sharedMediaCount).toBe(2);
     await component.get();
-    expect(service.createSharingByDirectory).toHaveBeenCalledWith(exact, null, expect.any(Number), 'family');
+    expect(service.createSharingByDirectory).toHaveBeenCalledWith(exact, null, expect.any(Number), 'family', false);
     expect(service.getSharingListForQuery.mock.calls.slice(0, 2)).toEqual([[exact], [recursive]]);
     expect(component.activeShares).toHaveLength(1);
 
     component.input.recursive = true;
+    component.input.preventDownload = true;
     expect(component.sharedMediaCount).toBe(6);
     await component.update();
-    expect(service.updateSharingByDirectory).toHaveBeenCalledWith(1, recursive, null, expect.any(Number), 'family');
+    expect(service.updateSharingByDirectory).toHaveBeenCalledWith(1, recursive, null, expect.any(Number), 'family', true);
     expect(component.isRecursive(component.sharing)).toBe(true);
     component.ngOnDestroy();
   });
@@ -47,7 +48,7 @@ describe('GalleryShareComponent folder sharing', () => {
     content.next({directory: {path: '/', name: '.', cache: {mediaCount: 2, recursiveMediaCount: 6}}});
     await component.get();
     expect(service.createSharingByDirectory).toHaveBeenCalledWith(
-      expect.objectContaining({value: '/', matchType: TextSearchQueryMatchTypes.exact_match}), null, expect.any(Number), '/');
+      expect.objectContaining({value: '/', matchType: TextSearchQueryMatchTypes.exact_match}), null, expect.any(Number), '/', false);
     await component.copy('https://example.test/share/other');
     expect(clipboard.copy).toHaveBeenCalledWith('https://example.test/share/other');
     expect(notification.success).toHaveBeenCalledOnce();
@@ -58,8 +59,9 @@ describe('GalleryShareComponent folder sharing', () => {
     const {component, service, content} = setup();
     const searchQuery = {type: SearchQueryTypes.any_text, value: 'picnic'};
     content.next({searchResult: {searchQuery}} as any);
+    component.input.preventDownload = true;
     await component.get();
-    expect(service.createSharingByQuery).toHaveBeenCalledWith(searchQuery, null, expect.any(Number));
+    expect(service.createSharingByQuery).toHaveBeenCalledWith(searchQuery, null, expect.any(Number), undefined, undefined, true);
     expect(service.createSharingByDirectory).not.toHaveBeenCalled();
     component.ngOnDestroy();
   });
@@ -73,7 +75,7 @@ describe('GalleryShareComponent folder sharing', () => {
     await component.get();
     expect(service.createSharingByDirectory).toHaveBeenCalledWith({
       type: SearchQueryTypes.directory, value: 'family/' + name, matchType: TextSearchQueryMatchTypes.exact_match
-    }, null, expect.any(Number), 'family/' + name);
+    }, null, expect.any(Number), 'family/' + name, false);
     component.ngOnDestroy();
   });
 });

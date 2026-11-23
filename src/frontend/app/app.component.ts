@@ -3,7 +3,7 @@ import {AuthenticationService} from './model/network/authentication.service';
 import {Config} from '../../common/config/public/Config';
 import {Title} from '@angular/platform-browser';
 import {ShareService} from './ui/gallery/share.service';
-import {Subscription} from 'rxjs';
+import {skip, Subscription} from 'rxjs';
 import {NavigationService} from './model/navigation.service';
 import {ThemeService} from './model/theme.service';
 import { RouterOutlet } from '@angular/router';
@@ -31,7 +31,9 @@ export class AppComponent implements OnInit, OnDestroy {
   async ngOnInit(): Promise<void> {
     this.title.setTitle(Config.Server.applicationTitle);
     await this.shareService.wait();
-    this.subscription = this.authenticationService.user.subscribe(() => {
+    // The share guard handles the first unauthenticated entry, before Router has committed the URL.
+    const guardHandlesEntry = this.shareService.isSharing() && !this.authenticationService.isAuthenticated();
+    this.subscription = this.authenticationService.user.pipe(skip(guardHandlesEntry ? 1 : 0)).subscribe(() => {
       if(this.navigation.isErrorPage()){ //stay on the error page, do not auto navigate
         return;
       }

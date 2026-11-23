@@ -11,6 +11,9 @@ export class SharingEntity implements BaseSharingDTO {
   @Column({unique: true})
   sharingKey: string;
 
+  @Column({default: false})
+  preventDownload: boolean;
+
   /*
   * This query determines what is available for the user through sharing
   * Basically it's an allow-list of photos. Optional, if directoryQuery is set.

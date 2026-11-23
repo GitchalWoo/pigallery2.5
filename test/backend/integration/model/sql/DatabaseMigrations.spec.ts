@@ -44,7 +44,7 @@ describe('DatabaseMigrations 44 -> 45', (sqlHelper: DBTestHelper) => {
       if (isSQLite(conn)) {
         await runner.query('PRAGMA foreign_keys = OFF');
       }
-      for (const [table, column] of [['user_entity', 'allowDirectoryList'], ['user_entity', 'blockDirectoryList'], ['sharing_entity', 'directoryQuery']]) {
+      for (const [table, column] of [['user_entity', 'allowDirectoryList'], ['user_entity', 'blockDirectoryList'], ['sharing_entity', 'directoryQuery'], ['sharing_entity', 'preventDownload']]) {
         await runner.query(`ALTER TABLE ${q(conn, table)} DROP COLUMN ${q(conn, column)}`);
       }
       if (isSQLite(conn)) {
@@ -95,6 +95,19 @@ describe('DatabaseMigrations 44 -> 45', (sqlHelper: DBTestHelper) => {
 
   afterEach(async () => {
     await sqlHelper.clearDB();
+  });
+
+  it('adds the download setting to populated schema 45 without changing existing shares', async () => {
+    const conn = await SQLConnection.getConnection() as DataSource;
+    const {user, sharings} = await populate(conn);
+    await conn.query(`ALTER TABLE ${q(conn, 'sharing_entity')} DROP COLUMN ${q(conn, 'preventDownload')}`);
+    await conn.query(`UPDATE ${q(conn, 'version_entity')} SET ${q(conn, 'version')} = 45`);
+
+    const migrated = await reopen();
+    expect((await migrated.getRepository(VersionEntity).find())[0].version).to.equal(46);
+    const rows = await migrated.getRepository(SharingEntity).find({relations: ['creator'], order: {id: 'ASC'}});
+    expect(rows.map(s => [s.id, s.sharingKey, s.password, s.expires, s.timeStamp, s.creator.id, s.preventDownload]))
+      .to.deep.equal(sharings.map(s => [s.id, s.sharingKey, s.password, s.expires, s.timeStamp, user.id, false]));
   });
 
   it('keeps the users and the sharings and adds the directory access columns', async () => {
