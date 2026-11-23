@@ -8,6 +8,7 @@ import {LanguageComponent} from '../language/language.component';
 import {IconComponent} from '../../icon.component';
 import {FormsModule} from '@angular/forms';
 import {NgIconComponent} from '@ng-icons/core';
+import {ActivatedRoute} from '@angular/router';
 
 
 @Component({
@@ -30,15 +31,20 @@ export class LoginComponent implements OnInit {
   inProgress = false;
   oidcEnabled = false;
   oidcDisplayName = 'OpenID login';
+  // a failed OIDC login comes back to the login page with the reason (#1422); unknown values are ignored
+  oidcError: 'denied' | 'failed' | null = null;
 
   constructor(
     private authService: AuthenticationService,
-    private navigation: NavigationService
+    private navigation: NavigationService,
+    route: ActivatedRoute
   ) {
     this.loginCredential = new LoginCredential();
     this.title = Config.Server.applicationTitle;
     this.oidcEnabled = !!Config.Users.oidc?.enabled;
     this.oidcDisplayName = Config.Users.oidc?.displayName || 'OpenID login';
+    const oidcError = route.snapshot?.queryParamMap.get('oidcError');
+    this.oidcError = oidcError === 'denied' || oidcError === 'failed' ? oidcError : null;
   }
 
   ngOnInit(): void {
@@ -49,6 +55,7 @@ export class LoginComponent implements OnInit {
 
   async onLogin(): Promise<void> {
     this.loginError = false;
+    this.oidcError = null;
 
     this.inProgress = true;
     try {

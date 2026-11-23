@@ -545,7 +545,8 @@ export class GalleryMWs {
       return next(
         new ErrorDTO(
           ErrorCodes.GENERAL_ERROR,
-          'Can\'t get random photo: ' + e.toString()
+          'Can\'t get random photo',
+          e
         )
       );
     }
@@ -569,7 +570,8 @@ export class GalleryMWs {
       return next(
         new ErrorDTO(
           ErrorCodes.GENERAL_ERROR,
-          'Can\'t get random photo: ' + e.toString()
+          'Can\'t get random photo',
+          e
         )
       );
     }

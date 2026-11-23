@@ -13,6 +13,14 @@ import {ServerTime} from '../ServerTimingMWs';
 import {PersonEntry} from '../../model/database/enitites/person/PersonEntry';
 
 export class ThumbnailGeneratorMWs {
+  /**
+   * The media path as the user sent it (relative to the gallery), never the path on the server.
+   */
+  private static requestedPath(req: Request): string {
+    const p = req.params?.['mediaPath'];
+    return Array.isArray(p) ? p.join('/') : String(p ?? '');
+  }
+
   private static ThumbnailMapEntries =
     Config.Media.Photo.generateThumbnailMapEntries();
 
@@ -174,8 +182,9 @@ export class ThumbnailGeneratorMWs {
         return next(
           new ErrorDTO(
             ErrorCodes.THUMBNAIL_GENERATION_ERROR,
-            'Error during generating thumbnail: ' + mediaPath,
-            error.toString()
+            // the path of the request: the absolute path stays in the details (developers only) and the log
+            'Error during generating thumbnail: ' + ThumbnailGeneratorMWs.requestedPath(req),
+            'Failed on ' + mediaPath + ': ' + String(error)
           )
         );
       }
@@ -210,8 +219,9 @@ export class ThumbnailGeneratorMWs {
         return next(
           new ErrorDTO(
             ErrorCodes.THUMBNAIL_GENERATION_ERROR,
-            'Error during generating thumbnail: ' + mediaPath,
-            error.toString()
+            // the path of the request: the absolute path stays in the details (developers only) and the log
+            'Error during generating thumbnail: ' + ThumbnailGeneratorMWs.requestedPath(req),
+            'Failed on ' + mediaPath + ': ' + String(error)
           )
         );
       }

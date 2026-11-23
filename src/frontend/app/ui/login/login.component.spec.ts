@@ -1,4 +1,4 @@
-import {TestBed} from '@angular/core/testing';
+import {ComponentFixture, TestBed} from '@angular/core/testing';
 import {CUSTOM_ELEMENTS_SCHEMA, Type} from '@angular/core';
 import {LoginComponent} from './login.component';
 import {PrismLoginComponent} from '../../themes/prism/login/prism-login.component';
@@ -6,6 +6,7 @@ import {AuthenticationService} from '../../model/network/authentication.service'
 import {NavigationService} from '../../model/navigation.service';
 import {ErrorCodes} from '../../../../common/entities/Error';
 import {LanguageComponent} from '../language/language.component';
+import {ActivatedRoute, convertToParamMap} from '@angular/router';
 
 describe('LoginComponent', () => {
   let auth: { isAuthenticated: () => boolean, login: ReturnType<typeof vi.fn> };
@@ -16,20 +17,24 @@ describe('LoginComponent', () => {
     navigation = {toDefault: vi.fn().mockResolvedValue(true), toAfterLogin: vi.fn().mockResolvedValue(true), rememberReturnUrl: vi.fn()};
   });
 
-  const render = <T extends LoginComponent>(component: Type<T>): T => {
+  const render = <T extends LoginComponent>(component: Type<T>, queryParams: Record<string, string> = {}): T => {
     TestBed.configureTestingModule({
       imports: [component],
       providers: [
+        {provide: ActivatedRoute, useValue: {snapshot: {queryParamMap: convertToParamMap(queryParams)}}},
         {provide: AuthenticationService, useValue: auth},
         {provide: NavigationService, useValue: navigation},
       ]
     });
     // the language picker is not part of these tests
     TestBed.overrideComponent(component, {remove: {imports: [LanguageComponent]}, add: {schemas: [CUSTOM_ELEMENTS_SCHEMA]}});
-    const fixture = TestBed.createComponent(component);
-    fixture.detectChanges();
-    return fixture.componentInstance;
+    const created = TestBed.createComponent(component);
+    fixture = created;
+    created.detectChanges();
+    return created.componentInstance;
   };
+  let fixture: ComponentFixture<LoginComponent>;
+  const text = (): string => (fixture.nativeElement as HTMLElement).textContent;
 
   // #1306, on the legacy and on the Prism login page
   for (const [name, component] of [['legacy', LoginComponent], ['Prism', PrismLoginComponent]] as const) {
@@ -76,5 +81,32 @@ describe('LoginComponent', () => {
     render(LoginComponent);
     expect(navigation.toAfterLogin).toHaveBeenCalled();
     expect(navigation.toDefault).not.toHaveBeenCalled();
+  });
+
+  // #1422, on the legacy and on the Prism login page
+  for (const [name, component] of [['legacy', LoginComponent], ['Prism', PrismLoginComponent]] as const) {
+    it('should tell when the OIDC provider denied the access (' + name + ')', () => {
+      expect(render(component as Type<LoginComponent>, {oidcError: 'denied'}).oidcError).toBe('denied');
+      expect(text()).toContain('Access denied. Ask the administrator to give you access.');
+    });
+
+    it('should tell when the OIDC login failed (' + name + ')', () => {
+      expect(render(component as Type<LoginComponent>, {oidcError: 'failed'}).oidcError).toBe('failed');
+      expect(text()).toContain('Login with the provider failed. Please try again later.');
+    });
+  }
+
+  it('should ignore unknown OIDC errors', () => {
+    expect(render(LoginComponent, {oidcError: '<b>x</b>'}).oidcError).toBe(null);
+    expect(text()).not.toContain('<b>x</b>');
+    expect(text()).not.toContain('Access denied');
+  });
+
+  it('should show no OIDC error by default and hide it on the next login try', async () => {
+    expect(render(LoginComponent).oidcError).toBe(null);
+    TestBed.resetTestingModule();
+    const login = render(LoginComponent, {oidcError: 'denied'});
+    await login.onLogin();
+    expect(login.oidcError).toBe(null);
   });
 });

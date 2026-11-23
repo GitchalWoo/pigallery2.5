@@ -29,7 +29,8 @@ export class OIDCRouter {
       RateLimiter.oidcCallbackLimiter,
       OIDCMWs.isEnabled,
       AuthenticationMWs.oidcLogin,
-      OIDCMWs.redirectToApp
+      OIDCMWs.redirectToApp,
+      OIDCMWs.redirectToLoginOnError
     );
   }
 }
