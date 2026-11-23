@@ -96,6 +96,8 @@ A sharing link works like a user with its own allow lists, on top of the lists o
 * Sharing users can't open parent directories: the shared directory is the top of their tree.
 * The default directory or search view of a sharing is only where the sharing opens. It does not limit what the sharing user can see.
 
+Enable **Prevent downloading** to block ZIP and original-file downloads for guests of that share. Guests can still save the previews they can view. Videos and Live Photos need a converted copy for playback, and maps need a compressed GPX copy to show a shared track. Existing shares keep their download access when the feature is installed.
+
 ### Directory sharing
 
 When sharing a directory, the sharing gets a directory query: the exact directory, or the directory with all of its subdirectories (*Include subfolders* in the sharing dialog).
