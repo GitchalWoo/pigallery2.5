@@ -17,7 +17,6 @@ export class UserRequestConstrainsMWs {
       return next();
     }
     if (req.session.context?.user.id !== parseInt(req.params.id as string, 10)) {
-      res.status(401);
       return next(new ErrorDTO(ErrorCodes.NOT_AUTHORISED));
     }
 
@@ -33,7 +32,6 @@ export class UserRequestConstrainsMWs {
       const target = await ObjectManagers.getInstance().UserManager.findOne({id: Number(rawId)});
       const ownRole = req.session?.context?.user?.role;
       if (!target || !Number.isInteger(ownRole) || target.role > ownRole) {
-        res.status(401);
         return next(new ErrorDTO(ErrorCodes.NOT_AUTHORISED));
       }
       return next();
@@ -55,7 +53,6 @@ export class UserRequestConstrainsMWs {
     }
 
     if (req.session.context?.user.id === parseInt(req.params.id as string, 10)) {
-      res.status(401);
       return next(new ErrorDTO(ErrorCodes.NOT_AUTHORISED));
     }
 

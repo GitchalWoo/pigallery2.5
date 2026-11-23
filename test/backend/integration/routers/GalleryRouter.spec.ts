@@ -195,7 +195,7 @@ describe('GalleryRouter', (sqlHelper: DBTestHelper) => {
       const result = await (request.execute(server.Server) as SuperAgentStatic)
         .get(Config.Server.apiPath + '/gallery/content/nonexistent.mp4');
 
-      (result.should as any).have.status(200);
+      (result.should as any).have.status(404);
       expect(result.body.error).to.not.be.equal(null);
       expect(result.body.result).to.be.equal(null);
       expect(result.body.error.code).to.be.equal(ErrorCodes.PATH_ERROR);
@@ -205,7 +205,7 @@ describe('GalleryRouter', (sqlHelper: DBTestHelper) => {
       const result = await (request.execute(server.Server) as SuperAgentStatic)
         .get(Config.Server.apiPath + '/gallery/content/nonexistent.mp4/icon');
 
-      (result.should as any).have.status(200);
+      (result.should as any).have.status(404);
       expect(result.body.error).to.not.be.equal(null);
       expect(result.body.result).to.be.equal(null);
       expect(result.body.error.code).to.be.equal(ErrorCodes.PATH_ERROR);
@@ -215,7 +215,7 @@ describe('GalleryRouter', (sqlHelper: DBTestHelper) => {
       const result = await (request.execute(server.Server) as SuperAgentStatic)
         .get(Config.Server.apiPath + '/gallery/content/nonexistent.gpx');
 
-      (result.should as any).have.status(200);
+      (result.should as any).have.status(404);
       expect(result.body.error).to.not.be.equal(null);
       expect(result.body.result).to.be.equal(null);
       expect(result.body.error.code).to.be.equal(ErrorCodes.PATH_ERROR);
@@ -225,7 +225,7 @@ describe('GalleryRouter', (sqlHelper: DBTestHelper) => {
       const result = await (request.execute(server.Server) as SuperAgentStatic)
         .get(Config.Server.apiPath + '/gallery/content/nonexistent.gpx/bestFit');
 
-      (result.should as any).have.status(200);
+      (result.should as any).have.status(404);
       expect(result.body.error).to.not.be.equal(null);
       expect(result.body.result).to.be.equal(null);
       expect(result.body.error.code).to.be.equal(ErrorCodes.PATH_ERROR);
@@ -297,7 +297,7 @@ describe('GalleryRouter', (sqlHelper: DBTestHelper) => {
     it('LimitedGuest should not use autocomplete', async () => {
       Config.Users.unAuthenticatedUserRole = UserRoles.LimitedGuest;
       const result = await get('/autocomplete/a');
-      (result.should as any).have.status(401);
+      (result.should as any).have.status(403);
     });
 
     it('Guest should use autocomplete', async () => {
@@ -309,7 +309,7 @@ describe('GalleryRouter', (sqlHelper: DBTestHelper) => {
     it('Guest should not see notifications', async () => {
       Config.Users.unAuthenticatedUserRole = UserRoles.Guest;
       const result = await get('/notifications');
-      (result.should as any).have.status(401);
+      (result.should as any).have.status(403);
     });
 
     it('User should see notifications', async () => {

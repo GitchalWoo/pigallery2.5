@@ -256,7 +256,6 @@ export class AuthenticationMWs {
       next: NextFunction
     ): void {
       if (req.session.context?.user.role < role) {
-        res.status(401);
         return next(new ErrorDTO(ErrorCodes.NOT_AUTHORISED));
       }
       return next();

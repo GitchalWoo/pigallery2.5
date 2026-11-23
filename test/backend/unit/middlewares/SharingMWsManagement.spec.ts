@@ -1,6 +1,7 @@
 import {expect} from 'chai';
 import {Request, Response} from 'express';
 import {SharingMWs} from '../../../../src/backend/middlewares/SharingMWs';
+import {RenderingMWs} from '../../../../src/backend/middlewares/RenderingMWs';
 import {Config} from '../../../../src/common/config/private/Config';
 import {ErrorCodes, ErrorDTO} from '../../../../src/common/entities/Error';
 import {ObjectManagers} from '../../../../src/backend/model/ObjectManagers';
@@ -97,7 +98,9 @@ describe('SharingMWs management', () => {
       expect(!!error).to.equal(expectedError);
       if (expectedError) {
         expect(error.code).to.equal(ErrorCodes.NOT_AUTHORISED);
-        expect(statusCode).to.equal(401);
+        // renderError answers it with 403
+        expect(statusCode).to.equal(undefined);
+        expect(RenderingMWs.httpStatus(error.code)).to.equal(403);
         expect(calls.some(c => c.name === 'deleteSharing')).to.equal(false);
       } else {
         expect(req.resultPipe).to.equal('ok');

@@ -62,7 +62,7 @@ export class LoggerRouter {
       res.end(a, b, c);
       loggerFn(
           req.method,
-          LoggerRouter.sanitizeUrl(req.url),
+          LoggerRouter.sanitizeUrl(req.originalUrl || req.url),
           res.statusCode,
           Date.now() - req._startTime + 'ms'
       );
