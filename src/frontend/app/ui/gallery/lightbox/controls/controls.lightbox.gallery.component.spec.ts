@@ -49,6 +49,7 @@ class MockFullScreenService {
 }
 
 class MockAuthenticationService {
+  preventDownload = false;
   canSearch() {
     return false;
   }
@@ -103,6 +104,15 @@ describe('ControlsLightboxComponent - cursor visibility', () => {
     const swipeable: HTMLElement = fixture.nativeElement.querySelector('#swipeable-container');
     expect(swipeable).toBeTruthy();
     expect(swipeable.classList.contains('hide-cursor')).toBe(true);
+  });
+
+  it('does not request the original from the download action when it is restricted', async () => {
+    const authentication = TestBed.inject(AuthenticationService) as unknown as MockAuthenticationService;
+    authentication.preventDownload = true;
+    const original = vi.fn();
+    component.activePhoto = {gridMedia: {getOriginalMediaPath: original}} as any;
+    await component.downloadOriginal();
+    expect(original).not.toHaveBeenCalled();
   });
 
   it('should keep the cursor visible while the controls are shown', () => {

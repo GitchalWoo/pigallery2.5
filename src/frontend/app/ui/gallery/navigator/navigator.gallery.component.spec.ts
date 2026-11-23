@@ -91,6 +91,11 @@ describe('GalleryNavigatorComponent - zip download link', () => {
     expect(link).not.toContain('?');
   });
 
+  it('does not build a ZIP link for a restricted share', () => {
+    Object.defineProperty(TestBed.inject(AuthenticationService), 'preventDownload', {value: true});
+    expect(component.getDownloadZipLink()).toBeNull();
+  });
+
   it('should include a single query param', () => {
     queryService.params = {sk: 'abc'};
     expect(zipUrl().searchParams.get('sk')).toBe('abc');

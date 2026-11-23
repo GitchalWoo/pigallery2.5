@@ -35,6 +35,7 @@ import {GalleryService} from './gallery.service';
 import {UploaderComponent} from './uploader/uploader.gallery.component';
 import {QueryService} from '../../model/query.service';
 import {type MediaDTO} from '../../../../common/entities/MediaDTO';
+import {LightboxService} from './lightbox/lightbox.service';
 
 @Component({
   selector: 'app-gallery',
@@ -85,6 +86,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
   public readonly mapEnabled: boolean;
   public directoryContent: GroupedDirectoryContent;
   public isUploadOver = false;
+  private expiryCheckedFor: {key: string; expires: number} = null;
   private $counter: Observable<number>;
   private subscription: { [key: string]: Subscription } = {
     content: null,
@@ -109,6 +111,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
     private mdFilesFilterPipe: MDFilesFilterPipe,
     public uploaderService: UploaderService,
     private queryService: QueryService,
+    private lightboxService: LightboxService,
   ) {
     this.mapEnabled = Config.Map.enabled;
     PageHelper.showScrollY('gallery');
@@ -121,8 +124,27 @@ export class GalleryComponent implements OnInit, OnDestroy {
     return this.contentLoader.content.value;
   }
 
+  get isEmptyFrame(): boolean {
+    const content = this.ContentWrapper;
+    return this.lightboxService.playback && !!content && !content.error &&
+      (!!content.searchResult || (!!content.directory && !content.directory.isPartial)) &&
+      !!this.directoryContent && !this.directoryContent.mediaGroups.some(group => group.media.length > 0);
+  }
+
   get ShowMarkDown(): boolean {
-    return this.config.MetaFile.markdown && this.directoryContent?.metaFile && this.mdFilesFilterPipe.transform(this.directoryContent.metaFile).length > 0;
+    return !this.preventDownload && this.config.MetaFile.markdown && this.directoryContent?.metaFile && this.mdFilesFilterPipe.transform(this.directoryContent.metaFile).length > 0;
+  }
+
+  get preventDownload(): boolean {
+    return this.authService.preventDownload;
+  }
+
+  @HostListener('contextmenu', ['$event'])
+  @HostListener('dragstart', ['$event'])
+  preventSavingMedia(event: Event): void {
+    if (this.preventDownload && (event.target instanceof HTMLImageElement || event.target instanceof HTMLVideoElement)) {
+      event.preventDefault();
+    }
   }
 
   get ShowMap(): boolean {
@@ -130,23 +152,30 @@ export class GalleryComponent implements OnInit, OnDestroy {
   }
 
   updateTimer(t: number): void {
-    if (this.shareService.sharingSubject.value == null) {
+    const sharing = this.shareService.sharingSubject.value;
+    if (!sharing || sharing === this.shareService.UnknownSharingKey) {
+      this.countDownSignal.set(null);
       return;
     }
     // if the timer is longer than 10 years, just do not show it
     if (
-      (this.shareService.sharingSubject.value.expires - Date.now()) /
+      (sharing.expires - Date.now()) /
       1000 /
       86400 /
       365 >
       10
     ) {
+      this.countDownSignal.set(null);
       return;
     }
 
-    t = Math.floor(
-      (this.shareService.sharingSubject.value.expires - Date.now()) / 1000
-    );
+    const remaining = sharing.expires - Date.now();
+    t = Math.max(0, Math.floor(remaining / 1000));
+    if (remaining <= 0 && (this.expiryCheckedFor?.key !== sharing.sharingKey ||
+      this.expiryCheckedFor.expires !== sharing.expires)) {
+      this.expiryCheckedFor = {key: sharing.sharingKey, expires: sharing.expires};
+      this.contentLoader.reloadCurrentContent().catch(console.error);
+    }
     const day = Math.floor(t / 86400);
     t -= day * 86400;
     const hour = Math.floor(t / 3600) % 24;
@@ -246,17 +275,20 @@ export class GalleryComponent implements OnInit, OnDestroy {
       if (key !== this.shareService.getSharingKey()) {
         return;
       }
-      const qParams: { [key: string]: any } = {};
-      qParams[QueryParams.gallery.sharingKey_query] =
-        this.shareService.getSharingKey();
       const route = this.shareService.getDefaultRoute(sharing);
       if (!route) {
-        await this.router.navigate(['/error']);
+        if (sharing !== this.shareService.UnknownSharingKey) {
+          await this.router.navigate(['/error']);
+        }
         return;
       }
-      this.router
-        .navigate(route, {queryParams: qParams})
-        .catch(console.error);
+      if (!this.authService.user.value?.usedSharingKey) {
+        await this.router.navigate(route, {queryParams: {[QueryParams.gallery.sharingKey_query]: key}, queryParamsHandling: 'merge'});
+        return;
+      }
+      await this.onRoute({
+        [route[0] === '/search' ? QueryParams.gallery.search.query : QueryParams.gallery.directory]: route[1],
+      });
       return;
     }
 

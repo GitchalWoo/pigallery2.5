@@ -1,6 +1,7 @@
 import {Injectable} from '@angular/core';
 
-import {type IsActiveMatchOptions, Router} from '@angular/router';
+import {type IsActiveMatchOptions, type NavigationBehaviorOptions, RedirectCommand, Router} from '@angular/router';
+import {Location} from '@angular/common';
 import {ShareService} from '../ui/gallery/share.service';
 import {Config} from '../../../common/config/public/Config';
 import {NavigationLinkTypes} from '../../../common/config/public/ClientConfig';
@@ -10,10 +11,12 @@ import {SearchQueryUtils} from '../../../common/SearchQueryUtils';
 
 @Injectable()
 export class NavigationService {
+  public static readonly shareProblemPath = 'invalidSharing';
   constructor(
     private router: Router,
     private shareService: ShareService,
-    private authenticationService: AuthenticationService
+    private authenticationService: AuthenticationService,
+    private location: Location
   ) {
   }
 
@@ -29,6 +32,8 @@ export class NavigationService {
 
   public isErrorPage(): boolean {
     return (
+      this.router.isActive(NavigationService.shareProblemPath,
+        {paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored'} as IsActiveMatchOptions) ||
       this.router.isActive('error',
         {paths: 'exact', queryParams: 'exact', fragment: 'ignored', matrixParams: 'ignored'} as IsActiveMatchOptions)
     );
@@ -37,14 +42,15 @@ export class NavigationService {
   public async toLogin(): Promise<boolean> {
     await this.shareService.wait();
     if (this.shareService.isSharing()) {
-      if ((await this.shareService.getPublicSharing())?.passwordProtected === true) {
-        return this.router.navigate(['shareLogin'], {
-          queryParams: {sk: this.shareService.getSharingKey()},
-        });
-      } else {
-        console.error('Navigating to share login without password protection. Something went somewhere off');
-        return this.toError();
+      const sharing = await this.shareService.getPublicSharing();
+      if (!sharing) {
+        return this.toShareProblem(this.shareService.sharingIsValid.value !== false);
       }
+      if (sharing.passwordProtected) {
+        const redirect = this.shareLoginRedirect(this.router.url);
+        return this.router.navigateByUrl(redirect.redirectTo, redirect.navigationBehaviorOptions);
+      }
+      return this.toShareProblem(true);
     } else {
       return this.router.navigate(['login']);
     }
@@ -53,7 +59,9 @@ export class NavigationService {
   public async toDefault(): Promise<boolean> {
     await this.shareService.wait();
     if (this.shareService.isSharing()) {
-      return this.router.navigate(['/share', this.shareService.getSharingKey()]);
+      const queryParams = this.isLoginPage() ? {...this.router.parseUrl(this.router.url).queryParams} : {};
+      delete queryParams.sk;
+      return this.router.navigate(['/share', this.shareService.getSharingKey()], {queryParams, replaceUrl: this.isLoginPage()});
     } else {
       const user = this.authenticationService.user.value;
       const role = user?.role ?? (Config.Users.authenticationRequired
@@ -122,5 +130,44 @@ export class NavigationService {
 
   public async toError(): Promise<boolean> {
     return this.router.navigate(['error']);
+  }
+
+  public shareLoginRedirect(from: string): RedirectCommand {
+    const url = this.router.parseUrl(from);
+    return new RedirectCommand(
+      this.router.createUrlTree(['/shareLogin'], {queryParams: {...url.queryParams, sk: this.shareService.getSharingKey()}}),
+      this.keepShareAddress(from)
+    );
+  }
+
+  public shareProblemRedirect(retry: boolean, from: string): RedirectCommand {
+    return new RedirectCommand(
+      this.router.createUrlTree(['/' + NavigationService.shareProblemPath], {queryParams: retry ? {retry: '1'} : {}}),
+      this.keepShareAddress(from)
+    );
+  }
+
+  public toShareProblem(retry: boolean): Promise<boolean> {
+    const redirect = this.shareProblemRedirect(retry, this.router.url);
+    return this.router.navigateByUrl(redirect.redirectTo, redirect.navigationBehaviorOptions);
+  }
+
+  private shareAddress(from: string): string {
+    const url = this.router.parseUrl(from);
+    const key = this.shareService.getSharingKey();
+    if (from.startsWith('/share/') ||
+      (url.queryParams.sk === key && key && /^\/(?:gallery|search)(?:[/?]|$)/.test(from))) {
+      return from;
+    }
+    const queryParams = {...url.queryParams};
+    delete queryParams.sk;
+    return this.router.serializeUrl(this.router.createUrlTree(['/share', key], {queryParams}));
+  }
+
+  private keepShareAddress(from: string): NavigationBehaviorOptions {
+    const browserUrl = this.shareAddress(from);
+    // An alias records the internal route in browser history. When the share URL is already
+    // visible, skip writing history so reload starts from the share URL and validates it again.
+    return this.location.path(true) === browserUrl ? {skipLocationChange: true} : {browserUrl, replaceUrl: true};
   }
 }

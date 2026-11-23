@@ -1,0 +1,13 @@
+<main class="container min-vh-100 d-flex flex-column align-items-center justify-content-center text-center">
+  <h1><app-icon [width]="60"></app-icon> {{ title }}</h1>
+  @if (retry) {
+    <h2 class="h4 mt-4" i18n>Could not check this sharing link.</h2>
+    <a class="btn btn-primary mt-2" [href]="currentUrl" i18n>Retry</a>
+  } @else {
+    <h2 class="h4 mt-4" i18n>This link is invalid or has expired.</h2>
+    <p i18n>Ask the person who shared it for a new link.</p>
+  }
+  @if (canOpenGallery) {
+    <button type="button" class="btn btn-outline-secondary mt-2" (click)="openGallery()" i18n>Go to your gallery</button>
+  }
+</main>

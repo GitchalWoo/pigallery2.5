@@ -12,6 +12,7 @@ export interface PublicSharingDTO extends SharingDTOKey {
 }
 
 export interface BaseSharingDTO extends SharingDTOKey {
+  preventDownload?: boolean;
   id: number;
   defaultSearchView?: SearchQueryDTO;
   defaultDirectoryView?: string;
@@ -52,6 +53,7 @@ export interface UpdateSharingDTO extends BaseSharingDTO {
 
 export interface CreateSharingDTO {
   id?: number;
+  preventDownload?: boolean;
   password: string;
   valid: number;
   defaultSearchView?: SearchQueryDTO;

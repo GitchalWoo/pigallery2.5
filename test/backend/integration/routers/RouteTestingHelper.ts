@@ -45,6 +45,7 @@ export class RouteTestingHelper {
       name: 'Guest',
       role: UserRoles.LimitedGuest,
       usedSharingKey: sharing.sharingKey,
+      preventDownload: sharing.preventDownload === true,
     } as UserDTO;
     const q = ObjectManagers.getInstance().SessionManager.buildAllowListForSharing(sharing as any);
     u.projectionKey = ObjectManagers.getInstance().SessionManager.createProjectionKey(q);

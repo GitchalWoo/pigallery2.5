@@ -242,6 +242,9 @@ export class GalleryNavigatorComponent {
 
 
   getDownloadZipLink(): string {
+    if (this.authService.preventDownload) {
+      return null;
+    }
     const c = this.contentLoaderService.content.value;
     if (!c) {
       return null;

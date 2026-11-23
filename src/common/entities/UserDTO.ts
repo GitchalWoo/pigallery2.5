@@ -14,6 +14,7 @@ export interface UserDTO {
   password?: string;
   role: UserRoles;
   usedSharingKey?: string;
+  preventDownload?: boolean;
   projectionKey?: string; // allow- and blocklist projection hash. if null, no projection
   // Optional per-user query overrides
   overrideAllowBlockList?: boolean;

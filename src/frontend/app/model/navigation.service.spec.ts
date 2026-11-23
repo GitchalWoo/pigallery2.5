@@ -25,7 +25,7 @@ describe('NavigationService.toDefault', () => {
     const router = {navigate: vi.fn().mockResolvedValue(true)};
     const shareService = {wait: () => Promise.resolve(), isSharing: () => false};
     const authenticationService = {user: new BehaviorSubject({name: 'u', role: UserRoles.User})};
-    const service = new NavigationService(router as any, shareService as any, authenticationService as any);
+    const service = new NavigationService(router as any, shareService as any, authenticationService as any, null);
     return {router, service};
   };
 

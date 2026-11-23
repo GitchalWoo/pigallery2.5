@@ -28,6 +28,7 @@ import {SQLConnection} from '../../../../src/backend/model/database/SQLConnectio
 import {SharingEntity} from '../../../../src/backend/model/database/enitites/SharingEntity';
 import {RateLimiter} from '../../../../src/backend/middlewares/RateLimiter';
 import {RouteTestingHelper} from './RouteTestingHelper';
+import {VideoProcessing} from '../../../../src/backend/model/fileaccess/fileprocessing/VideoProcessing';
 
 process.env['NODE_ENV'] = 'test';
 chai.should();
@@ -88,6 +89,7 @@ describe('Projection leak', (sqlHelper: DBTestHelper) => {
   const SHARED_SUB_DIR = 'shared sub';
   // the guest of a sharing of SHARED_DIR, without its subfolders; logs in with the password of the sharing (name: only the key of its agent)
   const sharingGuest: TestUser = {name: 'sharing guest', password: 'sharing-password', role: UserRoles.LimitedGuest};
+  const restrictedGuest: TestUser = {...sharingGuest, name: 'preview-only guest'};
 
   // a query that matches every hidden media
   const hiddenQuery: ORSearchQuery = {
@@ -106,6 +108,9 @@ describe('Projection leak', (sqlHelper: DBTestHelper) => {
     fs.mkdirSync(path.join(folder, SHARED_DIR), {recursive: true});
     fs.copyFileSync(path.join(assets, 'exiftool.jpg'), path.join(folder, 'visible.jpg'));
     fs.copyFileSync(path.join(assets, 'exiftool.jpg'), path.join(folder, SHARED_DIR, 'shared.jpg'));
+    fs.copyFileSync(path.join(assets, 'video.mp4'), path.join(folder, SHARED_DIR, 'clip.mp4'));
+    fs.writeFileSync(path.join(folder, SHARED_DIR, 'shared.gpx'), '<gpx version="1.1" creator="test"><trk><trkseg>' +
+      '<trkpt lat="37.7" lon="-122.4"/><trkpt lat="34.0" lon="-118.2"/></trkseg></trk></gpx>');
     fs.mkdirSync(path.join(folder, SHARED_DIR, SHARED_SUB_DIR), {recursive: true});
     fs.copyFileSync(path.join(assets, 'exiftool.jpg'), path.join(folder, SHARED_DIR, SHARED_SUB_DIR, 'subfolder.jpg'));
     fs.copyFileSync(path.join(assets, 'edge_case_exif_data/before_epoch.jpg'), path.join(folder, 'secret.jpg'));
@@ -210,6 +215,110 @@ describe('Projection leak', (sqlHelper: DBTestHelper) => {
     expect(res.headers['content-type'], 'JSON response').to.contain('application/json');
     return JSON.parse(res.body.toString('utf8'));
   };
+
+  it('enforces the download policy on direct requests while allowing generated previews', async () => {
+    const route = '/gallery/content/' + encodeURIComponent(SHARED_DIR);
+    const photo = route + '/shared.jpg';
+    const video = route + '/clip.mp4';
+    const track = route + '/shared.gpx';
+    const zip = '/gallery/zip/' + q({type: SearchQueryTypes.directory, value: SHARED_DIR} as TextSearch);
+    const random = '/gallery/random/' + q({type: SearchQueryTypes.file_name, value: 'shared.jpg'} as TextSearch);
+    const actor = agents[admin.name];
+    const payload = {
+      valid: 60 * 60 * 1000,
+      password: restrictedGuest.password,
+      directoryQuery: {type: SearchQueryTypes.directory, value: SHARED_DIR, matchType: TextSearchQueryMatchTypes.exact_match},
+    };
+    const create = await actor.post(Config.Server.apiPath + '/share/')
+      .set(CustomHeaders.csrfToken, csrfTokens[admin.name]).send({createSharing: payload});
+    expect(create.body.error).to.equal(null);
+    const {id, sharingKey: key, preventDownload} = create.body.result;
+    expect(preventDownload).to.equal(false);
+    const agent = agents[restrictedGuest.name] = request.agent(server.Server);
+    const login = () => agent.post(Config.Server.apiPath + '/share/login?sk=' + key).send({password: restrictedGuest.password});
+    const update = (change: {preventDownload?: boolean}) => actor.put(Config.Server.apiPath + '/share/')
+      .set(CustomHeaders.csrfToken, csrfTokens[admin.name]).send({updateSharing: {...payload, id, ...change}});
+
+    expect((await login()).body.result.preventDownload).to.equal(false);
+    const original = await get(restrictedGuest, photo);
+    expect(original.status).to.equal(200);
+    expect(original.headers['cache-control']).to.equal('private, no-store');
+    expect((await get(restrictedGuest, zip)).headers['content-type']).to.include('application/zip');
+
+    expect((await update({preventDownload: true})).body.result.preventDownload).to.equal(true);
+    expect((await get(restrictedGuest, photo)).status).to.equal(401);
+    expect((await login()).body.result.preventDownload).to.equal(true);
+    for (const url of [photo, video, track, zip]) {
+      const res = await get(restrictedGuest, url);
+      expect(res.status, url).to.equal(403);
+      expect(res.headers['cache-control']).to.equal('private, no-store');
+      expect(json(res).error).to.have.property('code', ErrorCodes.PERMISSION_DENIED);
+    }
+    expect((await agent.head(Config.Server.apiPath + photo)).status).to.equal(403);
+    expect((await agent.get(Config.Server.apiPath + video).set('Range', 'bytes=0-15')).status).to.equal(403);
+    expect((await get(restrictedGuest, video + '/bestFit')).status).to.equal(403);
+    const gpx = Config.MetaFile.GPXCompressing;
+    const {enabled, onTheFly} = gpx;
+    try {
+      gpx.enabled = false;
+      expect((await get(restrictedGuest, track + '/bestFit')).status).to.equal(403);
+      gpx.enabled = true;
+      gpx.onTheFly = true;
+      const compressed = await get(restrictedGuest, track + '/bestFit');
+      expect(compressed.status).to.equal(200);
+      expect(compressed.body.equals((await get(admin, track)).body)).to.equal(false);
+    } finally {
+      gpx.enabled = enabled;
+      gpx.onTheFly = onTheFly;
+    }
+
+    for (const url of [photo + '/icon', photo + '/' + Config.Media.Photo.thumbnailSizes[0], random]) {
+      const preview = await get(restrictedGuest, url);
+      expect(preview.status, url).to.equal(200);
+      expect(preview.headers['content-type']).to.match(/^image\//);
+      expect(preview.body.equals(original.body)).to.equal(false);
+    }
+    const converted = VideoProcessing.generateConvertedFilePath(path.join(ProjectPath.ImageFolder, SHARED_DIR, 'clip.mp4'));
+    fs.mkdirSync(path.dirname(converted), {recursive: true});
+    fs.writeFileSync(converted, 'converted video fixture');
+    const partial = await agent.get(Config.Server.apiPath + video + '/bestFit').set('Range', 'bytes=0-8').buffer(true);
+    expect(partial.status).to.equal(206);
+    expect(partial.headers['content-range']).to.equal('bytes 0-8/23');
+
+    expect((await get(admin, photo)).body.equals(original.body)).to.equal(true);
+    expect((await update({})).body.result.preventDownload).to.equal(true);
+    expect((await update({preventDownload: false})).body.result.preventDownload).to.equal(false);
+    expect((await get(restrictedGuest, photo)).status).to.equal(401);
+    expect((await login()).body.result.preventDownload).to.equal(false);
+    expect((await get(restrictedGuest, photo)).status).to.equal(200);
+  });
+
+  it('uses the explicit share key when a guest already has a session for another share', async () => {
+    const actor = agents[admin.name];
+    const create = await actor.post(Config.Server.apiPath + '/share/')
+      .set(CustomHeaders.csrfToken, csrfTokens[admin.name]).send({
+        createSharing: {
+          valid: 60_000,
+          preventDownload: true,
+          directoryQuery: {type: SearchQueryTypes.directory, value: SHARED_DIR, matchType: TextSearchQueryMatchTypes.exact_match}
+        }
+      });
+    expect(create.body.error).to.equal(null);
+    const key = create.body.result.sharingKey;
+    const guest = request.agent(server.Server);
+    agents['guest switching shares'] = guest;
+    const login = await guest.post(Config.Server.apiPath + '/share/login?sk=' + sharingKey)
+      .send({password: sharingGuest.password});
+    expect(login.body.result.usedSharingKey).to.equal(sharingKey);
+    const original = Config.Server.apiPath + '/gallery/content/' + encodeURIComponent(SHARED_DIR) + '/shared.jpg';
+    expect((await guest.get(original)).status).to.equal(200);
+    expect((await guest.get(original + '?sk=' + key)).status).to.equal(403);
+    expect((await guest.get(Config.Server.apiPath + '/user/me')).body.result.usedSharingKey).to.equal(key);
+    const protectedMedia = await guest.get(original + '?sk=' + sharingKey);
+    expect(protectedMedia.status).to.equal(401);
+    expect(protectedMedia.body.error.code).to.equal(ErrorCodes.NOT_AUTHENTICATED_SHARING);
+    expect((await actor.get(original + '?sk=' + key)).status).to.equal(200);
+  });
 
   /**
    * Returns the hidden names that the JSON result contains.

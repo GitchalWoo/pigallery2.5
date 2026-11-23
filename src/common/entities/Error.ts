@@ -23,6 +23,7 @@ export enum ErrorCodes {
   PATH_ERROR = 51,
   // Directory does not exist or the user can't access it. These two cases are intentionally not distinguished.
   DIRECTORY_NOT_FOUND = 52,
+  SHARING_NOT_FOUND = 53,
 
   SETTINGS_ERROR = 60,
   TASK_ERROR = 61,

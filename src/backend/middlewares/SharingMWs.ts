@@ -52,12 +52,18 @@ export class SharingMWs {
     next: NextFunction
   ): Promise<void> {
     try {
+      res.setHeader('Cache-Control', 'private, no-store');
       if (Config.Sharing.enabled === false) {
-        return next();
+        res.status(404);
+        return next(new ErrorDTO(ErrorCodes.SHARING_NOT_FOUND));
       }
       const sharingKey = req.params[QueryParams.gallery.sharingKey_params] as string;
 
       const sharing = await ObjectManagers.getInstance().SharingManager.findOne(sharingKey);
+      if (!sharing) {
+        res.status(404);
+        return next(new ErrorDTO(ErrorCodes.SHARING_NOT_FOUND));
+      }
       req.resultPipe =
         {
           sharingKey: sharing.sharingKey,
@@ -66,6 +72,7 @@ export class SharingMWs {
 
       return next();
     } catch (err) {
+      res.status(503);
       return next(
         new ErrorDTO(
           ErrorCodes.GENERAL_ERROR,
@@ -134,6 +141,7 @@ export class SharingMWs {
         searchQuery,
         directoryQuery,
         password: createSharing.password,
+        preventDownload: createSharing.preventDownload === true,
         defaultSearchView: null,
         defaultDirectoryView: null,
         creator: req.session.context?.user as UserEntity, // only the user id is used
@@ -216,6 +224,7 @@ export class SharingMWs {
             ? updateSharing.password
             : null,
         creator: req.session.context?.user,
+        preventDownload: updateSharing.preventDownload,
         expires:
           updateSharing.valid >= 0 // if === -1 its forever
             ? Date.now() + updateSharing.valid

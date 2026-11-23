@@ -5,6 +5,7 @@
 
   <div class="lightbox" #lightbox>
     <app-gallery-lightbox-media [gridMedia]="activePhoto()"
+      [preventDownload]="preventDownload"
       [nextGridMedia]="nextGridMedia()"
       [loadMedia]="!animating()"
       [zoom]="controls()?.Zoom ?? zoom()"

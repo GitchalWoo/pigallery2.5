@@ -42,6 +42,7 @@ export class RenderingMWs {
       name: req.session.context.user.name,
       role: req.session.context.user.role,
       usedSharingKey: req.session.context.user.usedSharingKey,
+      ...(req.session.context.user.usedSharingKey ? {preventDownload: req.session.context.user.preventDownload === true} : {}),
       projectionKey: req.session.context.user.projectionKey,
     } as UserDTO;
 
@@ -93,9 +94,11 @@ export class RenderingMWs {
       return next();
     }
     // Protected media should be cached privately
-    res.setHeader('Cache-Control', 'private, max-age=31536000');
+    if (!res.hasHeader('Cache-Control')) {
+      res.setHeader('Cache-Control', 'private, max-age=31536000');
+    }
     return res.sendFile(req.resultPipe as string, {
-      maxAge: 31536000,
+      cacheControl: false,
       dotfiles: 'allow',
     });
   }

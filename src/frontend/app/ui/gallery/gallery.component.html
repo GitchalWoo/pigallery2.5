@@ -1,5 +1,10 @@
-<app-gallery-lightbox #lightbox [grid]="grid()"></app-gallery-lightbox>
-<app-frame [showSearch]="showSearchBar" [showShare]="showShare">
+<app-gallery-lightbox #lightbox [grid]="grid()" [preventDownload]="preventDownload"></app-gallery-lightbox>
+@if (isEmptyFrame) {
+  <main class="empty-frame d-flex flex-column align-items-center justify-content-center text-center p-3" role="status">
+    <h1 class="h4" i18n>No photos match this frame.</h1>
+  </main>
+}
+<app-frame [showSearch]="showSearchBar" [showShare]="showShare" [class.d-none]="isEmptyFrame">
 
   <ng-container navbar>
     @if (countDown) {

@@ -173,6 +173,7 @@ export class SharingManager {
         defaultSearchView: sharing.defaultSearchView,
         defaultDirectoryView: sharing.defaultDirectoryView,
         expires: sharing.expires,
+        ...(typeof inSharing.preventDownload === 'boolean' ? {preventDownload: inSharing.preventDownload} : {}),
       })
       .where({id: sharing.id});
     const creatorColumn = connection.driver.escape(repository.metadata.findRelationWithPropertyPath('creator').joinColumns[0].databaseName);

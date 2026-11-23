@@ -87,6 +87,7 @@ export class PublicRouter {
           name: req.session.context.user.name,
           role: req.session.context.user.role,
           usedSharingKey: req.session.context.user.usedSharingKey,
+          ...(req.session.context.user.usedSharingKey ? {preventDownload: req.session.context.user.preventDownload === true} : {}),
           projectionKey: req.session.context.user.projectionKey,
         } as UserDTO;
 

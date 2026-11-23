@@ -96,6 +96,10 @@ export class AuthenticationService {
     return Config.Search.enabled && this.isAuthorized(UserRoles.Guest);
   }
 
+  public get preventDownload(): boolean {
+    return this.user.value?.preventDownload === true;
+  }
+
   public async logout(reason?: ErrorCodes): Promise<void> {
     await this.userService.logout();
     await this.shareService.wait();
@@ -110,11 +114,16 @@ export class AuthenticationService {
     }
   }
 
-  private async getSessionUser(): Promise<void> {
+  public async getSessionUser(): Promise<UserDTO> {
     try {
-      this.user.next(await this.userService.getSessionUser());
+      const user = await this.userService.getSessionUser();
+      this.user.next(user);
+      return user;
     } catch (error) {
-      console.error(error);
+      if (error?.code !== ErrorCodes.NOT_AUTHENTICATED_SHARING) {
+        console.error(error);
+      }
+      return null;
     }
   }
 }

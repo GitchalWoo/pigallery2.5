@@ -45,6 +45,7 @@ export class GalleryShareComponent implements OnInit, OnDestroy {
     },
     password: null as string,
     recursive: false,
+    preventDownload: false,
   };
   currentDir: string | null = null;
   currentQuery: SearchQueryDTO = null;
@@ -214,8 +215,9 @@ export class GalleryShareComponent implements OnInit, OnDestroy {
     try {
       this.sharing = this.isDirectorySharing
         ? await this.sharingService.updateSharingByDirectory(
-          id, this.buildDirectoryQuery(this.input.recursive), this.input.password, valid, this.currentDir)
-        : await this.sharingService.updateSharingByQuery(id, this.currentQuery, this.input.password, valid);
+          id, this.buildDirectoryQuery(this.input.recursive), this.input.password, valid, this.currentDir, this.input.preventDownload)
+        : await this.sharingService.updateSharingByQuery(id, this.currentQuery, this.input.password, valid,
+          undefined, undefined, this.input.preventDownload);
       this.urlValid = true;
       this.url = this.sharingService.getUrl(this.sharing);
       await this.updateActiveSharesList();
@@ -243,8 +245,9 @@ export class GalleryShareComponent implements OnInit, OnDestroy {
     try {
       this.sharing = this.isDirectorySharing
         ? await this.sharingService.createSharingByDirectory(
-          this.buildDirectoryQuery(this.input.recursive), this.input.password, valid, this.currentDir)
-        : await this.sharingService.createSharingByQuery(this.currentQuery, this.input.password, valid);
+          this.buildDirectoryQuery(this.input.recursive), this.input.password, valid, this.currentDir, this.input.preventDownload)
+        : await this.sharingService.createSharingByQuery(this.currentQuery, this.input.password, valid,
+          undefined, undefined, this.input.preventDownload);
       this.url = this.sharingService.getUrl(this.sharing);
       this.urlValid = true;
       await this.updateActiveSharesList();
@@ -259,6 +262,7 @@ export class GalleryShareComponent implements OnInit, OnDestroy {
     this.sharing = null;
     this.input.password = '';
     this.input.recursive = false;
+    this.input.preventDownload = false;
     if (this.modalRef) {
       this.modalRef.hide();
     }

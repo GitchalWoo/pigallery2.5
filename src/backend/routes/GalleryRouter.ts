@@ -59,9 +59,11 @@ export class GalleryRouter {
     app.get(
       new RegExp(`^${Config.Server.apiPath}/gallery/zip/(?<searchQueryDTO>.+)$`),
       // common part
+      GalleryMWs.noStore,
       RateLimiter.zipLimiter,
       AuthenticationMWs.authenticate,
       AuthenticationMWs.authorise(UserRoles.LimitedGuest),
+      GalleryMWs.authoriseDownload,
 
       // specific part
       GalleryMWs.parseSearchQuery,
@@ -74,9 +76,11 @@ export class GalleryRouter {
     app.get(
       new RegExp(`^${Config.Server.apiPath}/gallery/content/(?<mediaPath>.+?\\.(?:${SupportedFormats.Photos.join('|')}))$`, 'i'),
       // common part
+      GalleryMWs.noStore,
       AuthenticationMWs.authenticate,
       AuthenticationMWs.normalizePathParam('mediaPath'),
       AuthenticationMWs.authoriseMedia('mediaPath'),
+      GalleryMWs.authoriseDownload,
 
       // specific part
       GalleryMWs.loadFile,
@@ -89,9 +93,11 @@ export class GalleryRouter {
     app.get(
       new RegExp(`^${Config.Server.apiPath}/gallery/content/(?<mediaPath>.+?\\.(?:${SupportedFormats.Videos.join('|')}))$`, 'i'),
       // common part
+      GalleryMWs.noStore,
       AuthenticationMWs.authenticate,
       AuthenticationMWs.normalizePathParam('mediaPath'),
       AuthenticationMWs.authoriseMedia('mediaPath'),
+      GalleryMWs.authoriseDownload,
 
       // specific part
       GalleryMWs.loadFile,
@@ -104,6 +110,7 @@ export class GalleryRouter {
     app.get(
       new RegExp(`^${Config.Server.apiPath}/gallery/content/(?<mediaPath>.+?\\.(?:${SupportedFormats.Videos.join('|')}))/bestFit$`, 'i'),
       // common part
+      GalleryMWs.noStore,
       AuthenticationMWs.authenticate,
       AuthenticationMWs.normalizePathParam('mediaPath'),
       AuthenticationMWs.authoriseMedia('mediaPath'),
@@ -120,9 +127,11 @@ export class GalleryRouter {
     app.get(
       new RegExp(`^${Config.Server.apiPath}/gallery/content/(?<mediaPath>.+?\\.(?:${SupportedFormats.MetaFiles.join('|')}))$`, 'i'),
       // common part
+      GalleryMWs.noStore,
       AuthenticationMWs.authenticate,
       AuthenticationMWs.normalizePathParam('mediaPath'),
       AuthenticationMWs.authoriseMetaFiles('mediaPath'),
+      GalleryMWs.authoriseDownload,
 
       // specific part
       GalleryMWs.loadFile,
@@ -135,6 +144,7 @@ export class GalleryRouter {
     app.get(
       new RegExp(`^${Config.Server.apiPath}/gallery/content/(?<mediaPath>.+?\\.(?:${SupportedFormats.MetaFiles.join('|')}))/bestFit$`, 'i'),
       // common part
+      GalleryMWs.noStore,
       AuthenticationMWs.authenticate,
       AuthenticationMWs.normalizePathParam('mediaPath'),
       AuthenticationMWs.authoriseMetaFiles('mediaPath'),
@@ -148,9 +158,11 @@ export class GalleryRouter {
   }
 
   protected static addRandom(app: Express): void {
+    const generatePreview = ThumbnailGeneratorMWs.generateThumbnailFactory(ThumbnailSourceType.Photo);
     app.get(
       new RegExp(`^${Config.Server.apiPath}/gallery/random/(?<searchQueryDTO>.+)$`),
       // common part
+      GalleryMWs.noStore,
       AuthenticationMWs.authenticate,
       AuthenticationMWs.authorise(UserRoles.LimitedGuest),
       VersionMWs.injectGalleryVersion,
@@ -159,6 +171,13 @@ export class GalleryRouter {
       GalleryMWs.parseSearchQuery,
       GalleryMWs.getRandomImage,
       GalleryMWs.loadFile,
+      (req, res, next) => {
+        if (req.session?.context?.user?.preventDownload === true) {
+          req.params['size'] = String(Math.max(...Config.Media.Photo.thumbnailSizes));
+          return generatePreview(req, res, next);
+        }
+        next();
+      },
       ServerTimingMWs.addServerTiming,
       RenderingMWs.renderFile
     );

@@ -75,6 +75,20 @@ describe('GalleryLightboxMediaComponent - Live Photo', () => {
     expect(el.querySelector('.live-photo-badge')).toBeNull();
   });
 
+  it('uses previews at any zoom when the share prevents downloading', () => {
+    const media = makeGridMedia();
+    const original = vi.spyOn(media, 'getOriginalMediaPath');
+    const preview = vi.spyOn(media, 'getBestSizedMediaPath');
+    component.gridMedia = media;
+    component.loadMedia = true;
+    component.preventDownload = true;
+    component.ngOnChanges();
+    component.zoom = 4;
+    component.ngOnChanges();
+    expect(preview).toHaveBeenCalled();
+    expect(original).not.toHaveBeenCalled();
+  });
+
   it('should set liveVideoSrc from gridMedia on change', () => {
     component.gridMedia = makeGridMedia({
       liveVideoPath: 'photos/IMG_001_HEVC.MOV',

@@ -95,3 +95,7 @@ app-gallery-map {
 }
 
 .app-gallery-body > .alert { margin-inline: 2px; }
+.empty-frame {
+  position: fixed;
+  inset: 0;
+}

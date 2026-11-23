@@ -33,6 +33,7 @@ import {SearchQueryParserService} from './search/search-query-parser.service';
 import {BlogService, GroupedMarkdown} from './blog/blog.service';
 import {UploaderService, UploadProgress} from './uploader/uploader.service';
 import {UserRoles} from '../../../../common/entities/UserDTO';
+import {LightboxService} from './lightbox/lightbox.service';
 
 
 // Mock services
@@ -40,6 +41,7 @@ class MockContentLoaderService {
   content = new BehaviorSubject<ContentWrapperWithError>({} as ContentWrapperWithError);
   loadDirectory = vi.fn();
   search = vi.fn().mockResolvedValue(undefined);
+  reloadCurrentContent = vi.fn().mockResolvedValue(undefined);
 
   constructor(private initialContent: ContentWrapperWithError = null) {
     if (initialContent) {
@@ -53,6 +55,7 @@ class MockContentService {
 }
 
 class MockAuthenticationService {
+  preventDownload = false;
   user = new BehaviorSubject({role: UserRoles.Admin} as any);
   isAuthenticated = vi.fn().mockReturnValue(true);
   canSearch = vi.fn().mockReturnValue(true);
@@ -67,6 +70,8 @@ class MockShareService {
   wait = vi.fn().mockResolvedValue(undefined);
   isSharing = vi.fn().mockReturnValue(false);
   getSharingKey = vi.fn().mockReturnValue('test-key');
+  getCurrentSharing = vi.fn().mockResolvedValue({sharingKey: 'test-key'});
+  getDefaultRoute = vi.fn().mockReturnValue(['/gallery', 'family']);
 }
 
 class MockNavigationService {
@@ -207,6 +212,47 @@ describe('GalleryComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('loads the share default without replacing its address', async () => {
+    mockAuthService.user.next({role: UserRoles.LimitedGuest, usedSharingKey: 'test-key'});
+    await (component as any).onRoute({sharingKey: 'test-key'});
+    expect(mockContentLoader.loadDirectory).toHaveBeenCalledWith('family');
+    expect(mockShareService.getDefaultRoute).toHaveBeenCalledWith({sharingKey: 'test-key'});
+  });
+
+  it('shows the full-screen empty frame only after a successful empty result', () => {
+    vi.spyOn(TestBed.inject(LightboxService), 'playback', 'get').mockReturnValue(true);
+    component.directoryContent = {mediaGroups: []} as any;
+    expect(component.isEmptyFrame).toBe(false);
+    mockContentLoader.content.next({directory: {isPartial: true}} as any);
+    expect(component.isEmptyFrame).toBe(false);
+    mockContentLoader.content.next({searchResult: {media: []}} as any);
+    expect(component.isEmptyFrame).toBe(true);
+    component.directoryContent = {mediaGroups: [{media: [{}]}]} as any;
+    expect(component.isEmptyFrame).toBe(false);
+    mockContentLoader.content.next({error: 'unavailable'} as any);
+    expect(component.isEmptyFrame).toBe(false);
+  });
+
+  it('rechecks an elapsed share countdown once and never shows negative values', () => {
+    mockShareService.sharingSubject.next({sharingKey: 'test-key', expires: Date.now() - 1});
+    component.updateTimer(0);
+    component.updateTimer(1);
+    expect(component.countDown).toEqual({day: 0, hour: 0, minute: 0, second: 0});
+    expect(mockContentLoader.reloadCurrentContent).toHaveBeenCalledOnce();
+  });
+
+  it('blocks ordinary save gestures on displayed media only during a restricted share', () => {
+    const preventDefault = vi.fn();
+    const imageEvent = {target: document.createElement('img'), preventDefault} as unknown as Event;
+    component.preventSavingMedia(imageEvent);
+    expect(preventDefault).not.toHaveBeenCalled();
+    mockAuthService.preventDownload = true;
+    component.preventSavingMedia({target: document.createElement('button'), preventDefault} as unknown as Event);
+    expect(preventDefault).not.toHaveBeenCalled();
+    component.preventSavingMedia(imageEvent);
+    expect(preventDefault).toHaveBeenCalledOnce();
   });
 
   it('should initialize with default values', () => {

@@ -38,7 +38,8 @@ export class ShareLoginComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    if (this.authService.isAuthenticated()) {
+    const usedKey = this.authService.user.value?.usedSharingKey;
+    if (this.authService.isAuthenticated() && (!usedKey || usedKey === this.shareService.getSharingKey())) {
       this.navigation.toGallery();
     }
   }
@@ -54,7 +55,11 @@ export class ShareLoginComponent implements OnInit {
           (error && error.code === ErrorCodes.CREDENTIAL_NOT_FOUND) ||
           error === 'Unauthorized'
       ) {
-        this.loginError = true;
+        if (await this.shareService.reloadPublicSharing()) {
+          this.loginError = true;
+        } else {
+          await this.navigation.toShareProblem(this.shareService.sharingIsValid.value !== false);
+        }
       }
     }
 

@@ -2,6 +2,7 @@ import {NextFunction, Request, Response} from 'express';
 import {Config} from '../../common/config/private/Config';
 import {GPXProcessing} from '../model/fileaccess/fileprocessing/GPXProcessing';
 import {Logger} from '../Logger';
+import {GalleryMWs} from './GalleryMWs';
 
 const LOG_TAG = 'MetaFileMWs';
 
@@ -14,9 +15,15 @@ export class MetaFileMWs {
     if (!req.resultPipe) {
       return next();
     }
+    const fallback = (): void => {
+      if (req.session?.context?.user?.preventDownload === true) {
+        return GalleryMWs.authoriseDownload(req, res, next);
+      }
+      res.redirect(req.originalUrl.slice(0, -1 * '\\bestFit'.length));
+    };
     // if conversion is not enabled redirect, so browser can cache the full
     if (Config.MetaFile.GPXCompressing.enabled === false) {
-      return res.redirect(req.originalUrl.slice(0, -1 * '\\bestFit'.length));
+      return fallback();
     }
     const fullPath = req.resultPipe as string;
     try {
@@ -37,10 +44,10 @@ export class MetaFileMWs {
     } catch (err) {
       // Graceful degradation if compression fails
       Logger.warn(LOG_TAG, 'Error during compressingGPX, using original file: ' + fullPath);
-      return res.redirect(req.originalUrl.slice(0, -1 * '\\bestFit'.length));
+      return fallback();
     }
     // not converted and won't be now
-    return res.redirect(req.originalUrl.slice(0, -1 * '\\bestFit'.length));
+    return fallback();
   }
 }
 

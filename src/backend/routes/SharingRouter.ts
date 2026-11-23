@@ -25,7 +25,7 @@ export class SharingRouter {
     app.post(
       Config.Server.apiPath + '/share/login',
       RateLimiter.shareLoginLimiter,
-      AuthenticationMWs.inverseAuthenticate,
+      AuthenticationMWs.inverseShareAuthenticate,
       AuthenticationMWs.shareLogin,
       ServerTimingMWs.addServerTiming,
       RenderingMWs.renderSessionUser
