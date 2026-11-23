@@ -172,6 +172,19 @@ describe('UserRouter', () => {
       should.equal((await manager.findOne({id: developer.id})).role, UserRoles.Developer);
     });
 
+    // #1315: before, the second admin let the admin lower their own role (notSelfRequestOr2Admins)
+    it('does not let an admin lower their own role, even when there is another admin', async () => {
+      const manager = ObjectManagers.getInstance().UserManager;
+      const admin = await manager.createUser({name: 'manager', role: UserRoles.Admin, password: 'pass'} as UserDTO);
+      await manager.createUser({name: 'other_admin', role: UserRoles.Admin, password: 'pass'} as UserDTO);
+      const headers = await headersFor('manager', 'pass');
+      const result = await request.execute(server.Server)
+        .post(Config.Server.apiPath + '/user/' + admin.id + '/role').send({newRole: UserRoles.User}).set(headers);
+      result.should.have.status(403);
+      should.equal(result.body.error?.code, ErrorCodes.NOT_AUTHORISED);
+      should.equal((await manager.findOne({id: admin.id})).role, UserRoles.Admin);
+    });
+
     it('requires the configured role to list albums and Admin to write albums', async () => {
       const headers = await headersFor(testUser.name, testUser.password);
       const api = () => request.execute(server.Server);
