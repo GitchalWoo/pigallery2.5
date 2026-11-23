@@ -1,9 +1,6 @@
 import {type AfterViewInit, Component, ElementRef, type OnInit, QueryList, ViewChildren, ChangeDetectionStrategy} from '@angular/core';
-import {AuthenticationService} from '../../model/network/authentication.service';
-import {UserRoles} from '../../../../common/entities/UserDTO';
 import {NotificationService} from '../../model/notification.service';
 import {NotificationType} from '../../../../common/entities/NotificationDTO';
-import {NavigationService} from '../../model/navigation.service';
 import { ViewportScroller, AsyncPipe, DatePipe } from '@angular/common';
 import {ConfigStyle, SettingsService} from '../settings/settings.service';
 import {ConfigPriority} from '../../../../common/config/public/ClientConfig';
@@ -59,8 +56,6 @@ export class AdminComponent implements OnInit, AfterViewInit {
   public readonly configPaths: string[] = [];
 
   constructor(
-    private authService: AuthenticationService,
-    private navigation: NavigationService,
     public viewportScroller: ViewportScroller,
     public notificationService: NotificationService,
     public settingsService: SettingsService,
@@ -78,13 +73,7 @@ export class AdminComponent implements OnInit, AfterViewInit {
   }
 
   ngOnInit(): void {
-    if (
-      !this.authService.isAuthenticated() ||
-      this.authService.user.value.role < UserRoles.Admin
-    ) {
-      this.navigation.toLogin();
-      return;
-    }
+    // AdminGuard lets only admins in
     this.piTitleService.setTitle($localize`Admin`);
   }
 
