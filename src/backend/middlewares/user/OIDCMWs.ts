@@ -25,9 +25,6 @@ export class OIDCMWs {
   }
 
   public static redirectToApp(req: Request, res: Response): void {
-    const redirectUrl = Config.Server.urlBase
-      ? ('/' + Config.Server.urlBase.replace(/^\/+|\/+$/g, '') + '/')
-      : '/';
-    res.redirect(redirectUrl);
+    res.redirect(Config.Server.getAppUrl());
   }
 }

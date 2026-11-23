@@ -24,6 +24,10 @@
             {{ user.role | stringifyRole }}
           </td>
           <td>
+            @if (canUnlinkOidc(user)) {
+              <button type="button" class="btn btn-outline-secondary float-end ms-2"
+                (click)="unlinkOidc(user)" i18n>Unlink OIDC</button>
+            }
             <button [disabled]="!canDeleteUser(user)" (click)="deleteUser(user)"
               [ngClass]="canDeleteUser(user)? 'btn-danger':'btn-secondary'"
               class="btn float-end ms-2">

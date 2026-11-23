@@ -15,6 +15,8 @@ export class MockOIDCServer {
   private publicKey: crypto.KeyObject;
   private jwk: any;
   public lastTokenRequestBody: Record<string, string> | null = null;
+  public signingAlgorithm: 'RS256' | 'PS256' = 'RS256';
+  public userInfo: MockOIDCUserClaims | null = null;
 
   private claims: MockOIDCUserClaims = {
     sub: 'user-default-123',
@@ -58,7 +60,8 @@ export class MockOIDCServer {
               jwks_uri: `${issuer}/jwks`,
               response_types_supported: ['code'],
               subject_types_supported: ['public'],
-              id_token_signing_alg_values_supported: ['RS256'],
+              id_token_signing_alg_values_supported: [this.signingAlgorithm],
+              ...(this.userInfo ? {userinfo_endpoint: `${issuer}/userinfo`} : {}),
               code_challenge_methods_supported: ['S256'],
               claims_supported: ['sub', 'iss', 'aud', 'exp', 'iat', 'preferred_username', 'email']
             }));
@@ -67,7 +70,17 @@ export class MockOIDCServer {
 
           if (url.pathname === '/jwks') {
             res.setHeader('content-type', 'application/json');
-            res.end(JSON.stringify({keys: [this.jwk]}));
+            res.end(JSON.stringify({keys: [{...this.jwk, alg: this.signingAlgorithm}]}));
+            return;
+          }
+
+          if (url.pathname === '/userinfo' && this.userInfo) {
+            if (req.headers.authorization !== 'Bearer mock-access-token-xyz') {
+              res.writeHead(401).end();
+              return;
+            }
+            res.setHeader('content-type', 'application/json');
+            res.end(JSON.stringify(this.userInfo));
             return;
           }
 
@@ -95,7 +108,7 @@ export class MockOIDCServer {
 
               const now = Math.floor(Date.now() / 1000);
               const header = Buffer.from(JSON.stringify({
-                alg: 'RS256',
+                alg: this.signingAlgorithm,
                 typ: 'JWT',
                 kid: 'mock-test-key-id'
               })).toString('base64url');
@@ -110,7 +123,11 @@ export class MockOIDCServer {
               })).toString('base64url');
 
               const signData = `${header}.${payload}`;
-              const sig = crypto.createSign('RSA-SHA256').update(signData).sign(this.privateKey).toString('base64url');
+              const key = this.signingAlgorithm === 'PS256'
+                ? {key: this.privateKey, padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+                  saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST}
+                : this.privateKey;
+              const sig = crypto.sign('sha256', Buffer.from(signData), key).toString('base64url');
               const idToken = `${signData}.${sig}`;
 
               res.setHeader('content-type', 'application/json');

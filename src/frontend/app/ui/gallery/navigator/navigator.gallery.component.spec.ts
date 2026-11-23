@@ -9,6 +9,7 @@ import {FilterService} from '../filter/filter.service';
 import {GallerySortingService} from './sorting.service';
 import {GalleryNavigatorService} from './navigator.service';
 import {UserRoles} from '../../../../../common/entities/UserDTO';
+import {Config} from '../../../../../common/config/public/Config';
 import {type ContentWrapperWithError} from '../../../../../common/entities/ContentWrapper';
 
 class MockAuthenticationService {
@@ -106,6 +107,19 @@ describe('GalleryNavigatorComponent - zip download link', () => {
     const url = zipUrl();
     expect(url.searchParams.get('sk')).toBe('abc');
     expect(url.searchParams.get('foo')).toBe('bar');
+  });
+
+  it('keeps the share key on a ZIP URL under the application prefix', () => {
+    const original = Config.Server.urlBase;
+    try {
+      Config.Server.urlBase = 'photos/family/';
+      queryService.params = {sk: 'guest/key'};
+      const url = zipUrl();
+      expect(url.pathname).toMatch(/^\/photos\/family\/pgapi\/gallery\/zip\//);
+      expect(url.searchParams.get('sk')).toBe('guest/key');
+    } finally {
+      Config.Server.urlBase = original;
+    }
   });
 });
 

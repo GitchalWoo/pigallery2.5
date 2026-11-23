@@ -56,7 +56,7 @@ export class RandomQueryBuilderGalleryComponent implements OnInit, OnDestroy {
 
   onQueryChange(): void {
     this.url = NetworkService.buildUrl(
-        Config.Server.publicUrl + Config.Server.apiPath + '/gallery/random/' + encodeURIComponent(this.HTMLSearchQuery)
+        Config.Server.getPublicUrl(Config.Server.apiPath, '/gallery/random/', encodeURIComponent(this.HTMLSearchQuery))
     );
   }
 

@@ -2,12 +2,14 @@ import {Config} from '../../../common/config/private/Config';
 import {Request} from 'express';
 import * as client from 'openid-client';
 import * as crypto from 'crypto';
+import {IsNull, LessThanOrEqual} from 'typeorm';
 import {UserDTO, UserRoles} from '../../../common/entities/UserDTO';
 import {ErrorCodes, ErrorDTO} from '../../../common/entities/Error';
 import {ObjectManagers} from '../../model/ObjectManagers';
 import {SQLConnection} from '../../model/database/SQLConnection';
 import {UserEntity} from '../../model/database/enitites/UserEntity';
 import {PasswordHelper} from '../../model/PasswordHelper';
+import {Logger} from '../../Logger';
 
 export class OIDCAuthService {
   private static configPromise: Promise<client.Configuration> | null = null;
@@ -69,27 +71,41 @@ export class OIDCAuthService {
       currentUrl,
       {
         pkceCodeVerifier: storedOidc?.verifier,
-        expectedState: storedOidc?.state
+        expectedState: storedOidc.state,
+        idTokenExpected: true
       }
     );
-    const claims = (tokens.claims?.() || {}) as Record<string, any>;
-    const issuer = (claims.iss || Config.Users.oidc.issuerUrl || '').toString();
-    const subject = (claims.sub || '').toString();
-    if (!subject) {
-      throw new ErrorDTO(ErrorCodes.CREDENTIAL_NOT_FOUND, 'OIDC: missing subject (sub) claim');
+    const claims = tokens.claims();
+    const issuer = claims?.iss;
+    const subject = claims?.sub;
+    if (!issuer || !subject) {
+      throw new ErrorDTO(ErrorCodes.CREDENTIAL_NOT_FOUND, 'OIDC: missing issuer or subject claim');
     }
 
     const usernameClaim = Config.Users.oidc.usernameClaim || 'preferred_username';
     const emailClaim = Config.Users.oidc.emailClaim || 'email';
-    const preferredUserName = claims[usernameClaim] || '';
-    const email = claims[emailClaim] || '';
+    let preferredUserName = this.profileClaim(claims[usernameClaim]);
+    let email = this.profileClaim(claims[emailClaim]);
+    let emailVerified = claims.email_verified;
+    if ((!preferredUserName || !email) && tokens.access_token && config.serverMetadata().userinfo_endpoint) {
+      try {
+        const userInfo = await client.fetchUserInfo(config, tokens.access_token, subject);
+        preferredUserName ||= this.profileClaim(userInfo[usernameClaim]);
+        if (!email) {
+          email = this.profileClaim(userInfo[emailClaim]);
+          emailVerified = userInfo.email_verified;
+        }
+      } catch {
+        Logger.warn('[OIDCAuthService]', 'Could not retrieve matching OIDC UserInfo claims');
+      }
+    }
 
     // domain allow-list if configured
     if (Config.Users.oidc.allowedDomains && Config.Users.oidc.allowedDomains.length > 0) {
       if (!email) {
         throw new ErrorDTO(ErrorCodes.CREDENTIAL_NOT_FOUND, 'OIDC: email claim required when allowedDomains is configured');
       }
-      if (claims.email_verified !== undefined && claims.email_verified !== true && claims.email_verified !== 'true') {
+      if (emailVerified !== undefined && emailVerified !== true && emailVerified !== 'true') {
         throw new ErrorDTO(ErrorCodes.CREDENTIAL_NOT_FOUND, 'OIDC: email is not verified by identity provider');
       }
       const domain = String(email).split('@')[1] || '';
@@ -105,30 +121,39 @@ export class OIDCAuthService {
     let user = await userRepo.findOneBy({oidcIssuer: issuer, oidcSubject: subject});
 
     if (!user) {
-      const matchedName = (preferredUserName || (email ? String(email).split('@')[0] : '')).toString();
+      const strict = Config.Users.oidc.strictSecurity;
+      const emailName = strict
+        ? (emailVerified === true && /^[^@\s]+@[^@\s]+$/.test(email) ? email : '')
+        : email.split('@')[0];
+      const matchedName = preferredUserName || emailName;
       if (!matchedName) {
         throw new ErrorDTO(ErrorCodes.CREDENTIAL_NOT_FOUND, 'OIDC: missing username/email');
       }
 
       const existingUserByName = await userRepo.findOneBy({name: matchedName});
       if (existingUserByName) {
-        // SECURITY (AUD2): Never automatically bind to privileged accounts (Admin / Developer)
-        if (existingUserByName.role === UserRoles.Admin || existingUserByName.role === UserRoles.Developer) {
+        // AUD2 sets the upper bound for name-based linking in both modes.
+        const maxRole = strict ? Math.min(Config.Users.oidc.strictLinkMaxRole, UserRoles.User) : UserRoles.User;
+        if (existingUserByName.role > maxRole) {
           throw new ErrorDTO(
             ErrorCodes.NOT_AUTHORISED,
-            `Cannot automatically bind OIDC identity to privileged account "${matchedName}".`
+            'The user role does not allow automatic OIDC linking.'
           );
         }
-        if (existingUserByName.oidcSubject && existingUserByName.oidcSubject !== subject) {
+        if (existingUserByName.oidcIssuer || existingUserByName.oidcSubject) {
           throw new ErrorDTO(
             ErrorCodes.GENERAL_ERROR,
             `User "${matchedName}" is already linked to another OIDC identity.`
           );
         }
-        // Link the existing unprivileged account
-        existingUserByName.oidcIssuer = issuer;
-        existingUserByName.oidcSubject = subject;
-        user = await userRepo.save(existingUserByName);
+        // Another login or a role change can happen after the name lookup.
+        await userRepo.update({
+          id: existingUserByName.id,
+          role: LessThanOrEqual(maxRole),
+          oidcIssuer: IsNull(),
+          oidcSubject: IsNull()
+        }, {oidcIssuer: issuer, oidcSubject: subject});
+        user = await userRepo.findOneBy({id: existingUserByName.id, oidcIssuer: issuer, oidcSubject: subject});
         ObjectManagers.getInstance().SessionManager.invalidateSessionCache();
       } else if (Config.Users.oidc.autoCreateUser) {
         const rnd = crypto.randomBytes(16).toString('hex');
@@ -151,6 +176,10 @@ export class OIDCAuthService {
     // cleanup
     delete (req.session as any).oidc;
     return user;
+  }
+
+  private static profileClaim(value: unknown): string {
+    return typeof value === 'string' ? value : '';
   }
 
   private static async getConfig(): Promise<client.Configuration> {

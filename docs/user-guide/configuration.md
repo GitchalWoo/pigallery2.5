@@ -56,6 +56,8 @@ App CLI options:
   --Users-oidc-emailClaim                                                    (default: 'email')
   --Users-oidc-allowedDomains                                               If set, only identities with emails in these domains will be accepted. (default: [])
   --Users-oidc-autoCreateUser                                               If enabled, unknown users will be created with Guest role on first login. If disabled, only existing app users can log in. (default: false)
+  --Users-oidc-strictSecurity                            Require a verified full email for the email fallback and limit initial user linking by role. (default: false)
+  --Users-oidc-strictLinkMaxRole                         Maximum role for automatic linking in strict mode (Guest or User). (default: User)
   --Users-enforcedUsers                                                     Creates these users in the DB during startup if they do not exist. If a user with this name exist, it won't be overwritten, even if the role is different. (default: [])
   --Users-allowQuery                                                        Setting a non empty search query here will make the app to only SHOW photos and videos that match the query. You can override this at every user separately. (default: {"type":100,"value":""})
   --Users-blockQuery                                                        Setting a non empty search query here will make the app to HIDE photos and videos that match the query. You can override this at every user separately. (default: {"type":100,"value":""})
@@ -246,6 +248,8 @@ Environmental variables:
   Users-oidc-emailClaim                                                  (default: 'email')
   Users-oidc-allowedDomains                                             If set, only identities with emails in these domains will be accepted. (default: [])
   Users-oidc-autoCreateUser                                             If enabled, unknown users will be created with Guest role on first login. If disabled, only existing app users can log in. (default: false)
+  Users-oidc-strictSecurity                            Require a verified full email for the email fallback and limit initial user linking by role. (default: false)
+  Users-oidc-strictLinkMaxRole                         Maximum role for automatic linking in strict mode (Guest or User). (default: User)
   Users-enforcedUsers                                                   Creates these users in the DB during startup if they do not exist. If a user with this name exist, it won't be overwritten, even if the role is different. (default: [])
   Users-allowQuery                                                      Setting a non empty search query here will make the app to only SHOW photos and videos that match the query. You can override this at every user separately. (default: {"type":100,"value":""})
   Users-blockQuery                                                      Setting a non empty search query here will make the app to HIDE photos and videos that match the query. You can override this at every user separately. (default: {"type":100,"value":""})
@@ -480,7 +484,9 @@ Environmental variables:
             "//[allowedDomains]": "If set, only identities with emails in these domains will be accepted.",
             "allowedDomains": [],
             "//[autoCreateUser]": "If enabled, unknown users will be created with Guest role on first login. If disabled, only existing app users can log in.",
-            "autoCreateUser": false
+            "autoCreateUser": false,
+            "strictSecurity": false,
+            "strictLinkMaxRole": "User"
         },
         "//[enforcedUsers]": "Creates these users in the DB during startup if they do not exist. If a user with this name exist, it won't be overwritten, even if the role is different.",
         "enforcedUsers": [],
@@ -1269,6 +1275,12 @@ Environmental variables:
     }
 }
 ```
+
+## OpenID Connect account linking
+
+PiGallery2 binds provider identities by issuer and subject. By default, an existing Guest or User account can link by matching the configured username claim, or by matching the email's local part when no username is supplied. Enable `Users.oidc.strictSecurity` to require a verified full email for the email fallback and enforce `Users.oidc.strictLinkMaxRole` on initial linking. Admin and Developer accounts cannot be automatically linked by name in either mode. In the Users settings, an administrator can unlink another account at or below their own role. Unlinking ends the affected account's current sessions.
+
+Use HTTPS for the issuer in deployed environments. The settings page warns when the issuer uses HTTP. When `Server.urlBase` is set, include the prefix in the registered OIDC callback URI and configure the reverse proxy to strip the prefix from requests it forwards.
 
 ## Supported Directory Configuration (`.pg2conf`) Files
 

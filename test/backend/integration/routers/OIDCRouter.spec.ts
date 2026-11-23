@@ -106,44 +106,47 @@ describe('OIDCRouter', () => {
       res.headers.should.have.property('set-cookie');
     });
 
-    it('Full OIDC flow: login -> callback -> authenticated /user/me', async () => {
-      // 1. Hit /auth/oidc/login to initiate flow and receive session cookie
-      const loginRes = await request.execute(server.Server)
-        .get(Config.Server.apiPath + '/auth/oidc/login')
-        .redirects(0);
+    for (const [base, redirect] of [['', '/'], ['/photos/family/', '/photos/family/']]) {
+      it('logs in and authenticates the session with urlBase ' + JSON.stringify(base), async () => {
+        Config.Server.urlBase = base;
+        // 1. Hit /auth/oidc/login to initiate flow and receive session cookie
+        const loginRes = await request.execute(server.Server)
+          .get(Config.Server.apiPath + '/auth/oidc/login')
+          .redirects(0);
 
-      loginRes.should.have.status(302);
-      const sessionCookie = loginRes.headers['set-cookie'];
-      sessionCookie.should.be.an('array').and.not.empty;
+        loginRes.should.have.status(302);
+        const sessionCookie = loginRes.headers['set-cookie'];
+        sessionCookie.should.be.an('array').and.not.empty;
 
-      const location = new URL(loginRes.headers.location);
-      const state = location.searchParams.get('state');
-      should.exist(state);
+        const location = new URL(loginRes.headers.location);
+        const state = location.searchParams.get('state');
+        should.exist(state);
 
-      // 2. Hit /auth/oidc/callback with returned state and authorization code
-      const cbRes = await request.execute(server.Server)
-        .get(Config.Server.apiPath + '/auth/oidc/callback')
-        .query({code: 'mock-auth-code', state})
-        .set('Cookie', sessionCookie)
-        .redirects(0);
+        // 2. Hit /auth/oidc/callback with returned state and authorization code
+        const cbRes = await request.execute(server.Server)
+          .get(Config.Server.apiPath + '/auth/oidc/callback')
+          .query({code: 'mock-auth-code', state})
+          .set('Cookie', sessionCookie)
+          .redirects(0);
 
-      cbRes.should.have.status(302);
-      cbRes.headers.should.have.property('location');
-      cbRes.headers.location.should.equal('/');
+        cbRes.should.have.status(302);
+        cbRes.headers.should.have.property('location');
+        cbRes.headers.location.should.equal(redirect);
 
-      // 3. Verify that the updated session cookie authenticates requests to /user/me
-      const updatedCookie = cbRes.headers['set-cookie'] || sessionCookie;
-      const meRes = await request.execute(server.Server)
-        .get(Config.Server.apiPath + '/user/me')
-        .set('Cookie', updatedCookie);
+        // 3. Verify that the updated session cookie authenticates requests to /user/me
+        const updatedCookie = cbRes.headers['set-cookie'] || sessionCookie;
+        const meRes = await request.execute(server.Server)
+          .get(Config.Server.apiPath + '/user/me')
+          .set('Cookie', updatedCookie);
 
-      meRes.should.have.status(200);
-      meRes.body.should.be.a('object');
-      should.equal(meRes.body.error, null);
-      const user = meRes.body.result;
-      user.should.have.property('name', 'oidc_route_user');
-      user.should.have.property('role', UserRoles.Guest);
-      user.should.not.have.property('password');
-    });
+        meRes.should.have.status(200);
+        meRes.body.should.be.a('object');
+        should.equal(meRes.body.error, null);
+        const user = meRes.body.result;
+        user.should.have.property('name', 'oidc_route_user');
+        user.should.have.property('role', UserRoles.Guest);
+        user.should.not.have.property('password');
+      });
+    }
   });
 });

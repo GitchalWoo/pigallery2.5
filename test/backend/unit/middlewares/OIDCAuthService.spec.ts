@@ -6,12 +6,11 @@ import {OIDCMWs} from '../../../../src/backend/middlewares/user/OIDCMWs';
 import {ObjectManagers} from '../../../../src/backend/model/ObjectManagers';
 import {UserDTO, UserRoles} from '../../../../src/common/entities/UserDTO';
 import {ErrorCodes, ErrorDTO} from '../../../../src/common/entities/Error';
-import {DatabaseType} from '../../../../src/common/config/private/PrivateConfig';
 import {SQLConnection} from '../../../../src/backend/model/database/SQLConnection';
 import {DBTestHelper} from '../../DBTestHelper';
 import {MockOIDCServer} from './MockOIDCServer';
 
-declare const describe: any;
+declare const describe: Mocha.SuiteFunction;
 declare const before: any;
 declare const after: any;
 declare const beforeEach: any;
@@ -46,8 +45,7 @@ function createMockRes(): { res: any; getRedirectUrl: () => string | null } {
   };
 }
 
-describe('OIDCAuthService', () => {
-  const sqlHelper = new DBTestHelper(DatabaseType.sqlite);
+DBTestHelper.describe()('OIDCAuthService', (sqlHelper) => {
   const mockOidc = new MockOIDCServer();
   let issuerUrl: string;
 
@@ -77,8 +75,12 @@ describe('OIDCAuthService', () => {
     Config.Users.oidc.emailClaim = 'email';
     Config.Users.oidc.allowedDomains = [];
     Config.Users.oidc.autoCreateUser = false;
+    Config.Users.oidc.strictSecurity = false;
+    Config.Users.oidc.strictLinkMaxRole = UserRoles.User;
     Config.Server.urlBase = '';
 
+    mockOidc.signingAlgorithm = 'RS256';
+    mockOidc.userInfo = null;
     mockOidc.setClaims({
       sub: 'mock-sub-1',
       preferred_username: 'oidc_test_user',
@@ -413,6 +415,88 @@ describe('OIDCAuthService', () => {
       const user = await OIDCAuthService.getUserFromAuthenticationResponse(cbReq);
 
       expect(user.name).to.equal('nicky');
+    });
+  });
+
+  describe('provider compatibility and strict identity linking', () => {
+    async function login(): Promise<UserDTO> {
+      const req = createMockReq();
+      await OIDCAuthService.getAuthenticationRequestUrl(req);
+      req.query = {code: 'test-code', state: req.session.oidc.state};
+      return OIDCAuthService.getUserFromAuthenticationResponse(req);
+    }
+
+    async function expectDenied(code: ErrorCodes): Promise<void> {
+      const result = await login().catch((error: unknown) => error);
+      expect(result).to.be.instanceOf(ErrorDTO);
+      expect((result as ErrorDTO).code).to.equal(code);
+    }
+
+    it('accepts an advertised PS256 token and reads profile claims from UserInfo', async () => {
+      mockOidc.signingAlgorithm = 'PS256';
+      mockOidc.setClaims({sub: 'ps256-userinfo'});
+      mockOidc.userInfo = {sub: 'ps256-userinfo', preferred_username: 'ps256_name', email: 'name@company.org', email_verified: true};
+      Config.Users.oidc.autoCreateUser = true;
+      Config.Users.oidc.allowedDomains = ['company.org'];
+
+      expect(await login()).to.include({name: 'ps256_name', oidcIssuer: issuerUrl, oidcSubject: 'ps256-userinfo'});
+    });
+
+    it('ignores profile claims from UserInfo for a different subject', async () => {
+      mockOidc.setClaims({sub: 'expected-sub'});
+      mockOidc.userInfo = {sub: 'other-sub', preferred_username: 'mismatched_user'};
+      Config.Users.oidc.autoCreateUser = true;
+      await expectDenied(ErrorCodes.CREDENTIAL_NOT_FOUND);
+    });
+
+    it('links via a verified full email and subsequently finds the account by issuer and subject', async () => {
+      Config.Users.oidc.strictSecurity = true;
+      const manager = ObjectManagers.getInstance().UserManager;
+      const account = await manager.createUser({name: 'strict@company.org', role: UserRoles.User, password: 'test'} as UserDTO);
+      mockOidc.setClaims({sub: 'strict-email', email: account.name, email_verified: false});
+      await expectDenied(ErrorCodes.CREDENTIAL_NOT_FOUND);
+      mockOidc.setClaims({sub: 'strict-email', email: account.name, email_verified: true});
+      expect(await login()).to.include({id: account.id, oidcIssuer: issuerUrl, oidcSubject: 'strict-email'});
+      mockOidc.setClaims({sub: 'strict-email'});
+      expect(await login()).to.include({id: account.id});
+    });
+
+    it('keeps email verification tied to the source of the email', async () => {
+      Config.Users.oidc.strictSecurity = true;
+      Config.Users.oidc.autoCreateUser = true;
+      mockOidc.setClaims({sub: 'strict-source', email_verified: true});
+      mockOidc.userInfo = {sub: 'strict-source', email: 'unverified@company.org'};
+      await expectDenied(ErrorCodes.CREDENTIAL_NOT_FOUND);
+    });
+
+    it('applies the strict role ceiling and keeps the Admin and Developer linking ban in both modes', async () => {
+      const manager = ObjectManagers.getInstance().UserManager;
+      const roles = [UserRoles.User, UserRoles.Admin, UserRoles.Developer];
+      Config.Users.oidc.strictSecurity = true;
+      Config.Users.oidc.strictLinkMaxRole = UserRoles.Guest;
+      for (const role of roles) {
+        const name = 'strict_role_' + role;
+        const account = await manager.createUser({name, role, password: 'test'} as UserDTO);
+        mockOidc.setClaims({sub: name, preferred_username: name});
+        await expectDenied(ErrorCodes.NOT_AUTHORISED);
+        if (role !== UserRoles.User) {
+          Config.Users.oidc.strictSecurity = false;
+          await expectDenied(ErrorCodes.NOT_AUTHORISED);
+          Config.Users.oidc.strictSecurity = true;
+        }
+        expect((await manager.findOne({id: account.id})).oidcSubject).to.equal(null);
+      }
+    });
+
+    it('keeps an existing link when another issuer presents the same subject and name', async () => {
+      const manager = ObjectManagers.getInstance().UserManager;
+      const account = await manager.createUser({
+        name: 'issuer_bound_user', role: UserRoles.User, password: 'test',
+        oidcIssuer: 'https://issuer.example', oidcSubject: 'common-sub'
+      } as UserDTO);
+      mockOidc.setClaims({sub: 'common-sub', preferred_username: account.name});
+      await expectDenied(ErrorCodes.GENERAL_ERROR);
+      expect((await manager.findOne({id: account.id})).oidcIssuer).to.equal('https://issuer.example');
     });
   });
 });
