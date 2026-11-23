@@ -88,6 +88,30 @@ describe('UserRouter', () => {
       result.should.have.status(404);
     });
 
+    // #1305: renderError keeps the status of the rate limiter, it is not the 500 of GENERAL_ERROR
+    it('answers too many login attempts with 429 and Retry-After', async () => {
+      Config.Users.authenticationRequired = true;
+      const origDisabled = process.env.DISABLE_RATE_LIMITING;
+      delete process.env.DISABLE_RATE_LIMITING;
+      try {
+        let result;
+        for (let i = 0; i < 11; ++i) {
+          result = await request.execute(server.Server)
+            .post(Config.Server.apiPath + '/user/login')
+            .send({loginCredential: {username: testUser.name, password: 'wrong'}});
+        }
+        result.should.have.status(429);
+        should.exist(result.headers['retry-after']);
+        should.equal(result.body.error?.code, ErrorCodes.GENERAL_ERROR);
+        should.equal(result.body.result, null);
+      } finally {
+        if (origDisabled !== undefined) {
+          process.env.DISABLE_RATE_LIMITING = origDisabled;
+        }
+        RateLimiter.reset();
+      }
+    });
+
     it('rejects a wrong password with the credential error', async () => {
       Config.Users.authenticationRequired = true;
       const result = await request.execute(server.Server)
