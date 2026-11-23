@@ -260,13 +260,24 @@ describe('Projection leak', (sqlHelper: DBTestHelper) => {
     const gpx = Config.MetaFile.GPXCompressing;
     const {enabled, onTheFly} = gpx;
     try {
+      const originalTrack = await get(admin, track);
+      expect(originalTrack.status).to.equal(200);
       gpx.enabled = false;
       expect((await get(restrictedGuest, track + '/bestFit')).status).to.equal(403);
+      const fallback = await get(admin, track + '/bestFit?view=map');
+      expect(fallback.status).to.equal(200);
+      expect(fallback.headers).not.to.have.property('location');
+      expect(fallback.headers['cache-control']).to.equal('private, no-store');
+      expect(fallback.body.equals(originalTrack.body)).to.equal(true);
+
       gpx.enabled = true;
+      gpx.onTheFly = false;
+      expect((await get(restrictedGuest, track + '/bestFit')).status).to.equal(403);
+      expect((await get(admin, track + '/bestFit')).body.equals(originalTrack.body)).to.equal(true);
       gpx.onTheFly = true;
       const compressed = await get(restrictedGuest, track + '/bestFit');
       expect(compressed.status).to.equal(200);
-      expect(compressed.body.equals((await get(admin, track)).body)).to.equal(false);
+      expect(compressed.body.equals(originalTrack.body)).to.equal(false);
     } finally {
       gpx.enabled = enabled;
       gpx.onTheFly = onTheFly;
