@@ -22,6 +22,8 @@ describe('ErrorInterceptor', () => {
   };
   const unauthorized = (code?: ErrorCodes) =>
     new HttpErrorResponse({status: 401, error: code === undefined ? null : {error: {code, message: 'Not authenticated'}}});
+  const forbidden = (code: ErrorCodes) =>
+    new HttpErrorResponse({status: 403, error: {error: {code, message: 'Forbidden'}}});
 
   it('passes the error code of a 401 to the logout', async () => {
     const {authenticationService, fail} = setUp(true);
@@ -71,4 +73,35 @@ describe('ErrorInterceptor', () => {
     expect(retry.navigationService.toShareProblem).toHaveBeenCalledWith(true);
     expect(retry.authenticationService.logout).not.toHaveBeenCalled();
   });
+  // #1305: NOT_AUTHORISED answers 403, so the 401 logout no longer covers it
+  it('logs out on NOT_AUTHORISED (an illegal move or a failed CSRF check)', async () => {
+    const {authenticationService, fail} = setUp(true);
+    await fail('/api/admin/settings', forbidden(ErrorCodes.NOT_AUTHORISED));
+    expect(authenticationService.logout).toHaveBeenCalledWith(ErrorCodes.NOT_AUTHORISED);
+  });
+
+  it('does not log out on other 403 errors', async () => {
+    const {authenticationService, fail} = setUp(true);
+    await fail('/api/upload/x', forbidden(ErrorCodes.PERMISSION_DENIED));
+    expect(authenticationService.logout).not.toHaveBeenCalled();
+  });
+
+  it('keeps the logout loop guard on NOT_AUTHORISED too', async () => {
+    const {authenticationService, fail} = setUp(true);
+    for (const url of ['/api/user/me', '/api/user/login', '/api/share/key/login', '/api/user/logout', '/api/share/key/publicInfo']) {
+      await fail(url, forbidden(ErrorCodes.NOT_AUTHORISED));
+    }
+    expect(authenticationService.logout).not.toHaveBeenCalled();
+    const notLoggedIn = setUp(false);
+    await notLoggedIn.fail('/api/admin/settings', forbidden(ErrorCodes.NOT_AUTHORISED));
+    expect(notLoggedIn.authenticationService.logout).not.toHaveBeenCalled();
+  });
+
+  // a wrong password: the guest of a password protected sharing has to stay on its login page
+  it('does not log out on a wrong password', async () => {
+    const {authenticationService, fail} = setUp(true);
+    await fail('/api/gallery/content/', unauthorized(ErrorCodes.CREDENTIAL_NOT_FOUND));
+    expect(authenticationService.logout).not.toHaveBeenCalled();
+  });
+
 });

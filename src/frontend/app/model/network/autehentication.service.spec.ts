@@ -4,7 +4,7 @@ import {UserDTO} from '../../../../common/entities/UserDTO';
 import {LoginCredential} from '../../../../common/entities/LoginCredential';
 import {AuthenticationService} from './authentication.service';
 import {NetworkService} from './network.service';
-import {ErrorDTO} from '../../../../common/entities/Error';
+import {ErrorCodes, ErrorDTO} from '../../../../common/entities/Error';
 import {VersionService} from '../version.service';
 import {ShareService} from '../../ui/gallery/share.service';
 import {NavigationService} from '../navigation.service';
@@ -20,8 +20,10 @@ class MockUserService {
 }
 
 class MockNetworkService {
+  handlers: ((error: ErrorDTO) => boolean)[] = [];
+
   addGlobalErrorHandler(fn: (error: ErrorDTO) => boolean): void {
-    // mock fn
+    this.handlers.push(fn);
   }
 }
 
@@ -90,5 +92,13 @@ describe('AuthenticationService', () => {
       });
       authService.login({} as any);
     });
+  });
+  // #1305: NOT_AUTHORISED answers 403 and the error interceptor logs out (keeping its loop guard), not this handler
+  it('should leave the logout on NOT_AUTHORISED to the error interceptor', () => {
+    const authService = TestBed.inject(AuthenticationService);
+    const network = TestBed.inject(NetworkService) as unknown as MockNetworkService;
+    const logout = vi.spyOn(authService, 'logout');
+    expect(network.handlers.some(h => h({code: ErrorCodes.NOT_AUTHORISED} as ErrorDTO))).toBe(true);
+    expect(logout).not.toHaveBeenCalled();
   });
 });

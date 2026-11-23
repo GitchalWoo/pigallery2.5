@@ -55,7 +55,7 @@ export class AuthenticationService {
         return true;
       }
       if (error.code === ErrorCodes.NOT_AUTHORISED) {
-        this.logout().catch(console.error);
+        // the error interceptor logs out (it answers 403 and the interceptor keeps the logout loop guard)
         return true;
       }
       return false;
