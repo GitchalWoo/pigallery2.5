@@ -1,4 +1,4 @@
-import {Component, type OnInit, ChangeDetectionStrategy} from '@angular/core';
+import {Component, ElementRef, type OnInit, ChangeDetectionStrategy, ViewChild} from '@angular/core';
 import {LoginCredential} from '../../../../common/entities/LoginCredential';
 import {AuthenticationService} from '../../model/network/authentication.service';
 import {ErrorCodes} from '../../../../common/entities/Error';
@@ -23,6 +23,7 @@ import {NgIconComponent} from '@ng-icons/core';
 ]
 })
 export class LoginComponent implements OnInit {
+  @ViewChild('passwordInput') passwordInput: ElementRef<HTMLInputElement>;
   loginCredential: LoginCredential;
   loginError = false;
   title: string;
@@ -55,6 +56,9 @@ export class LoginComponent implements OnInit {
     } catch (error) {
       if (error && error.code === ErrorCodes.CREDENTIAL_NOT_FOUND) {
         this.loginError = true;
+        // a fresh start for the next try
+        this.loginCredential.password = '';
+        this.passwordInput?.nativeElement.focus();
       }
     }
 
