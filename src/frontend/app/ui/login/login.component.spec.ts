@@ -9,11 +9,11 @@ import {LanguageComponent} from '../language/language.component';
 
 describe('LoginComponent', () => {
   let auth: { isAuthenticated: () => boolean, login: ReturnType<typeof vi.fn> };
-  let navigation: { toDefault: ReturnType<typeof vi.fn>, toAfterLogin: ReturnType<typeof vi.fn> };
+  let navigation: { toDefault: ReturnType<typeof vi.fn>, toAfterLogin: ReturnType<typeof vi.fn>, rememberReturnUrl: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     auth = {isAuthenticated: () => false, login: vi.fn().mockRejectedValue({code: ErrorCodes.CREDENTIAL_NOT_FOUND})};
-    navigation = {toDefault: vi.fn().mockResolvedValue(true), toAfterLogin: vi.fn().mockResolvedValue(true)};
+    navigation = {toDefault: vi.fn().mockResolvedValue(true), toAfterLogin: vi.fn().mockResolvedValue(true), rememberReturnUrl: vi.fn()};
   });
 
   const render = <T extends LoginComponent>(component: Type<T>): T => {
@@ -56,6 +56,19 @@ describe('LoginComponent', () => {
 
     expect(login.loginError).toBe(false);
     expect(login.loginCredential.password).toBe('secret');
+  });
+
+  // #1306: the provider sends the browser back to the app root, so the url to return to waits in the session storage
+  it('should keep the url to return to before the OIDC login', () => {
+    const login = render(LoginComponent);
+    login.oidcEnabled = true;
+    const open = vi.spyOn(login, 'openProvider').mockImplementation(() => undefined);
+
+    login.onLoginWithOIDC();
+
+    expect(navigation.rememberReturnUrl).toHaveBeenCalled();
+    expect(open).toHaveBeenCalledWith(login.oidcLoginUrl);
+    expect(navigation.rememberReturnUrl.mock.invocationCallOrder[0]).toBeLessThan(open.mock.invocationCallOrder[0]);
   });
 
   it('should open the page the login was opened for when already logged in', () => {

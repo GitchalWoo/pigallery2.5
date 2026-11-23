@@ -96,16 +96,66 @@ export class NavigationService {
 
   /**
    * Opens the url that the login page was opened for (#1306), or the default page.
+   * An OIDC login leaves the app for the provider, so the url waits in the session storage (see rememberReturnUrl).
    */
-  public async toAfterLogin(): Promise<boolean> {
+  public toAfterLogin(): Promise<boolean> {
+    // the login page and the app both ask for it after a login: one navigation, the stored url is taken only once
+    this.afterLogin ??= this.navigateAfterLogin().finally(() => {
+      this.afterLogin = null;
+    });
+    return this.afterLogin;
+  }
+
+  private afterLogin: Promise<boolean> = null;
+
+  private async navigateAfterLogin(): Promise<boolean> {
+    const stored = NavigationService.takeRememberedReturnUrl();
     await this.shareService.wait();
     if (!this.shareService.isSharing()) {
       const returnUrl: unknown = this.router.parseUrl(this.router.url).queryParams[NavigationService.RETURN_URL];
-      if (NavigationService.isReturnUrl(returnUrl)) {
-        return this.router.navigateByUrl(returnUrl, {replaceUrl: true});
+      for (const url of [returnUrl, stored]) {
+        if (NavigationService.isReturnUrl(url)) {
+          return this.router.navigateByUrl(url, {replaceUrl: true});
+        }
       }
     }
     return this.toDefault();
+  }
+
+  private static readonly RETURN_URL_STORAGE_KEY = 'pigallery2-returnUrl';
+  // an abandoned OIDC login does not send a later login to its page
+  private static readonly RETURN_URL_STORAGE_TTL_MS = 10 * 60 * 1000;
+
+  /**
+   * Keeps the returnUrl of the login page while the browser visits the OIDC provider.
+   */
+  public rememberReturnUrl(): void {
+    const returnUrl: unknown = this.router.parseUrl(this.router.url).queryParams[NavigationService.RETURN_URL];
+    try {
+      if (NavigationService.isReturnUrl(returnUrl)) {
+        sessionStorage.setItem(NavigationService.RETURN_URL_STORAGE_KEY, JSON.stringify({url: returnUrl, at: Date.now()}));
+      } else {
+        sessionStorage.removeItem(NavigationService.RETURN_URL_STORAGE_KEY);
+      }
+    } catch {
+      // no session storage (e.g. blocked): the login opens the default page
+    }
+  }
+
+  private static takeRememberedReturnUrl(): string | null {
+    try {
+      const raw = sessionStorage.getItem(NavigationService.RETURN_URL_STORAGE_KEY);
+      sessionStorage.removeItem(NavigationService.RETURN_URL_STORAGE_KEY);
+      const stored = raw ? JSON.parse(raw) : null;
+      if (stored && typeof stored.at === 'number' &&
+        Date.now() - stored.at >= 0 && Date.now() - stored.at < NavigationService.RETURN_URL_STORAGE_TTL_MS &&
+        NavigationService.isReturnUrl(stored.url)) {
+        return stored.url;
+      }
+    } catch {
+      // not readable: the default page
+    }
+    return null;
   }
 
   public async toDefault(): Promise<boolean> {

@@ -73,7 +73,14 @@ export class LoginComponent implements OnInit {
     if (!this.oidcEnabled) {
       return;
     }
-    window.location.href = this.oidcLoginUrl;
+    // the provider sends the browser back to the app, not to this page: keep the url to return to
+    this.navigation.rememberReturnUrl();
+    this.openProvider(this.oidcLoginUrl);
+  }
+
+  // leaves the app for the OIDC provider
+  openProvider(url: string): void {
+    window.location.href = url;
   }
 }
 

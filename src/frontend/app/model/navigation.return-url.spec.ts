@@ -19,6 +19,7 @@ describe('NavigationService return url', () => {
 
   beforeEach(() => {
     sharing = false;
+    sessionStorage.clear();
     TestBed.configureTestingModule({
       providers: [
         // a nested Server.urlBase (behind a proxy prefix)
@@ -39,6 +40,7 @@ describe('NavigationService return url', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    sessionStorage.clear();
   });
 
   // the address in the browser: the url of the app under Server.urlBase
@@ -97,5 +99,69 @@ describe('NavigationService return url', () => {
     await loginWith('/gallery/x');
     await service.toAfterLogin();
     expect(toDefault).toHaveBeenCalled();
+  });
+
+  describe('OIDC login', () => {
+    it('keeps the deep link while the browser visits the provider', async () => {
+      await loginWith('/albums');
+      service.rememberReturnUrl();
+      // the provider sends the browser back to the app root, without the query param
+      await router.navigateByUrl('/login');
+      await service.toAfterLogin();
+      expect(router.url).toBe('/albums');
+      expect(sessionStorage.length).toBe(0);
+    });
+
+    // the login page and the app component both call it after the OIDC callback
+    it('opens the stored deep link when it is asked for twice at once', async () => {
+      await loginWith('/albums');
+      service.rememberReturnUrl();
+      await router.navigateByUrl('/login');
+      const toDefault = vi.spyOn(service, 'toDefault');
+      await Promise.all([service.toAfterLogin(), service.toAfterLogin()]);
+      expect(toDefault).not.toHaveBeenCalled();
+      expect(router.url).toBe('/albums');
+    });
+
+    it('prefers the returnUrl of the login page and uses a stored url once', async () => {
+      await loginWith('/albums');
+      service.rememberReturnUrl();
+      await loginWith('/faces');
+      await service.toAfterLogin();
+      expect(router.url).toBe('/faces');
+      // taken by the login above
+      const toDefault = vi.spyOn(service, 'toDefault').mockResolvedValue(true);
+      await router.navigateByUrl('/login');
+      await service.toAfterLogin();
+      expect(toDefault).toHaveBeenCalled();
+    });
+
+    it('forgets the url of an abandoned OIDC login', async () => {
+      const now = Date.now();
+      const dateNow = vi.spyOn(Date, 'now').mockReturnValue(now);
+      await loginWith('/albums');
+      service.rememberReturnUrl();
+      dateNow.mockReturnValue(now + 10 * 60 * 1000);
+      const toDefault = vi.spyOn(service, 'toDefault').mockResolvedValue(true);
+      await router.navigateByUrl('/login');
+      await service.toAfterLogin();
+      expect(toDefault).toHaveBeenCalled();
+    });
+
+    it('ignores a stored url that is not a page of the app', async () => {
+      sessionStorage.setItem('pigallery2-returnUrl', JSON.stringify({url: '//evil.example', at: Date.now()}));
+      const toDefault = vi.spyOn(service, 'toDefault').mockResolvedValue(true);
+      await router.navigateByUrl('/login');
+      await service.toAfterLogin();
+      expect(toDefault).toHaveBeenCalled();
+      expect(sessionStorage.length).toBe(0);
+    });
+
+    it('stores nothing without a returnUrl', async () => {
+      sessionStorage.setItem('pigallery2-returnUrl', JSON.stringify({url: '/albums', at: Date.now()}));
+      await router.navigateByUrl('/login');
+      service.rememberReturnUrl();
+      expect(sessionStorage.length).toBe(0);
+    });
   });
 });
