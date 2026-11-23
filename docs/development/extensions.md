@@ -49,6 +49,14 @@ See https://github.com/bpatrik/pigallery2/blob/master/src/backend/model/extensio
 Changes made these public apis you do not need to clean up in the `cleanUp` function.
 App also exposes private `_app` object to provide access to low level API. Any changes made here need cleanup.
 
+## API errors
+
+Every error of the REST API is sent with its HTTP status and the `{error, result: null}` JSON body.
+The status depends on the error code: 401 for `NOT_AUTHENTICATED` and wrong credentials, 403 for `NOT_AUTHORISED` and `PERMISSION_DENIED`,
+404 for missing folders, files, sharings and unknown API paths, 400 for invalid input and 500 for other server errors.
+A status that a middleware sets on purpose before passing the error on (e.g. 429 of the rate limiter) is kept.
+Older versions answered every error with HTTP 200; clients that only checked the status have to read the error codes too.
+
 ## server.js
 
 See sample server.js at https://github.com/bpatrik/pigallery2-sample-extension.

@@ -60,6 +60,8 @@ Edit `nginx.conf` at the `# CHANGE ME` lines by replacing `yourdomain.com` with 
 **Warning:** PiGallery2 does not limit the request rate itself: nothing slows down password guessing on the login page or on a password protected sharing link, and nothing stops a client from flooding the server with requests.
 The `nginx.conf` above does both (see its `limit_req` lines). If you skip nginx or use another reverse proxy, set up rate limiting there before making the gallery reachable from the internet.
 
+**Note 4:** API errors carry their HTTP status (e.g. 401 for an ended session, 403 for a missing right, 404 for a missing folder) and a JSON body that the app reads. Do not let the reverse proxy replace these answers with its own error pages (nginx: keep `proxy_intercept_errors` off, which is its default, for the `/pgapi` location).
+
 **Note 3:** To log the real client IP of failed logins (e.g. for fail2ban) instead of the IP of the nginx container, set `Server.trustProxy` (Settings, "Under the hood" mode) to `uniquelocal`. See the [Fail2Ban guide](advanced/fail2ban.md).
 
 ### I.1.a Get SSL Certificate with Certbot
