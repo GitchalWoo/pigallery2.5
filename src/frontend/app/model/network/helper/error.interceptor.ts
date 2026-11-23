@@ -2,6 +2,7 @@ import {Injectable} from '@angular/core';
 import {type HttpEvent, HttpHandler, type HttpInterceptor, HttpRequest} from '@angular/common/http';
 import {Observable, throwError} from 'rxjs';
 import {catchError} from 'rxjs/operators';
+import {ToastrService} from 'ngx-toastr';
 import {AuthenticationService} from '../authentication.service';
 import {NavigationService} from '../../navigation.service';
 import {ErrorCodes} from '../../../../../common/entities/Error';
@@ -14,7 +15,8 @@ export class ErrorInterceptor implements HttpInterceptor {
 
   constructor(private authenticationService: AuthenticationService,
               private navigationService: NavigationService,
-              private shareService: ShareService) {
+              private shareService: ShareService,
+              private toastr: ToastrService) {
   }
 
   /**
@@ -45,6 +47,7 @@ export class ErrorInterceptor implements HttpInterceptor {
             });
           } else {
             // the session ended (e.g. it expired or the user was deleted)
+            this.tellSessionEnded();
             this.authenticationService.logout(code).catch(console.error);
           }
         }
@@ -61,6 +64,18 @@ export class ErrorInterceptor implements HttpInterceptor {
         return throwError(error);
       })
     );
+  }
+
+  /**
+   * Shown on the login page that the logout leads to. Once, also when several requests answer 401
+   * (e.g. the thumbnails of a folder).
+   */
+  private tellSessionEnded(): void {
+    const text = $localize`Your session has ended. Please log in again.`;
+    if (this.toastr.findDuplicate('', text, false, false)) {
+      return;
+    }
+    this.toastr.warning(text, '', {positionClass: 'toast-top-center'});
   }
 
   private async recoverShare(): Promise<void> {
