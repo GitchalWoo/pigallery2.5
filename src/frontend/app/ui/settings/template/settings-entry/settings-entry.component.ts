@@ -94,6 +94,8 @@ export class SettingsEntryComponent
   state: IState;
   isNumberArray = false;
   isNumber = false;
+  // the limits of a number setting, shown on the field when the value is out of them (#1315)
+  rangeError: string | null = null;
   HTMLInputType = 'text';
   title: string;
   idName: string;
@@ -213,8 +215,8 @@ export class SettingsEntryComponent
     this.state.value = value;
     if (this.isNumber) {
       this.state.value = parseFloat(value);
+      this.updateRangeError();
     }
-
   }
 
   selectTheme(name: string): void {
@@ -357,6 +359,40 @@ export class SettingsEntryComponent
       this.required = this.required || !this.state.tags.uiOptional;
       this.experimental = this.state.tags.experimental;
     }
+    this.updateRangeError();
+  }
+
+  // shown on the field, as the form can't be saved with a value out of the limits (#1315)
+  private updateRangeError(): void {
+    if (!this.state || !this.checkRange()) {
+      this.rangeError = null;
+      return;
+    }
+    const min = this.state.min;
+    const max = this.state.max;
+    if (typeof min === 'number' && typeof max === 'number') {
+      this.rangeError = $localize`The value must be between ${min}:MIN: and ${max}:MAX:.`;
+    } else if (typeof min === 'number') {
+      this.rangeError = $localize`The value must be at least ${min}:MIN:.`;
+    } else {
+      this.rangeError = $localize`The value must be at most ${max}:MAX:.`;
+    }
+  }
+
+  // the limits of the config metadata; the server rejects the save otherwise
+  private checkRange(): ValidationErrors | null {
+    const value = this.state?.value;
+    if (!this.isNumber || typeof value === 'undefined' || value === null || value === '') {
+      return null;
+    }
+    const n = Number(value);
+    if (typeof this.state.min === 'number' && n < this.state.min) {
+      return {min: {min: this.state.min, actual: n}};
+    }
+    if (typeof this.state.max === 'number' && n > this.state.max) {
+      return {max: {max: this.state.max, actual: n}};
+    }
+    return null;
   }
 
   getOptionsView(state: IState & {
@@ -389,16 +425,11 @@ export class SettingsEntryComponent
   }
 
   validate(): ValidationErrors {
-    if (
-        !this.required ||
-        (this.state &&
-            typeof this.state.value !== 'undefined' &&
-            this.state.value !== null &&
-            this.state.value !== '')
-    ) {
-      return null;
+    const value = this.state ? this.state.value : undefined;
+    if (typeof value === 'undefined' || value === null || value === '') {
+      return this.required ? {required: true} : null;
     }
-    return {required: true};
+    return this.checkRange();
   }
 
   public onChange = (value: unknown): void => {
