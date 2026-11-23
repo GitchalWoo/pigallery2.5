@@ -48,12 +48,13 @@ export class ErrorInterceptor implements HttpInterceptor {
           } else {
             // the session ended (e.g. it expired or the user was deleted)
             this.tellSessionEnded();
-            this.authenticationService.logout(code).catch(console.error);
+            this.authenticationService.logout(code, true).catch(console.error);
           }
         }
-        // an illegal move (e.g. a normal user calls the admin API or fails the CSRF check): log out
+        // an illegal move (e.g. a normal user calls the admin API or fails the CSRF check): log out.
+        // Not an ended session: the login does not take the user back to the page they may not use (no login loop).
         if (err.status === 403 && code === ErrorCodes.NOT_AUTHORISED && this.canLogOut(request)) {
-          this.authenticationService.logout(code).catch(console.error);
+          this.authenticationService.logout(code, false).catch(console.error);
         }
         if (err.status === 500 && code === ErrorCodes.INTERNAL) {
           // Unknown server error

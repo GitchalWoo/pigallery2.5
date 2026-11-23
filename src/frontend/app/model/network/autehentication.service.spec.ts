@@ -10,6 +10,10 @@ import {ShareService} from '../../ui/gallery/share.service';
 import {NavigationService} from '../navigation.service';
 
 class MockUserService {
+  public logout(): Promise<void> {
+    return Promise.resolve();
+  }
+
   public login(credential: LoginCredential): Promise<UserDTO> {
     return Promise.resolve({name: 'testUserName'} as UserDTO);
   }
@@ -30,6 +34,10 @@ class MockNetworkService {
 class MockShareService {
   onNewUser(user: any): void {
     // mock fn
+  }
+
+  isSharing(): boolean {
+    return false;
   }
 
   wait(): Promise<void> {
@@ -100,5 +108,23 @@ describe('AuthenticationService', () => {
     const logout = vi.spyOn(authService, 'logout');
     expect(network.handlers.some(h => h({code: ErrorCodes.NOT_AUTHORISED} as ErrorDTO))).toBe(true);
     expect(logout).not.toHaveBeenCalled();
+  });
+  // #1306: the login page takes the user back to where the session ended, not to where they logged out
+  it('should tell a logout of the user from an ended session', async () => {
+    const authService = TestBed.inject(AuthenticationService);
+    await authService.logout();
+    expect(authService.loggedOutByUser).toBe(true);
+    await authService.logout(ErrorCodes.NOT_AUTHENTICATED);
+    expect(authService.loggedOutByUser).toBe(false);
+    await authService.logout();
+    // e.g. a 401 without an error code
+    await authService.logout(undefined, true);
+    expect(authService.loggedOutByUser).toBe(false);
+    // an illegal move
+    await authService.logout(ErrorCodes.NOT_AUTHORISED, false);
+    expect(authService.loggedOutByUser).toBe(true);
+    await authService.logout();
+    await authService.login({} as any);
+    expect(authService.loggedOutByUser).toBe(false);
   });
 });

@@ -34,13 +34,13 @@ describe('ErrorInterceptor', () => {
   it('passes the error code of a 401 to the logout', async () => {
     const {authenticationService, fail} = setUp(true);
     await fail('/api/gallery/content/', unauthorized(ErrorCodes.NOT_AUTHENTICATED_SHARING));
-    expect(authenticationService.logout).toHaveBeenCalledWith(ErrorCodes.NOT_AUTHENTICATED_SHARING);
+    expect(authenticationService.logout).toHaveBeenCalledWith(ErrorCodes.NOT_AUTHENTICATED_SHARING, true);
   });
 
   it('logs out on a 401 without a body', async () => {
     const {authenticationService, fail} = setUp(true);
     await fail('/api/gallery/content/', unauthorized());
-    expect(authenticationService.logout).toHaveBeenCalledWith(undefined);
+    expect(authenticationService.logout).toHaveBeenCalledWith(undefined, true);
   });
 
   it('keeps the logout loop guard', async () => {
@@ -83,7 +83,8 @@ describe('ErrorInterceptor', () => {
   it('logs out on NOT_AUTHORISED (an illegal move or a failed CSRF check)', async () => {
     const {authenticationService, toastr, fail} = setUp(true);
     await fail('/api/admin/settings', forbidden(ErrorCodes.NOT_AUTHORISED));
-    expect(authenticationService.logout).toHaveBeenCalledWith(ErrorCodes.NOT_AUTHORISED);
+    // not an ended session: the login must not take the user back to the page they may not open
+    expect(authenticationService.logout).toHaveBeenCalledWith(ErrorCodes.NOT_AUTHORISED, false);
     // not an ended session
     expect(toastr.warning).not.toHaveBeenCalled();
   });
@@ -120,7 +121,7 @@ describe('ErrorInterceptor', () => {
       fail('/api/gallery/content/a.jpg/thumbnail', unauthorized(ErrorCodes.NOT_AUTHENTICATED))]);
     expect(toastr.warning).toHaveBeenCalledOnce();
     expect(toastr.warning.mock.calls[0][0]).toBe('Your session has ended. Please log in again.');
-    expect(authenticationService.logout).toHaveBeenCalledWith(ErrorCodes.NOT_AUTHENTICATED);
+    expect(authenticationService.logout).toHaveBeenCalledWith(ErrorCodes.NOT_AUTHENTICATED, true);
   });
 
   it('does not tell about an ended session when nobody is logged in or on the login requests', async () => {

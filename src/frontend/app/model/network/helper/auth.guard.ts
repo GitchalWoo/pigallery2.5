@@ -19,7 +19,8 @@ export class AuthGuard implements CanActivate{
       return true;
     }
 
-    this.navigationService.toLogin().catch(console.error);
+    // the login takes the user to the page they opened (e.g. a deep link)
+    this.navigationService.toLogin(state.url).catch(console.error);
     return false;
   }
 }

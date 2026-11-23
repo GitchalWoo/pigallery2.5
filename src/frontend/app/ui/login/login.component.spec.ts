@@ -57,4 +57,11 @@ describe('LoginComponent', () => {
     expect(login.loginError).toBe(false);
     expect(login.loginCredential.password).toBe('secret');
   });
+
+  it('should open the page the login was opened for when already logged in', () => {
+    auth.isAuthenticated = () => true;
+    render(LoginComponent);
+    expect(navigation.toAfterLogin).toHaveBeenCalled();
+    expect(navigation.toDefault).not.toHaveBeenCalled();
+  });
 });
