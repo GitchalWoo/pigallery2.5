@@ -61,11 +61,15 @@ export class LoginComponent implements OnInit {
     this.inProgress = false;
   }
 
+  get oidcLoginUrl(): string {
+    return Config.Server.getApiUrl('/auth/oidc/login');
+  }
+
   onLoginWithOIDC(): void {
     if (!this.oidcEnabled) {
       return;
     }
-    window.location.href = `${Config.Server.apiPath}/auth/oidc/login`;
+    window.location.href = this.oidcLoginUrl;
   }
 }
 

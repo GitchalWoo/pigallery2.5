@@ -248,6 +248,10 @@ export class SettingsEntryComponent
     return ((this.state?.value ?? []) as ThemeConfig[]).find(th => th.name === selectedTheme) || {theme: 'N/A'};
   }
 
+  get warning(): string | undefined {
+    return this.state?.tags?.uiWarning?.(this.state.value);
+  }
+
   get Disabled() {
     if (!this.state?.tags?.uiDisabled) {
       return false;

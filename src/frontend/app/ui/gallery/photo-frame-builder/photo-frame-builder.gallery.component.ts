@@ -1,3 +1,4 @@
+import {Config} from '../../../../../common/config/public/Config';
 import {Component, type OnDestroy, type OnInit, TemplateRef, ChangeDetectionStrategy} from '@angular/core';
 import {type ContentWrapper} from '../../../../../common/entities/ContentWrapper';
 import {NotificationService} from '../../../model/notification.service';
@@ -66,9 +67,8 @@ import {Utils} from '../../../../../common/Utils';
 
   private buildUrl(): void {
     // Build from current router URL, merging our params without affecting actual navigation
-    const base = window.location.origin;
-    const currentUrl = this.router.url; // includes path + query
-    const u = new URL(base + currentUrl);
+    const currentUrl = this.router.url.replace(/^\/+/, '');
+    const u = new URL(Config.Server.getPublicUrl() + currentUrl, window.location.origin);
 
     // Always autoplay for photo frame
     u.searchParams.set(QueryParams.gallery.lightbox.playback, 'true');

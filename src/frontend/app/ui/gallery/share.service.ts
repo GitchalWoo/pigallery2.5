@@ -5,7 +5,6 @@ import {Router, RoutesRecognized} from '@angular/router';
 import {BehaviorSubject} from 'rxjs';
 import {QueryParams} from '../../../../common/QueryParams';
 import {type UserDTO, UserRoles} from '../../../../common/entities/UserDTO';
-import {Utils} from '../../../../common/Utils';
 import {Config} from '../../../../common/config/public/Config';
 import {type DirectorySearch, type SearchQueryDTO, TextSearchQueryMatchTypes} from '../../../../common/entities/SearchQueryDTO';
 import {SearchQueryUtils} from '../../../../common/SearchQueryUtils';
@@ -68,7 +67,7 @@ export class ShareService {
   }
 
   public getUrl(share: ResponseSharingDTO): string {
-    return Utils.concatUrls(Config.Server.publicUrl, Config.Server.urlBase, '/share/', share.sharingKey);
+    return Config.Server.getPublicUrl('/share/', share.sharingKey);
   }
 
 

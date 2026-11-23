@@ -65,6 +65,16 @@ export class UserManager {
     return userRepository.findOneByOrFail({id});
   }
 
+  public async unlinkOidc(id: number, maxRole: UserRoles): Promise<void> {
+    const connection = await SQLConnection.getConnection();
+    const result = await connection.getRepository(UserEntity).update(
+      {id, role: LessThanOrEqual(maxRole)},
+      {oidcIssuer: null, oidcSubject: null}
+    );
+    if (!result.affected) throw new Error('OIDC identity cannot be unlinked');
+    ObjectManagers.getInstance().SessionManager.invalidateSessionCache();
+  }
+
   public async updateSettings(id: number, settings: UserSettingsDTO, maxRole = UserRoles.Developer): Promise<UserEntity> {
     const connection = await SQLConnection.getConnection();
     const userRepository = connection.getRepository(UserEntity);

@@ -267,9 +267,7 @@ export class GalleryNavigatorComponent {
 
     const queryParams = new URLSearchParams(this.queryService.getParams()).toString();
 
-    return Utils.concatUrls(
-      Config.Server.urlBase,
-      Config.Server.apiPath,
+    return Config.Server.getApiUrl(
       '/gallery/zip/',
       encodeURIComponent(JSON.stringify(searchQuery)) +
       (queryParams ? '?' + queryParams : '')

@@ -135,6 +135,18 @@ export class UserMWs {
     }
   }
 
+  public static async unlinkOidc(req: Request, res: Response, next: NextFunction): Promise<void> {
+    if (!Config.Users.authenticationRequired) {
+      return next(new ErrorDTO(ErrorCodes.USER_MANAGEMENT_DISABLED));
+    }
+    try {
+      await ObjectManagers.getInstance().UserManager.unlinkOidc(Number(req.params.id), req.session.context.user.role);
+      return next();
+    } catch (err) {
+      return next(new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Could not unlink OIDC identity', err));
+    }
+  }
+
   public static async listUsers(
     req: Request,
     res: Response,

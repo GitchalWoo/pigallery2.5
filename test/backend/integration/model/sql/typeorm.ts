@@ -23,6 +23,8 @@ import {TestHelper} from '../../../../TestHelper';
 import {DataSource} from 'typeorm';
 import {DataStructureVersion} from '../../../../../src/common/DataStructureVersion';
 import {rejects} from 'assert';
+import {request} from 'chai-http';
+import {Server} from '../../../../../src/backend/server';
 
 
 describe('Typeorm integration', () => {
@@ -342,9 +344,11 @@ describe('Typeorm integration', () => {
   it('AUD8: should generate random admin bootstrap credentials when not in test mode', async () => {
     const originalEnv = process.env.NODE_ENV;
     const originalWarn = Config.Users.suppressDefUserWarn;
+    const originalAuth = Config.Users.authenticationRequired;
     try {
       process.env.NODE_ENV = 'production';
       Config.Users.suppressDefUserWarn = false;
+      Config.Users.authenticationRequired = true;
 
       await SQLConnection.init();
       const conn = await SQLConnection.getConnection();
@@ -359,9 +363,20 @@ describe('Typeorm integration', () => {
       const content = fs.readFileSync(bootstrapFile, 'utf8');
       expect(content).to.include('Username: admin');
       expect(content).to.include('Password: ');
+      const password = /^Password: (.+)$/m.exec(content)?.[1];
+      expect(Boolean(password)).to.equal(true);
+      const server = new Server(false);
+      await server.onStarted.wait();
+      const login = await request.execute(server.Server)
+        .post(Config.Server.apiPath + '/user/login')
+        .send({loginCredential: {username: 'admin', password}});
+      expect(login.status).to.equal(200);
+      expect(login.body.error).to.equal(null);
+      expect(login.body.result).to.include({name: 'admin', role: UserRoles.Admin});
     } finally {
       process.env.NODE_ENV = originalEnv;
       Config.Users.suppressDefUserWarn = originalWarn;
+      Config.Users.authenticationRequired = originalAuth;
     }
   });
 

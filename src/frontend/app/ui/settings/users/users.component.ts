@@ -108,6 +108,22 @@ export class UsersComponent implements OnInit {
     return currentUser.name !== user.name && currentUser.role >= user.role;
   }
 
+  canUnlinkOidc(user: UserDTO): boolean {
+    return !!(user.oidcIssuer || user.oidcSubject) && this.canDeleteUser(user);
+  }
+
+  async unlinkOidc(user: UserDTO): Promise<void> {
+    if (!this.canUnlinkOidc(user)) {
+      return;
+    }
+    try {
+      await this.userSettings.unlinkOidc(user);
+      await this.getUsersList();
+    } catch (error) {
+      this.notification.error($localize`Could not unlink OIDC identity`);
+    }
+  }
+
   get Enabled(): boolean {
     return this.settingsService.settings.value.Users.authenticationRequired;
   }

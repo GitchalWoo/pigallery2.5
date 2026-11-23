@@ -644,6 +644,12 @@
           </div>
         }
       </div>
+      @if (warning; as message) {
+        <small class="form-text text-warning d-block" aria-live="polite">
+          <ng-icon name="ionWarningOutline"></ng-icon>
+          {{ message }}
+        </small>
+      }
       @if (settingsService.configStyle == ConfigStyle.full) {
         <small class="form-text text-muted">
           @if (experimental) {

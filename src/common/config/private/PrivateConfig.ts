@@ -290,7 +290,10 @@ export class ServerUserOIDCConfig extends ClientUserOIDCConfig {
       uiResetNeeded: {server: true},
       uiOptional:true,
       relevant: (c: any) => c.enabled,
-      hint: 'https://auth.example.com/application/o/pigallery2/'
+      hint: 'https://auth.example.com/application/o/pigallery2/',
+      uiWarning: (value: unknown) => typeof value === 'string' && /^http:\/\//i.test(value.trim())
+        ? $localize`An HTTP issuer sends login traffic without encryption. Use it only for local testing.`
+        : undefined
     } as TAGS,
     description: $localize`OIDC provider Issuer URL`
   })
@@ -402,6 +405,33 @@ export class ServerUserOIDCConfig extends ClientUserOIDCConfig {
     description: $localize`Role of the users that are created on their first OIDC login.`
   })
   autoCreateUserRole: UserRoles = UserRoles.Guest;
+
+  @ConfigProperty({
+    tags: {
+      name: $localize`Strict security`,
+      relevant: (c: ServerUserOIDCConfig) => c.enabled,
+      priority: ConfigPriority.advanced
+    },
+    description: $localize`Require a verified full email for the email fallback and limit initial user linking by role.`
+  })
+  strictSecurity: boolean = false;
+
+  @ConfigProperty({
+    type: UserRoles,
+    tags: {
+      name: $localize`Max role for linking`,
+      relevant: (c: ServerUserOIDCConfig) => c.enabled && c.strictSecurity,
+      priority: ConfigPriority.advanced,
+      uiOptions: [UserRoles.Guest, UserRoles.User]
+    } as TAGS,
+    constraint: {
+      assert: (v: UserRoles) => v === undefined || v === UserRoles.Guest || v === UserRoles.User,
+      assertReason: 'Users.oidc.strictLinkMaxRole should be Guest or User.',
+      fallBackValue: UserRoles.User
+    },
+    description: $localize`Highest role an existing account can have to be linked automatically in strict mode.`
+  })
+  strictLinkMaxRole: UserRoles = UserRoles.User;
 }
 
 

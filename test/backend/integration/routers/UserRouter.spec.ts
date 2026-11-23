@@ -88,6 +88,14 @@ describe('UserRouter', () => {
       result.should.have.status(404);
     });
 
+    it('rejects a wrong password with the credential error', async () => {
+      Config.Users.authenticationRequired = true;
+      const result = await request.execute(server.Server)
+        .post(Config.Server.apiPath + '/user/login')
+        .send({loginCredential: {username: testUser.name, password: 'wrong'}});
+      should.equal(result.body.error?.code, ErrorCodes.CREDENTIAL_NOT_FOUND);
+      should.equal(result.body.result, null);
+    });
 
   });
 
@@ -153,6 +161,48 @@ describe('UserRouter', () => {
       const allowed = await api().get(albums).set(adminHeaders);
       should.equal(allowed.body.error, null);
       allowed.should.have.status(200);
+    });
+
+    it('unlinks the pair only with CSRF and sufficient role, then ends the target session', async () => {
+      const manager = ObjectManagers.getInstance().UserManager;
+      const identity = {oidcIssuer: 'https://idp.example', oidcSubject: 'test-sub'};
+      const admin = await manager.createUser({name: 'manager', role: UserRoles.Admin, password: 'pass', ...identity} as UserDTO);
+      const target = await manager.createUser({name: 'linked_user', role: UserRoles.User, password: 'pass', ...identity} as UserDTO);
+      const developer = await manager.createUser({name: 'developer', role: UserRoles.Developer, password: 'pass', ...identity} as UserDTO);
+      const adminHeaders = await headersFor(admin.name, 'pass');
+      const targetHeaders = await headersFor(target.name, 'pass');
+      const api = () => request.execute(server.Server);
+      const unlink = (id: number) => api().delete(Config.Server.apiPath + '/user/' + id + '/oidc');
+      const missingCsrf = await unlink(target.id).set('Cookie', adminHeaders.Cookie);
+      should.equal(missingCsrf.body.error?.code, ErrorCodes.NOT_AUTHORISED);
+      missingCsrf.body.error.message.should.contain('CSRF');
+      (await unlink(target.id).set(targetHeaders)).should.have.status(401);
+      (await unlink(developer.id).set(adminHeaders)).should.have.status(401);
+      (await unlink(admin.id).set(adminHeaders)).should.have.status(401);
+      should.equal((await manager.findOne({id: target.id})).oidcSubject, identity.oidcSubject);
+
+      const response = await unlink(target.id).set(adminHeaders);
+      response.should.have.status(200);
+      should.equal(response.body.error, null);
+      const updated = await manager.findOne({id: target.id});
+      should.equal(updated.oidcIssuer, null);
+      should.equal(updated.oidcSubject, null);
+      (await api().get(Config.Server.apiPath + '/user/me').set(targetHeaders)).should.have.status(401);
+    });
+
+    it('uses the configured visitor role and disables account management without password protection', async () => {
+      Config.Users.authenticationRequired = false;
+      const api = () => request.execute(server.Server);
+      Config.Users.unAuthenticatedUserRole = UserRoles.Guest;
+      const visitor = await api().get(Config.Server.apiPath + '/user/me');
+      visitor.should.have.status(200);
+      should.equal(visitor.body.result.role, UserRoles.Guest);
+      (await api().get(Config.Server.apiPath + '/user/list')).should.have.status(401);
+
+      Config.Users.unAuthenticatedUserRole = UserRoles.Admin;
+      const userList = await api().get(Config.Server.apiPath + '/user/list');
+      should.equal(userList.body.error?.code, ErrorCodes.USER_MANAGEMENT_DISABLED);
+      Config.Users.unAuthenticatedUserRole = UserRoles.Guest;
     });
   });
 

@@ -7,6 +7,7 @@ import {ConfigProperty, SubConfigClass} from 'typeconfig/common';
 import {SearchQueryDTO} from '../../entities/SearchQueryDTO';
 import {DefaultsJobs} from '../../entities/job/JobDTO';
 import {GridSizes} from '../../entities/GridSizes';
+import {Utils} from '../../Utils';
 
 declare let $localize: (s: TemplateStringsArray) => string;
 if (typeof $localize === 'undefined') {
@@ -85,6 +86,7 @@ export type TAGS = {
   uiAllowSpaces?: boolean
   uiOptional?: boolean; //makes the tag not "required"
   uiDisabled?: (subConfig: any, config: ClientConfig) => boolean
+  uiWarning?: (value: unknown) => string | undefined
   uiJob?: {
     job: string,
     hideProgress: boolean,
@@ -1647,6 +1649,28 @@ export class ClientServiceConfig {
     description: $localize`If set the UI will auto reload when client related config changed or the app was restarted (except when the UI shows the settings page).`,
   })
   reloadClientOnServerUpdate: boolean = true;
+
+  getUrlBase(): string {
+    const base = (this.urlBase || '').trim().replace(/^[\\/]+|[\\/]+$/g, '');
+    return base ? '/' + base.replace(/[\\/]+/g, '/') : '';
+  }
+
+  getAppUrl(...parts: string[]): string {
+    const path = Utils.concatUrls(...parts).replace(/^\/+/, '');
+    return this.getUrlBase() + '/' + (path === '.' ? '' : path);
+  }
+
+  getApiUrl(...parts: string[]): string {
+    return this.getAppUrl(this.apiPath, ...parts);
+  }
+
+  getPublicUrl(...parts: string[]): string {
+    const originAndPath = (this.publicUrl || '').trim().replace(/\/+$/, '');
+    const base = this.getUrlBase();
+    const publicPath = originAndPath.replace(/^https?:\/\/[^/]+/i, '');
+    const appUrl = this.getAppUrl(...parts);
+    return originAndPath + (base && publicPath.endsWith(base) ? appUrl.slice(base.length) : appUrl);
+  }
 }
 
 

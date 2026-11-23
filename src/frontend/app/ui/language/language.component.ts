@@ -21,7 +21,9 @@ import { NgIconComponent } from '@ng-icons/core';
 export class LanguageComponent {
   languages: string[] = [];
   current: string = null;
-  urlBase = Config.Server.urlBase;
+  getLanguageUrl(language: string): string {
+    return Config.Server.getAppUrl(language);
+  }
 
   @ViewChild('dropdown', {static: true}) dropdown: BsDropdownDirective;
 
