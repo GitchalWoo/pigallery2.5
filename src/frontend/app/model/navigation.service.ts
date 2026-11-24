@@ -12,6 +12,8 @@ import {SearchQueryUtils} from '../../../common/SearchQueryUtils';
 @Injectable()
 export class NavigationService {
   public static readonly shareProblemPath = 'invalidSharing';
+  // the query param of the login page with the url to open after the login (#1306)
+  public static readonly RETURN_URL = 'returnUrl';
   constructor(
     private router: Router,
     private shareService: ShareService,
@@ -22,8 +24,9 @@ export class NavigationService {
 
   public isLoginPage(): boolean {
     return (
+      // with or without the url to return to
       this.router.isActive('login',
-        {paths: 'exact', queryParams: 'exact', fragment: 'ignored', matrixParams: 'ignored'} as IsActiveMatchOptions) ||
+        {paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored'} as IsActiveMatchOptions) ||
       this.router.isActive('shareLogin',
         {paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored'} as IsActiveMatchOptions)
     );
@@ -39,7 +42,39 @@ export class NavigationService {
     );
   }
 
-  public async toLogin(): Promise<boolean> {
+  /**
+   * Whether the app has shown a page yet. The first navigation can still be on its way (e.g. waiting for a guard).
+   */
+  public hasNavigated(): boolean {
+    return this.router.lastSuccessfulNavigation() !== null;
+  }
+
+  /**
+   * The url of the page that is shown, relative to the app (without Server.urlBase).
+   */
+  public url(): string {
+    return this.router.url;
+  }
+
+  /**
+   * Only a page of this app: a path, never another site, and not a login or error page.
+   * The router keeps it inside the app anyway; this also keeps odd urls out of the login page's address.
+   */
+  public static isReturnUrl(url: unknown): url is string {
+    return typeof url === 'string' &&
+      url.length <= 2048 &&
+      // no control characters and no backslash: browsers read '/\host' as another site
+      !/[\u0000-\u001f\u007f\\]/.test(url) &&
+      // a path of this app, not '//host'; not an encoded slash or backslash either
+      /^\/(?![/]|%2f|%5c)/i.test(url) &&
+      // not a login or error page ('/' redirects to the login page too)
+      !new RegExp('^/(login|shareLogin|error|' + NavigationService.shareProblemPath + ')?([?#/;]|$)', 'i').test(url);
+  }
+
+  /**
+   * @param returnUrl the url of this app to open after the login (e.g. the deep link that was opened, or where the session ended)
+   */
+  public async toLogin(returnUrl?: string): Promise<boolean> {
     await this.shareService.wait();
     if (this.shareService.isSharing()) {
       const sharing = await this.shareService.getPublicSharing();
@@ -52,8 +87,75 @@ export class NavigationService {
       }
       return this.toShareProblem(true);
     } else {
+      if (NavigationService.isReturnUrl(returnUrl)) {
+        return this.router.navigate(['login'], {queryParams: {[NavigationService.RETURN_URL]: returnUrl}});
+      }
       return this.router.navigate(['login']);
     }
+  }
+
+  /**
+   * Opens the url that the login page was opened for (#1306), or the default page.
+   * An OIDC login leaves the app for the provider, so the url waits in the session storage (see rememberReturnUrl).
+   */
+  public toAfterLogin(): Promise<boolean> {
+    // the login page and the app both ask for it after a login: one navigation, the stored url is taken only once
+    this.afterLogin ??= this.navigateAfterLogin().finally(() => {
+      this.afterLogin = null;
+    });
+    return this.afterLogin;
+  }
+
+  private afterLogin: Promise<boolean> = null;
+
+  private async navigateAfterLogin(): Promise<boolean> {
+    const stored = NavigationService.takeRememberedReturnUrl();
+    await this.shareService.wait();
+    if (!this.shareService.isSharing()) {
+      const returnUrl: unknown = this.router.parseUrl(this.router.url).queryParams[NavigationService.RETURN_URL];
+      for (const url of [returnUrl, stored]) {
+        if (NavigationService.isReturnUrl(url)) {
+          return this.router.navigateByUrl(url, {replaceUrl: true});
+        }
+      }
+    }
+    return this.toDefault();
+  }
+
+  private static readonly RETURN_URL_STORAGE_KEY = 'pigallery2-returnUrl';
+  // an abandoned OIDC login does not send a later login to its page
+  private static readonly RETURN_URL_STORAGE_TTL_MS = 10 * 60 * 1000;
+
+  /**
+   * Keeps the returnUrl of the login page while the browser visits the OIDC provider.
+   */
+  public rememberReturnUrl(): void {
+    const returnUrl: unknown = this.router.parseUrl(this.router.url).queryParams[NavigationService.RETURN_URL];
+    try {
+      if (NavigationService.isReturnUrl(returnUrl)) {
+        sessionStorage.setItem(NavigationService.RETURN_URL_STORAGE_KEY, JSON.stringify({url: returnUrl, at: Date.now()}));
+      } else {
+        sessionStorage.removeItem(NavigationService.RETURN_URL_STORAGE_KEY);
+      }
+    } catch {
+      // no session storage (e.g. blocked): the login opens the default page
+    }
+  }
+
+  private static takeRememberedReturnUrl(): string | null {
+    try {
+      const raw = sessionStorage.getItem(NavigationService.RETURN_URL_STORAGE_KEY);
+      sessionStorage.removeItem(NavigationService.RETURN_URL_STORAGE_KEY);
+      const stored = raw ? JSON.parse(raw) : null;
+      if (stored && typeof stored.at === 'number' &&
+        Date.now() - stored.at >= 0 && Date.now() - stored.at < NavigationService.RETURN_URL_STORAGE_TTL_MS &&
+        NavigationService.isReturnUrl(stored.url)) {
+        return stored.url;
+      }
+    } catch {
+      // not readable: the default page
+    }
+    return null;
   }
 
   public async toDefault(): Promise<boolean> {

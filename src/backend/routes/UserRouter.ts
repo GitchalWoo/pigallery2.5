@@ -94,7 +94,8 @@ export class UserRouter {
         Config.Server.apiPath + '/user/:id/role',
         AuthenticationMWs.authenticate,
         AuthenticationMWs.authorise(UserRoles.Admin),
-        UserRequestConstrainsMWs.notSelfRequestOr2Admins,
+        // an admin can't lower their own role, not even when there is an other admin (#1315)
+        UserRequestConstrainsMWs.notSelfRequest,
         UserRequestConstrainsMWs.notAboveOwnRole,
         UserMWs.changeRole,
         AuthenticationMWs.refreshSession,

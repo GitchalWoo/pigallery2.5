@@ -32,4 +32,14 @@ describe('ShareLoginComponent', () => {
     expect(expired.component.loginError).toBe(false);
     expect(expired.navigation.toShareProblem).toHaveBeenCalledWith(false);
   });
+  // #1306
+  it('clears and focuses the password after a wrong password', async () => {
+    const {component} = setup(true);
+    const focus = vi.fn();
+    component.password = 'wrong';
+    component.passwordInput = {nativeElement: {focus}} as any;
+    await component.onLogin();
+    expect(component.password).toBe('');
+    expect(focus).toHaveBeenCalled();
+  });
 });

@@ -1,4 +1,4 @@
-import {Component, type OnInit, ChangeDetectionStrategy} from '@angular/core';
+import {Component, ElementRef, type OnInit, ChangeDetectionStrategy, ViewChild} from '@angular/core';
 import {LoginCredential} from '../../../../common/entities/LoginCredential';
 import {AuthenticationService} from '../../model/network/authentication.service';
 import {ErrorCodes} from '../../../../common/entities/Error';
@@ -8,6 +8,7 @@ import {LanguageComponent} from '../language/language.component';
 import {IconComponent} from '../../icon.component';
 import {FormsModule} from '@angular/forms';
 import {NgIconComponent} from '@ng-icons/core';
+import {ActivatedRoute} from '@angular/router';
 
 
 @Component({
@@ -23,31 +24,38 @@ import {NgIconComponent} from '@ng-icons/core';
 ]
 })
 export class LoginComponent implements OnInit {
+  @ViewChild('passwordInput') passwordInput: ElementRef<HTMLInputElement>;
   loginCredential: LoginCredential;
   loginError = false;
   title: string;
   inProgress = false;
   oidcEnabled = false;
   oidcDisplayName = 'OpenID login';
+  // a failed OIDC login comes back to the login page with the reason (#1422); unknown values are ignored
+  oidcError: 'denied' | 'failed' | null = null;
 
   constructor(
     private authService: AuthenticationService,
-    private navigation: NavigationService
+    private navigation: NavigationService,
+    route: ActivatedRoute
   ) {
     this.loginCredential = new LoginCredential();
     this.title = Config.Server.applicationTitle;
     this.oidcEnabled = !!Config.Users.oidc?.enabled;
     this.oidcDisplayName = Config.Users.oidc?.displayName || 'OpenID login';
+    const oidcError = route.snapshot?.queryParamMap.get('oidcError');
+    this.oidcError = oidcError === 'denied' || oidcError === 'failed' ? oidcError : null;
   }
 
   ngOnInit(): void {
     if (this.authService.isAuthenticated()) {
-      this.navigation.toDefault().catch(console.error);
+      this.navigation.toAfterLogin().catch(console.error);
     }
   }
 
   async onLogin(): Promise<void> {
     this.loginError = false;
+    this.oidcError = null;
 
     this.inProgress = true;
     try {
@@ -55,6 +63,9 @@ export class LoginComponent implements OnInit {
     } catch (error) {
       if (error && error.code === ErrorCodes.CREDENTIAL_NOT_FOUND) {
         this.loginError = true;
+        // a fresh start for the next try
+        this.loginCredential.password = '';
+        this.passwordInput?.nativeElement.focus();
       }
     }
 
@@ -69,7 +80,14 @@ export class LoginComponent implements OnInit {
     if (!this.oidcEnabled) {
       return;
     }
-    window.location.href = this.oidcLoginUrl;
+    // the provider sends the browser back to the app, not to this page: keep the url to return to
+    this.navigation.rememberReturnUrl();
+    this.openProvider(this.oidcLoginUrl);
+  }
+
+  // leaves the app for the OIDC provider
+  openProvider(url: string): void {
+    window.location.href = url;
   }
 }
 

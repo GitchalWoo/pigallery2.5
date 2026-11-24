@@ -31,13 +31,13 @@ describe('Application URLs under a reverse proxy', () => {
   afterEach(() => Object.assign(server, original));
 
   it('prefixes the OIDC entry link, API requests, and language navigation', () => {
-    expect(new LoginComponent(null, null).oidcLoginUrl).toBe('/photos/family/api/auth/oidc/login');
+    expect(new LoginComponent(null, null, {snapshot: null} as unknown as ActivatedRoute).oidcLoginUrl).toBe('/photos/family/api/auth/oidc/login');
     expect(new NetworkService(null, null, null, null).apiBaseUrl).toBe('/photos/family/api');
     const language = new LanguageComponent({get: (): null => null} as unknown as CookieService);
     expect(language.getLanguageUrl('en')).toBe('/photos/family/en');
 
     server.urlBase = '/';
-    expect(new LoginComponent(null, null).oidcLoginUrl).toBe('/api/auth/oidc/login');
+    expect(new LoginComponent(null, null, {snapshot: null} as unknown as ActivatedRoute).oidcLoginUrl).toBe('/api/auth/oidc/login');
     expect(language.getLanguageUrl('en')).toBe('/en');
   });
 

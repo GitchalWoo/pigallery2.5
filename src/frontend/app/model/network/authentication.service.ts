@@ -19,6 +19,8 @@ declare namespace ServerInject {
 @Injectable({providedIn: 'root'})
 export class AuthenticationService {
   public readonly user: BehaviorSubject<UserDTO>;
+  // the user logged out (not: the session ended), so the login page does not take them back to where they were
+  public loggedOutByUser = false;
 
   constructor(
     private userService: UserService,
@@ -55,7 +57,7 @@ export class AuthenticationService {
         return true;
       }
       if (error.code === ErrorCodes.NOT_AUTHORISED) {
-        this.logout().catch(console.error);
+        // the error interceptor logs out (it answers 403 and the interceptor keeps the logout loop guard)
         return true;
       }
       return false;
@@ -71,6 +73,7 @@ export class AuthenticationService {
 
   public async login(credential: LoginCredential): Promise<UserDTO> {
     const user = await this.userService.login(credential);
+    this.loggedOutByUser = false;
     this.user.next(user);
     return user;
   }
@@ -100,7 +103,13 @@ export class AuthenticationService {
     return this.user.value?.preventDownload === true;
   }
 
-  public async logout(reason?: ErrorCodes): Promise<void> {
+  /**
+   * @param reason why the session ended; none when the user logs out
+   * @param sessionEnded the session ended (e.g. a 401, also without an error code), so the login takes the user back
+   * to the page; not when the user logs out or after an illegal move (NOT_AUTHORISED)
+   */
+  public async logout(reason?: ErrorCodes, sessionEnded = reason !== undefined): Promise<void> {
+    this.loggedOutByUser = !sessionEnded;
     await this.userService.logout();
     await this.shareService.wait();
     const resumeSharing = this.shareService.isSharing() && reason !== ErrorCodes.NOT_AUTHENTICATED_SHARING;

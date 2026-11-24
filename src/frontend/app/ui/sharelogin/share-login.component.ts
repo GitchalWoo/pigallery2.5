@@ -1,4 +1,4 @@
-import {Component, type OnInit, ChangeDetectionStrategy} from '@angular/core';
+import {Component, ElementRef, type OnInit, ChangeDetectionStrategy, ViewChild} from '@angular/core';
 import {AuthenticationService} from '../../model/network/authentication.service';
 import {ErrorCodes} from '../../../../common/entities/Error';
 import {Config} from '../../../../common/config/public/Config';
@@ -24,6 +24,7 @@ import { NgIconComponent } from '@ng-icons/core';
 ]
 })
 export class ShareLoginComponent implements OnInit {
+  @ViewChild('passwordInput') passwordInput: ElementRef<HTMLInputElement>;
   password: string;
   loginError = false;
   inProgress = false;
@@ -57,6 +58,9 @@ export class ShareLoginComponent implements OnInit {
       ) {
         if (await this.shareService.reloadPublicSharing()) {
           this.loginError = true;
+          // a fresh start for the next try
+          this.password = '';
+          this.passwordInput?.nativeElement.focus();
         } else {
           await this.navigation.toShareProblem(this.shareService.sharingIsValid.value !== false);
         }

@@ -1,10 +1,7 @@
 import {type AfterViewInit, Component, ElementRef, type OnInit, QueryList, ViewChildren, ChangeDetectionStrategy} from '@angular/core';
-import {AuthenticationService} from '../../model/network/authentication.service';
-import {UserRoles} from '../../../../common/entities/UserDTO';
 import {NotificationService} from '../../model/notification.service';
 import {NotificationType} from '../../../../common/entities/NotificationDTO';
-import {NavigationService} from '../../model/navigation.service';
-import { ViewportScroller, AsyncPipe, JsonPipe, DatePipe } from '@angular/common';
+import { ViewportScroller, AsyncPipe, DatePipe } from '@angular/common';
 import {ConfigStyle, SettingsService} from '../settings/settings.service';
 import {ConfigPriority} from '../../../../common/config/public/ClientConfig';
 import {WebConfig} from '../../../../common/config/private/WebConfig';
@@ -43,7 +40,6 @@ import { ScheduledJobsService } from '../settings/scheduled-jobs.service';
     SharingsListComponent,
     ExtensionInstallerComponent,
     AsyncPipe,
-    JsonPipe,
     DatePipe,
     StringifyEnum
 ]
@@ -60,8 +56,6 @@ export class AdminComponent implements OnInit, AfterViewInit {
   public readonly configPaths: string[] = [];
 
   constructor(
-    private authService: AuthenticationService,
-    private navigation: NavigationService,
     public viewportScroller: ViewportScroller,
     public notificationService: NotificationService,
     public settingsService: SettingsService,
@@ -79,13 +73,7 @@ export class AdminComponent implements OnInit, AfterViewInit {
   }
 
   ngOnInit(): void {
-    if (
-      !this.authService.isAuthenticated() ||
-      this.authService.user.value.role < UserRoles.Admin
-    ) {
-      this.navigation.toLogin();
-      return;
-    }
+    // AdminGuard lets only admins in
     this.piTitleService.setTitle($localize`Admin`);
   }
 
@@ -99,6 +87,20 @@ export class AdminComponent implements OnInit, AfterViewInit {
         return 'info';
     }
     return 'info';
+  }
+
+  /**
+   * Makes notification details readable:
+   * strings are shown without JSON quoting/escaping, one sentence per line,
+   * objects are pretty-printed.
+   */
+  public formatDetails(details: unknown): string {
+    if (typeof details !== 'string') {
+      return JSON.stringify(details, null, 2);
+    }
+    return details
+      .replace(/^Error: /, '')
+      .replace(/([.!?])\s+(?=[A-Z])/g, '$1\n');
   }
 }
 

@@ -88,11 +88,36 @@ describe('UserRouter', () => {
       result.should.have.status(404);
     });
 
+    // #1305: renderError keeps the status of the rate limiter, it is not the 500 of GENERAL_ERROR
+    it('answers too many login attempts with 429 and Retry-After', async () => {
+      Config.Users.authenticationRequired = true;
+      const origDisabled = process.env.DISABLE_RATE_LIMITING;
+      delete process.env.DISABLE_RATE_LIMITING;
+      try {
+        let result;
+        for (let i = 0; i < 11; ++i) {
+          result = await request.execute(server.Server)
+            .post(Config.Server.apiPath + '/user/login')
+            .send({loginCredential: {username: testUser.name, password: 'wrong'}});
+        }
+        result.should.have.status(429);
+        should.exist(result.headers['retry-after']);
+        should.equal(result.body.error?.code, ErrorCodes.GENERAL_ERROR);
+        should.equal(result.body.result, null);
+      } finally {
+        if (origDisabled !== undefined) {
+          process.env.DISABLE_RATE_LIMITING = origDisabled;
+        }
+        RateLimiter.reset();
+      }
+    });
+
     it('rejects a wrong password with the credential error', async () => {
       Config.Users.authenticationRequired = true;
       const result = await request.execute(server.Server)
         .post(Config.Server.apiPath + '/user/login')
         .send({loginCredential: {username: testUser.name, password: 'wrong'}});
+      result.should.have.status(401);
       should.equal(result.body.error?.code, ErrorCodes.CREDENTIAL_NOT_FOUND);
       should.equal(result.body.result, null);
     });
@@ -139,12 +164,25 @@ describe('UserRouter', () => {
       ]) {
         const result = await operation().set(headers);
         should.equal(result.body.error?.code, ErrorCodes.NOT_AUTHORISED);
-        result.should.have.status(401);
+        result.should.have.status(403);
       }
       const allowed = await api().post(userUrl + testUser.id + '/role').send({newRole: UserRoles.Admin}).set(headers);
       should.equal(allowed.body.error, null);
       should.equal((await manager.findOne({id: testUser.id})).role, UserRoles.Admin);
       should.equal((await manager.findOne({id: developer.id})).role, UserRoles.Developer);
+    });
+
+    // #1315: before, the second admin let the admin lower their own role (notSelfRequestOr2Admins)
+    it('does not let an admin lower their own role, even when there is another admin', async () => {
+      const manager = ObjectManagers.getInstance().UserManager;
+      const admin = await manager.createUser({name: 'manager', role: UserRoles.Admin, password: 'pass'} as UserDTO);
+      await manager.createUser({name: 'other_admin', role: UserRoles.Admin, password: 'pass'} as UserDTO);
+      const headers = await headersFor('manager', 'pass');
+      const result = await request.execute(server.Server)
+        .post(Config.Server.apiPath + '/user/' + admin.id + '/role').send({newRole: UserRoles.User}).set(headers);
+      result.should.have.status(403);
+      should.equal(result.body.error?.code, ErrorCodes.NOT_AUTHORISED);
+      should.equal((await manager.findOne({id: admin.id})).role, UserRoles.Admin);
     });
 
     it('requires the configured role to list albums and Admin to write albums', async () => {
@@ -153,7 +191,7 @@ describe('UserRouter', () => {
       const albums = Config.Server.apiPath + '/albums';
       for (const operation of [() => api().get(albums), () => api().put(albums + '/saved-searches'), () => api().delete(albums + '/1')]) {
         const result = await operation().set(headers);
-        result.should.have.status(401);
+        result.should.have.status(403);
         should.equal(result.body.error?.code, ErrorCodes.NOT_AUTHORISED);
       }
       await ObjectManagers.getInstance().UserManager.createUser({name: 'manager', role: UserRoles.Admin, password: 'pass'} as UserDTO);
@@ -176,9 +214,11 @@ describe('UserRouter', () => {
       const missingCsrf = await unlink(target.id).set('Cookie', adminHeaders.Cookie);
       should.equal(missingCsrf.body.error?.code, ErrorCodes.NOT_AUTHORISED);
       missingCsrf.body.error.message.should.contain('CSRF');
-      (await unlink(target.id).set(targetHeaders)).should.have.status(401);
-      (await unlink(developer.id).set(adminHeaders)).should.have.status(401);
-      (await unlink(admin.id).set(adminHeaders)).should.have.status(401);
+      // the code is kept, the status tells that it is forbidden
+      missingCsrf.should.have.status(403);
+      (await unlink(target.id).set(targetHeaders)).should.have.status(403);
+      (await unlink(developer.id).set(adminHeaders)).should.have.status(403);
+      (await unlink(admin.id).set(adminHeaders)).should.have.status(403);
       should.equal((await manager.findOne({id: target.id})).oidcSubject, identity.oidcSubject);
 
       const response = await unlink(target.id).set(adminHeaders);
@@ -197,7 +237,7 @@ describe('UserRouter', () => {
       const visitor = await api().get(Config.Server.apiPath + '/user/me');
       visitor.should.have.status(200);
       should.equal(visitor.body.result.role, UserRoles.Guest);
-      (await api().get(Config.Server.apiPath + '/user/list')).should.have.status(401);
+      (await api().get(Config.Server.apiPath + '/user/list')).should.have.status(403);
 
       Config.Users.unAuthenticatedUserRole = UserRoles.Admin;
       const userList = await api().get(Config.Server.apiPath + '/user/list');

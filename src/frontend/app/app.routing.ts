@@ -8,7 +8,7 @@ import {
 import {loadLoginComponent} from './themes/theme-templates';
 import { ShareLoginComponent } from './ui/sharelogin/share-login.component';
 import { QueryParams } from '../../common/QueryParams';
-import { AuthGuard } from './model/network/helper/auth.guard';
+import { AdminGuard, AuthGuard } from './model/network/helper/auth.guard';
 import { ErrorComponent } from './ui/error/error.component';
 import {ShareGuard} from './model/network/helper/share.guard';
 import {NavigationService} from './model/navigation.service';
@@ -67,7 +67,7 @@ const routes: Routes = [
     path: 'admin',
     loadComponent: () =>
       import('./ui/admin/admin.component').then((m) => m.AdminComponent),
-    canActivate: [AuthGuard],
+    canActivate: [AdminGuard],
   },
   {
     path: 'duplicates',

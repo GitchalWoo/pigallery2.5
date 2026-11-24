@@ -9,9 +9,8 @@
             <div class="alert alert-{{getCss(notification.type)}}" role="alert">
               ({{notification.count}}) {{notification.message}}
               @if (notification.details) {
-                <br/>
+                <pre class="notification-details mt-2 mb-0">{{formatDetails(notification.details)}}</pre>
               }
-              {{notification.details | json}}
               @if (notification.request) {
                 <br/>
                 Request: "{{notification.request.method}}", url: "{{notification.request.url}}", status code:

@@ -28,3 +28,10 @@ nav.sticky-top {
 .form-horizontal > .d-flex { flex-wrap: wrap; gap: .5rem; }
 .form-horizontal > .d-flex > div:first-child { min-width: 0; max-width: 100%; }
 .version { overflow-wrap: anywhere; }
+
+.notification-details {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: inherit;
+  font-size: 0.85em;
+}
