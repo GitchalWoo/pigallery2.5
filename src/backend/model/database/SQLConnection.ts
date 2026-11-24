@@ -39,7 +39,7 @@ interface BetterSqlite3Db {
 }
 
 export class SQLConnection {
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   private static entries: Function[] = [
     UserEntity,
     FileEntity,
@@ -65,12 +65,12 @@ export class SQLConnection {
     'sqlite_sequence'
   ];
 
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   public static getEntries(): Function[] {
     return this.entries;
   }
 
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   public static async addEntries(tables: Function[]) {
     if (!tables?.length) {
       return;

@@ -880,7 +880,7 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
         }
       } as any;
 
-      // @ts-ignore
+      // @ts-expect-error buildContext is replaced by a mock
       ObjectManagers.getInstance().SessionManager.buildContext = async (user: any) => {
         expect(user).to.deep.include(testUser);
         return testContext;
@@ -936,7 +936,7 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
       } as any;
 
 
-      // @ts-ignore
+      // @ts-expect-error buildContext is replaced by a mock
       ObjectManagers.getInstance().SessionManager.buildContext = async (user: any) => {
         expect(user).to.deep.include(testUser);
         return testContext;
@@ -986,7 +986,7 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
         }
       };
 
-      // @ts-ignore
+      // @ts-expect-error UserManager is replaced by a mock
       ObjectManagers.getInstance().UserManager = {
         findOne: (_filter: never) => {
           return Promise.resolve(testUser);
@@ -1001,7 +1001,7 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
         }
       } as any;
 
-      // @ts-ignore
+      // @ts-expect-error buildContext is replaced by a mock
       ObjectManagers.getInstance().SessionManager.buildContext = async (user: any) => {
         expect(user).to.deep.include(testUser);
         return testContext;
@@ -1058,7 +1058,7 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
         }
       };
 
-      // @ts-ignore
+      // @ts-expect-error UserManager is replaced by a mock
       ObjectManagers.getInstance().UserManager = {
         findOne: (_filter: never) => {
           return Promise.resolve({...testUser});
@@ -1074,7 +1074,7 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
         }
       } as any;
 
-      // @ts-ignore
+      // @ts-expect-error buildContext is replaced by a mock
       ObjectManagers.getInstance().SessionManager.buildContext = async (user: any) => {
         expect(user).to.deep.include({
           name: testUser.name,

@@ -99,6 +99,7 @@ export class AuthenticationMWs {
     try {
       user = await AuthenticationMWs.getSharingUser(req);
     } catch {
+      // no valid sharing: checked below as no user
     }
 
     if (!user) {

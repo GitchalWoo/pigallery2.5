@@ -213,6 +213,8 @@ export class ImageRendererFactory {
         if (primaryError) {
           Logger.warn('[ImageRendererFactory] Failed to close handle after error: ' + closeErr);
         } else {
+          // only a close error without an earlier error is thrown, the earlier error wins otherwise
+          // eslint-disable-next-line no-unsafe-finally
           throw closeErr;
         }
       }

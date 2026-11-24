@@ -11,12 +11,16 @@ describe('Config', () => {
   beforeEach(async () => {
     try {
       await fs.promises.rm(configFile, {force: true});
-    } catch {}
+    } catch {
+      // nothing to clean up
+    }
   });
   afterEach(async () => {
     try {
       await fs.promises.rm(configFile, {force: true});
-    } catch {}
+    } catch {
+      // nothing to clean up
+    }
     delete process.env['default-Media-tempFolder'];
   });
   it('should load default from env', () => {

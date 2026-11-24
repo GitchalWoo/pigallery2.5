@@ -110,4 +110,12 @@ export default tseslint.config(
       }],
     },
   },
+  {
+    files: ["src/**/*.spec.ts", "test/**/*.ts"],
+    rules: {
+      // mocks stub methods with empty bodies and mirror the getters of the services they replace
+      '@typescript-eslint/no-empty-function': 'off',
+      '@typescript-eslint/class-literal-property-style': 'off',
+    },
+  },
 );

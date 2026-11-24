@@ -156,8 +156,7 @@ export class GalleryMapLightboxComponent implements OnChanges, OnDestroy, OnInit
     this.setUpPathLayers();
     this.mapOptions.layers = [this.mapLayersControlOption.overlays.Photos];
     this.pathLayersConfigOrdered.forEach(pl => this.mapOptions.layers.push(pl.layer));
-    for (let i = 0; i < mapService.Layers.length; ++i) {
-      const l = mapService.Layers[i];
+    for (const l of mapService.Layers) {
       const tl = tileLayer(l.url, {attribution: mapService.Attributions});
       if (l.url === mapService.MapLayer.url) {
         this.defLayer = tl;

@@ -75,8 +75,7 @@ export class TimelineManager implements IObjectManager {
     }
 
     const generation = this.generation;
-    let promise: Promise<TimelineSummaryDTO>;
-    promise = this.buildSummary(session).then(value => {
+    const promise: Promise<TimelineSummaryDTO> = this.buildSummary(session).then(value => {
       if (cacheable && this.generation === generation) {
         this.summaryCache.delete(projectionKey);
         this.summaryCache.set(projectionKey, {generation, value});
