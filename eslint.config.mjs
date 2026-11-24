@@ -42,6 +42,17 @@ export default tseslint.config(
     rules: {},
   },
   {
+    // The blocks above match only top-level files (Techdebt T8); this rule checks every template
+    files: ["src/frontend/**/*.html"],
+    extends: [
+      angular.configs.templateRecommended[0],
+    ],
+    rules: {
+      // a button without a type submits its form: the Enter key in any field of the form clicks the first one
+      "@angular-eslint/template/button-has-type": "error",
+    },
+  },
+  {
     files: ["src/common/*.ts", "src/backend/*.ts"],
     extends: [
       eslint.configs.recommended,

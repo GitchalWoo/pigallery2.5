@@ -45,12 +45,12 @@
         }
         <div class="col">
           <span class="float-end" [title]="getSaveTitle(settingsForm.form.invalid)">
-            <button class="btn btn-success"
+            <button type="button" class="btn btn-success"
               [disabled]="settingsForm.form.invalid || !changed || inProgress"
               (click)="save()" i18n>Save
             </button>
           </span>
-          <button class="btn btn-secondary float-end"
+          <button type="button" class="btn btn-secondary float-end"
             [disabled]=" !changed || inProgress"
             (click)="reset()" i18n>Reset
           </button>
@@ -152,10 +152,10 @@
                 </div>
                 @if (isExtension(rStates?.value.__state[ck])) {
                   <div class="col-auto">
-                    <button (click)="removeExtension(rStates?.value.__state[ck])" class="btn float-end btn-danger ">
+                    <button type="button" (click)="removeExtension(rStates?.value.__state[ck])" class="btn float-end btn-danger ">
                       <ng-icon name="ionTrashOutline" title="Delete" i18n-title></ng-icon>
                     </button>
-                    <button (click)="reloadExtension(rStates?.value.__state[ck])" class="btn float-end btn-primary ">
+                    <button type="button" (click)="reloadExtension(rStates?.value.__state[ck])" class="btn float-end btn-primary ">
                       <ng-icon name="ionReload" title="Restart" i18n-title></ng-icon>
                     </button>
                   </div>

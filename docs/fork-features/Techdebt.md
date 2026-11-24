@@ -28,6 +28,7 @@ later, **L** = cleanup.
 |---|---|---|---|
 | T1 | Generated `.js` / `.js.map` files next to TypeScript sources | L | Completed in `cleanup/techdebt-modernization`: verified all git-ignored compiled files, working tree clean. |
 | T6 | Backend test fixtures tie on unrated album covers | L | Completed in `cleanup/techdebt-modernization`: added deterministic multi-criteria sorting and creationDate/name tie-breakers in `TestHelper.updateDirCache()`. |
+| T8 | ESLint config matches only top-level files | M | `eslint.config.mjs` uses `src/frontend/*.ts`, `src/frontend/*.html`, `src/backend/*.ts` and `test/*.ts`, so `ng lint` skips almost every source file. With `**` globs the existing rule sets report about 2,300 errors (mostly `no-explicit-any`, `prefer-inject`, `no-unused-vars`, template `eqeqeq`). P08 added a separate block that checks `button-has-type` in every template; widen the globs and fix or tune the rules in a dedicated cleanup. |
 
 ## ARMv7 Docker follow-up
 

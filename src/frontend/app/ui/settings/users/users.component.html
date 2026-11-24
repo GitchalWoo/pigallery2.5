@@ -28,12 +28,12 @@
               <button type="button" class="btn btn-outline-secondary float-end ms-2"
                 (click)="unlinkOidc(user)" i18n>Unlink OIDC</button>
             }
-            <button [disabled]="!canDeleteUser(user)" (click)="deleteUser(user)"
+            <button type="button" [disabled]="!canDeleteUser(user)" (click)="deleteUser(user)"
               [ngClass]="canDeleteUser(user)? 'btn-danger':'btn-secondary'"
               class="btn float-end ms-2">
               <ng-icon name="ionTrashOutline" title="Delete" i18n-title></ng-icon>
             </button>
-            <button [disabled]="!canModifyUser(user)" (click)="openEditUser(user)"
+            <button type="button" [disabled]="!canModifyUser(user)" (click)="openEditUser(user)"
               [ngClass]="canModifyUser(user)? 'btn-primary':'btn-secondary'"
               class="btn float-end ms-2">
               <ng-icon name="ionPencil" title="Edit" i18n-title></ng-icon>
@@ -43,7 +43,7 @@
       }
     </tbody>
   </table>
-  <button class="btn btn-primary float-end"
+  <button type="button" class="btn btn-primary float-end"
     (click)="initNewUser()">
     <ng-icon name="ionAddOutline" class="me-1"></ng-icon>
     <span i18n>Add user</span>
