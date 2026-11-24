@@ -8,7 +8,7 @@
       (ngModelChange)="validateRawSearchText()"
       class="search-field form-control p-0"
       enterKeyHint="search"
-      (search)="Search()"
+      (searchSubmit)="Search()"
       name="search-field">
 
     </app-gallery-search-field-base>
@@ -39,7 +39,7 @@
         [(ngModel)]="searchQueryDTO"
         (ngModelChange)="onQueryChange()"
         enterKeyHint="search"
-        (search)="searchFromModal()">
+        (searchSubmit)="searchFromModal()">
       </app-gallery-search-query-builder>
     </div>
     <div class="modal-footer">

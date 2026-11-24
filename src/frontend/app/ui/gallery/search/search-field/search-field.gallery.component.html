@@ -3,7 +3,7 @@
   <app-gallery-search-field-base [(ngModel)]="rawSearchText"
                                  (ngModelChange)="validateRawSearchText()"
                                  class="search-field col p-0 rounded-start-2"
-                                 (search)="search.emit()"
+                                 (searchSubmit)="searchSubmit.emit()"
                                  [placeholder]="placeholder"
                                  name="search-field">
 
@@ -30,7 +30,7 @@
         [(ngModel)]="searchQueryDTO"
         [placeholder]="placeholder"
         (ngModelChange)="onQueryChange()"
-        (search)="search.emit()">
+        (searchSubmit)="searchSubmit.emit()">
       </app-gallery-search-query-builder>
 
 

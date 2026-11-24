@@ -38,7 +38,8 @@ export class GallerySearchFieldBaseComponent
   @Input() placeholder = $localize`Search`;
   // the label of the Enter key of phone keyboards; only fields where Enter searches set it to 'search'
   @Input() enterKeyHint: 'search' | undefined;
-  @Output() search = new EventEmitter<void>();
+  // not 'search': that is also a native DOM event of the host element
+  @Output() searchSubmit = new EventEmitter<void>();
 
   @ViewChild('SearchField', {static: false}) searchField: ElementRef;
   @ViewChild('SearchHintField', {static: false}) searchHintField: ElementRef;
@@ -184,7 +185,7 @@ export class GallerySearchFieldBaseComponent
     this.applyAutoComplete(item);
 
     if (!item.notSearchable) {
-      this.search.emit();
+      this.searchSubmit.emit();
     }
   }
 
@@ -213,7 +214,7 @@ export class GallerySearchFieldBaseComponent
       this.autoCompleteRenders.length === 0 ||
       this.highlightedAutoCompleteItem === -1
     ) {
-      this.search.emit();
+      this.searchSubmit.emit();
       return false;
     }
     // search selected autocomplete

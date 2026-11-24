@@ -37,7 +37,8 @@ import {GallerySearchQueryBuilderComponent} from '../query-builder/query-bulder.
 })
 export class GallerySearchFieldComponent
   implements ControlValueAccessor, Validator {
-  @Output() search = new EventEmitter<void>();
+  // not 'search': that is also a native DOM event of the host element
+  @Output() searchSubmit = new EventEmitter<void>();
   @Input() placeholder: string;
   public rawSearchText = '';
   public searchQueryDTO: SearchQueryDTO;
