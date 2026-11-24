@@ -23,7 +23,6 @@ import {
   FormsModule,
   NG_VALIDATORS,
   NG_VALUE_ACCESSOR,
-  UntypedFormControl,
   type ValidationErrors,
   type Validator
 } from '@angular/forms';
@@ -158,8 +157,9 @@ export class GallerySearchQueryEntryComponent
     return TextSearchMatchingTypes.getDescription(type, this.IsTextQuery);
   }
 
-  validate(control: UntypedFormControl): ValidationErrors {
-    return {required: true};
+  // the field has no constraints, so it is always valid
+  validate(): ValidationErrors | null {
+    return null;
   }
 
   addQuery(): void {
@@ -226,6 +226,28 @@ export class GallerySearchQueryEntryComponent
       delete this.AsDatePatternQuery.daysLength;
       delete this.AsDatePatternQuery.frequency;
       delete this.AsDatePatternQuery.agoNumber;
+    }
+    this.onChange();
+  }
+
+  /**
+   * Date inputs emit 'yyyy-MM-dd' strings, but RangeSearch expects UTC timestamps
+   */
+  onDateChange(field: 'min' | 'max', value: string): void {
+    const parts = (value || '').split('-').map((t) => parseInt(t, 10));
+    if (parts.length === 3 && parts.every((p) => !isNaN(p))) {
+      this.AsRangeQuery[field] = Date.UTC(parts[0], parts[1] - 1, parts[2]);
+    } else {
+      delete this.AsRangeQuery[field];
+    }
+    // keep the range valid: moving one end past the other drags the other end along
+    const q = this.AsRangeQuery;
+    if (q.min !== undefined && q.max !== undefined && q.min > q.max) {
+      if (field === 'min') {
+        q.max = q.min;
+      } else {
+        q.min = q.max;
+      }
     }
     this.onChange();
   }

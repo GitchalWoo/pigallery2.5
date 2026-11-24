@@ -31,6 +31,7 @@ import {GPSMetadata, PhotoDTO, PhotoMetadata} from '../../../../../src/common/en
 import {VideoDTO} from '../../../../../src/common/entities/VideoDTO';
 import {AutoCompleteItem} from '../../../../../src/common/entities/AutoCompleteItem';
 import {Config} from '../../../../../src/common/config/private/Config';
+import {DatabaseType} from '../../../../../src/common/config/private/PrivateConfig';
 import {SearchQueryParser} from '../../../../../src/common/SearchQueryParser';
 import {FileDTO} from '../../../../../src/common/entities/FileDTO';
 import {SortByTypes} from '../../../../../src/common/entities/SortingMethods';
@@ -1365,6 +1366,20 @@ describe('SearchManager', (sqlHelper: DBTestHelper) => {
     });
 
     describe('should search text', () => {
+      it('should reject query without value', async () => {
+        const sm = new SearchManager();
+        // e.g. legacy saved search with 'text' instead of 'value'
+        const query = {text: 'Landscape', type: SearchQueryTypes.keyword} as unknown as TextSearch;
+        let error: Error = null;
+        try {
+          await sm.search(DBTestHelper.defaultSession, query);
+        } catch (e) {
+          error = e;
+        }
+        expect(error).to.be.instanceOf(Error);
+        expect(error.message).to.contain('Invalid search query');
+      });
+
       it('as any', async () => {
         const sm = new SearchManager();
 
@@ -1757,6 +1772,71 @@ describe('SearchManager', (sqlHelper: DBTestHelper) => {
           resultOverflow: false
         } as SearchResultDTO));
 
+      });
+
+      // #1309: p2 has the keyword and the person 'Padmé Amidala'
+      describe('with accents', () => {
+        const names = async (query: TextSearch): Promise<string[]> =>
+          (await new SearchManager().search(DBTestHelper.defaultSession, query)).media.map(m => m.name);
+        const autocomplete = (value: string, type = SearchQueryTypes.any_text): Promise<AutoCompleteItem[]> =>
+          new SearchManager().autocomplete(DBTestHelper.defaultSession, value, type);
+
+        // MySQL ignores the accents by its collation, SQLite only with this switch (it makes the search slower)
+        beforeEach(() => {
+          Config.Database.sqlite!.accentInsensitiveSearch = true;
+        });
+        afterEach(() => {
+          Config.Database.sqlite!.accentInsensitiveSearch = false;
+        });
+
+        it('should suggest accented text typed without the accents', async () => {
+          expect(await autocomplete('padme')).to.deep.equalInAnyOrder([
+            new AutoCompleteItem('Padmé Amidala', SearchQueryTypes.keyword),
+            new AutoCompleteItem('Padmé Amidala', SearchQueryTypes.person)]);
+          expect(await autocomplete('PADMÉ', SearchQueryTypes.keyword)).to.deep.equal([
+            new AutoCompleteItem('Padmé Amidala', SearchQueryTypes.keyword)]);
+        });
+
+        it('should ignore the accents on SQLite only when it is switched on', async () => {
+          if (sqlHelper.dbType !== DatabaseType.sqlite) {
+            return;
+          }
+          Config.Database.sqlite!.accentInsensitiveSearch = false;
+          expect(await names({value: 'padme', type: SearchQueryTypes.any_text} as TextSearch)).to.deep.equal([]);
+          expect(await autocomplete('padme')).to.deep.equal([]);
+          expect(await names({value: 'Padmé', type: SearchQueryTypes.any_text} as TextSearch)).to.deep.equal([p2.name]);
+        });
+
+        it('should find accented text typed with the accents', async () => {
+          expect(await names({value: 'Padmé', type: SearchQueryTypes.any_text} as TextSearch)).to.deep.equal([p2.name]);
+          expect(await names({value: 'padmé amidala', type: SearchQueryTypes.keyword} as TextSearch)).to.deep.equal([p2.name]);
+          expect(await names({value: 'Padmé', type: SearchQueryTypes.person} as TextSearch)).to.deep.equal([p2.name]);
+          expect(await names({
+            value: 'Padmé Amidala',
+            type: SearchQueryTypes.person,
+            matchType: TextSearchQueryMatchTypes.exact_match
+          } as TextSearch)).to.deep.equal([p2.name]);
+        });
+
+        it('should find accented text typed without the accents', async () => {
+          const found = [
+            await names({value: 'padme', type: SearchQueryTypes.any_text} as TextSearch),
+            await names({value: 'Padme Amidala', type: SearchQueryTypes.keyword} as TextSearch),
+            await names({value: 'padme', type: SearchQueryTypes.person} as TextSearch)
+          ];
+          expect(found).to.deep.equal([[p2.name], [p2.name], [p2.name]]);
+        });
+
+        // SQLite's LIKE ignores the case only of ASCII letters
+        it('should ignore the case of accented letters', async () => {
+          expect(await names({value: 'PADMÉ', type: SearchQueryTypes.any_text} as TextSearch)).to.deep.equal([p2.name]);
+          expect(await names({value: 'PADMÉ AMIDALA', type: SearchQueryTypes.person} as TextSearch)).to.deep.equal([p2.name]);
+        });
+
+        it('should leave out accented text from a negated search typed without the accents', async () => {
+          expect(await names({value: 'padme', type: SearchQueryTypes.person, negate: true} as TextSearch))
+            .to.not.include(p2.name);
+        });
       });
 
       it('with globMatch', async () => {

@@ -34,7 +34,7 @@
       @if (queryEntry.type != SearchQueryTypes.SOME_OF) {
         <div class="col"></div>
       }
-      <button [ngClass]="'btn-danger'"
+      <button type="button" [ngClass]="'btn-danger'"
         class="btn float-end col-1 align-self-center"
         (click)="deleteItem()">
         <ng-icon name="ionTrashOutline" title="Delete" i18n-title></ng-icon>
@@ -49,7 +49,7 @@
         }
       </div>
       <div class="col query-list d-flex justify-content-start">
-        <button class="btn btn-primary" (click)="addQuery()">
+        <button class="btn btn-primary" type="button" (click)="addQuery()">
           <ng-icon
             class="me-1"
             style="margin-left: -0.1em; margin-right: -0.1em"
@@ -143,9 +143,10 @@
                   name="date_min"
                   title="start date"
                   i18n-title
-                  [ngModel]="AsRangeQuery.min | date:'yyyy-MM-dd'"
-                  (ngModelChange)="AsRangeQuery.min = $event; onChange() "
-                  [value]="AsRangeQuery.min | date:'yyyy-MM-dd'"
+                  [ngModel]="AsRangeQuery.min | date:'yyyy-MM-dd':'UTC'"
+                  (ngModelChange)="onDateChange('min', $event)"
+                  [value]="AsRangeQuery.min | date:'yyyy-MM-dd':'UTC'"
+                  [max]="AsRangeQuery.max | date:'yyyy-MM-dd':'UTC'"
                   #date_min="ngModel"
                   class="form-control input-md rounded-2"
                   type="date">
@@ -153,9 +154,10 @@
                   name="date_max"
                   title="end date"
                   i18n-title
-                  [ngModel]="AsRangeQuery.max | date:'yyyy-MM-dd'"
-                  (ngModelChange)="AsRangeQuery.max = $event; onChange() "
-                  [value]="AsRangeQuery.max | date:'yyyy-MM-dd'"
+                  [ngModel]="AsRangeQuery.max | date:'yyyy-MM-dd':'UTC'"
+                  (ngModelChange)="onDateChange('max', $event)"
+                  [value]="AsRangeQuery.max | date:'yyyy-MM-dd':'UTC'"
+                  [min]="AsRangeQuery.min | date:'yyyy-MM-dd':'UTC'"
                   #date_max="ngModel"
                   class="form-control input-md rounded-2"
                   type="date">
@@ -311,7 +313,7 @@
             }
           }
           <div class="col-2 col-lg-1 align-self-center">
-            <button [ngClass]="'btn-danger'"
+            <button type="button" [ngClass]="'btn-danger'"
               class="btn  w-auto float-end"
               (click)="deleteItem()">
               <ng-icon name="ionTrashOutline" title="Delete" i18n-title></ng-icon>

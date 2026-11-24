@@ -192,6 +192,7 @@ App CLI options:
   --Database-type                                                           SQLite is recommended. (default: 'sqlite')
   --Database-dbFolder                                                       All file-based data will be stored here (sqlite database, job history data). (default: 'db')
   --Database-sqlite-DBFileName                                              Sqlite will save the db with this filename. (default: 'sqlite.db')
+  --Database-sqlite-accentInsensitiveSearch                                 Search and autocomplete ignore the accents and the case of every letter (e.g. "padme" finds "Padmé"), like on MySQL. Without it SQLite ignores only the case of the English letters. Warning: it slows down the database significantly, text searches become several times slower. (default: false)
   --Database-mysql-host                                                      (default: 'localhost')
   --Database-mysql-port                                                      (default: 3306)
   --Database-mysql-database                                                  (default: 'pigallery2')
@@ -384,6 +385,7 @@ Environmental variables:
   Database-type                                                         SQLite is recommended. (default: 'sqlite')
   Database-dbFolder                                                     All file-based data will be stored here (sqlite database, job history data). (default: 'db')
   Database-sqlite-DBFileName                                            Sqlite will save the db with this filename. (default: 'sqlite.db')
+  Database-sqlite-accentInsensitiveSearch                               Search and autocomplete ignore the accents and the case of every letter (e.g. "padme" finds "Padmé"), like on MySQL. Without it SQLite ignores only the case of the English letters. Warning: it slows down the database significantly, text searches become several times slower. (default: false)
   Database-mysql-host                                                    (default: 'localhost')
   MYSQL_HOST                                                             same as Database-mysql-host
   Database-mysql-port                                                    (default: 3306)
@@ -1105,7 +1107,9 @@ Environmental variables:
         "dbFolder": "db",
         "sqlite": {
             "//[DBFileName]": "Sqlite will save the db with this filename.",
-            "DBFileName": "sqlite.db"
+            "DBFileName": "sqlite.db",
+            "//[accentInsensitiveSearch]": "Search and autocomplete ignore the accents and the case of every letter (e.g. \"padme\" finds \"Padmé\"), like on MySQL. Without it SQLite ignores only the case of the English letters. Warning: it slows down the database significantly, text searches become several times slower.",
+            "accentInsensitiveSearch": false
         },
         "mysql": {
             "host": "localhost",
@@ -1275,6 +1279,12 @@ Environmental variables:
     }
 }
 ```
+
+## Accent-insensitive search (SQLite)
+
+MySQL/MariaDB compare text with `utf8mb4_general_ci`, so a search for `padme` finds `Padmé` and the case of every letter is ignored. SQLite ignores only the case of the English letters. `Database.sqlite.accentInsensitiveSearch` (default `false`) makes SQLite search and autocomplete ignore the accents and the case as well. It slows down every text search and autocomplete several times, which is noticeable on a large gallery or a Raspberry Pi. The folder allow and block lists of users (`Users.allowDirectoryList` / `blockDirectoryList`) follow the same setting, so a folder hidden from search is also hidden from the folder listing.
+
+Only letters with a combining accent are folded, the same as MySQL/MariaDB: `ł`, `ø`, `ß` and similar letters stay as they are, so `l` does not find `ł`.
 
 ## OpenID Connect account linking
 

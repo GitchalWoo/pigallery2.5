@@ -3,6 +3,7 @@ import {type SearchQueryDTO, SearchQueryTypes, type TextSearch,} from '../../../
 import { type ControlValueAccessor, NG_VALIDATORS, NG_VALUE_ACCESSOR, type ValidationErrors, type Validator, FormsModule } from '@angular/forms';
 import {SearchQueryParserService} from '../search-query-parser.service';
 import {Utils} from '../../../../../../common/Utils';
+import {SearchQueryUtils} from '../../../../../../common/SearchQueryUtils';
 import { GallerySearchFieldBaseComponent } from '../search-field-base/search-field-base.gallery.component';
 import { GallerySearchQueryEntryComponent } from '../query-enrty/query-entry.search.gallery.component';
 
@@ -37,9 +38,21 @@ export class GallerySearchQueryBuilderComponent
   } as TextSearch;
   @Output() search = new EventEmitter<void>();
   @Input() placeholder = $localize`Search`;
+  // the label of the Enter key of phone keyboards; only fields where Enter searches set it to 'search'
+  @Input() enterKeyHint: 'search' | undefined;
   public rawSearchText = '';
 
   constructor(private searchQueryParserService: SearchQueryParserService) {
+  }
+
+  /**
+   * Utils.equalsFilter only checks the keys of its second argument,
+   * so a removed property (e.g. a deleted date range end) would go unnoticed.
+   */
+  private static isSameQuery(a: SearchQueryDTO, b: SearchQueryDTO): boolean {
+    const nA = SearchQueryUtils.stripDefault(a);
+    const nB = SearchQueryUtils.stripDefault(b);
+    return Utils.equalsFilter(nA, nB) && Utils.equalsFilter(nB, nA);
   }
 
   validateRawSearchText(): void {
@@ -48,7 +61,7 @@ export class GallerySearchQueryBuilderComponent
       const newDTO = this.searchQueryParserService.parse(
           this.rawSearchText
       );
-      if (Utils.equalsFilter(this.searchQueryDTO, newDTO)) {
+      if (GallerySearchQueryBuilderComponent.isSameQuery(this.searchQueryDTO, newDTO)) {
         return;
       }
       this.searchQueryDTO = newDTO;
@@ -66,8 +79,9 @@ export class GallerySearchQueryBuilderComponent
     this.onChange();
   }
 
-  validate(): ValidationErrors {
-    return {required: true};
+  // the field has no constraints, so it is always valid
+  validate(): ValidationErrors | null {
+    return null;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -77,8 +91,8 @@ export class GallerySearchQueryBuilderComponent
   public writeValue(obj: SearchQueryDTO): void {
     try {
       // do not trigger change if nothing changed
-      if (Utils.equalsFilter(this.searchQueryDTO, obj) &&
-          Utils.equalsFilter(this.searchQueryParserService.parse(
+      if (GallerySearchQueryBuilderComponent.isSameQuery(this.searchQueryDTO, obj) &&
+          GallerySearchQueryBuilderComponent.isSameQuery(this.searchQueryParserService.parse(
               this.rawSearchText
           ), obj)) {
         return;
@@ -102,7 +116,7 @@ export class GallerySearchQueryBuilderComponent
 
   public onChange(): void {
     try {
-      if (Utils.equalsFilter(this.searchQueryParserService.parse(this.rawSearchText), this.searchQueryDTO)) {
+      if (GallerySearchQueryBuilderComponent.isSameQuery(this.searchQueryParserService.parse(this.rawSearchText), this.searchQueryDTO)) {
         this.propagateChange(this.searchQueryDTO);
         return;
       }

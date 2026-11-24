@@ -26,7 +26,7 @@
             <td>{{share.creator.name}}</td>
             <td>{{share.expires | date}}</td>
             <td>
-              <button (click)="deleteSharing(share)" class="btn btn-danger float-end">
+              <button type="button" (click)="deleteSharing(share)" class="btn btn-danger float-end">
                 <ng-icon name="ionTrashOutline" title="Delete" i18n-title></ng-icon>
               </button>
             </td>

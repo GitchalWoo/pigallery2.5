@@ -4,6 +4,9 @@ import {LocationLookupException} from '../../exceptions/LocationLookupException'
 import {LRU} from '../../../common/Utils';
 import {IObjectManager} from './IObjectManager';
 import {ParentDirectoryDTO} from '../../../common/entities/DirectoryDTO';
+import {Logger} from '../../Logger';
+
+const LOG_TAG = '[LocationManager]';
 
 export class LocationManager implements IObjectManager {
   // onNewDataVersion only need for TypeScript, otherwise the interface is not implemented.
@@ -17,7 +20,14 @@ export class LocationManager implements IObjectManager {
 
   async getGPSData(text: string): Promise<GPSMetadata> {
     if (!this.cache.get(text)) {
-      const ret = await this.geocoder.geocode(text);
+      let ret: NodeGeocoder.Entry[];
+      try {
+        ret = await this.geocoder.geocode(text);
+      } catch (e) {
+        // e.g. no network or the service is down: for the user it is the same as a place that is not found (#1309)
+        Logger.warn(LOG_TAG, 'Geocoding failed for: ' + text, e);
+        throw new LocationLookupException('Cannot find location:' + text, text);
+      }
       if (ret.length < 1) {
         throw new LocationLookupException('Cannot find location:' + text, text);
       }
