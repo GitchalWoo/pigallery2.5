@@ -12,7 +12,7 @@ Execution plan for porting every remaining upstream change from [bpatrik/pigalle
 
 The workflow for every pack — presence check, impact report and approval, porting, tests, ledger, PR — is in [Upstream-Porting.md](Upstream-Porting.md). This section only covers how the plan is laid out.
 
-1. **One pack = one branch = one PR**, named `port/upstream-p<NN>-<topic>`. A pack may be split into smaller PRs (rule 5). Packs are never merged together.
+1. **One pack = one branch = one PR**, named `port/upstream-p<NN>-<topic>`. A pack may be split into smaller PRs (rule 5). Packs are merged together only by a user decision recorded in section 2 (P07 went into P08).
 2. **Packs run in the numbered order.** Start a pack only after the packs it depends on (section 3) are merged to `master`.
 3. **Order follows upstream chronology where packs share files.** Upstream merged #1205 (directory access) before #1212, #1372, #1380 and #1383, and merged #1198 before its virtual grid. The fork already ported some later changes without those earlier ones (PR #42, PR #45). Porting the remaining base changes first, and their followers after them, keeps each conflict in one PR.
 4. **Security-sensitive work is isolated.** Uploads (P02), directory access (P03), sharing (P04), OIDC (P05) and session handling (P06) each have their own pack, so a reviewer can read them with the fork's hardening rules in mind.
@@ -26,7 +26,8 @@ The workflow for every pack — presence check, impact report and approval, port
 
 | Topic | Decision | Reason |
 | --- | --- | --- |
-| One big PR | **No.** 15 packs, one PR each. | More than 70 conflicting files and a schema migration in one PR cannot be reviewed or bisected. |
+| One big PR | **No.** 15 packs, one PR each (P07 merged into P08, see below). | More than 70 conflicting files and a schema migration in one PR cannot be reviewed or bisected. |
+| P07 + P08 | **One pack, P08** (branch `port/upstream-p08-search`). | User decision before P08: both rework the LIKE conditions of `SearchManager`; one branch resolves them once and tests the final code on SQLite and MariaDB. The automated tests are the gate, not the diff size. |
 | #1380 accent-insensitive SQLite search | **Port as upstream**, default off (P08). No extra folding of `ł`/`ø`/`ß`. | Keeps SQLite results identical to MariaDB `utf8mb4_general_ci`, which does not fold those letters either. Document that `ł` → `l` does not match. |
 | #1198 sort/group by directory | **Port** (P09), after the search packs. | Wanted feature. It must be re-implemented inside the fork's `GridLayout`/`GridScroller` from PR #45, not cherry-picked into the old grid. |
 | #1378 upload move into the gallery | **Never `rename()` over a target.** | Upstream `fs.promises.rename()` silently replaces an existing file and breaks the fork's `wx` no-overwrite guarantee. Use `fs.promises.link()` + `unlink()` (fallback `copyFile(..., COPYFILE_EXCL)` + `unlink()` on `EXDEV`/`EPERM`). The target path comes from `SafePath.resolveForWrite`. |
@@ -56,8 +57,8 @@ The workflow for every pack — presence check, impact report and approval, port
 | P04 | Sharing follow-ups (#1374, #1392) | M | P03 | **Yes** |
 | P05 | OIDC & `urlBase` follow-ups | M | P03 | **Yes** |
 | P06 | Session UX & API error statuses | M | P03, P05 | **Yes** |
-| P07 | Search correctness fixes | M | P03 | Escaping |
-| P08 | Accent-insensitive search (#1380, #1383) | M | P03, P07 | — |
+| P07 | Merged into P08 | — | — | — |
+| P08 | Search fixes & accent-insensitive search (#1380, #1383, #1214) | M–L | P03, P06 | Escaping, directory lists |
 | P09 | Sort/group by directory & navigator | M | P08 | — |
 | P10 | Grid & lightbox parity | M | P09 | — |
 | P11 | Loading, empty & error states | M | P03, P06 | — |
@@ -206,31 +207,29 @@ Branch `port/upstream-p06-session-ux`.
 
 #1423 (`8b5f2bae`, OIDC login errors on the login page and no server paths in error messages) joined P06: with real HTTP statuses a failed OIDC callback would otherwise show a raw JSON 401/403 in the browser.
 
-### P07 — Search correctness fixes (M)
+### P07 — merged into P08
 
-Branch `port/upstream-p07-search-fixes`.
+P07 (search correctness) was merged into P08 by a user decision; its commits are listed there.
+
+### P08 — Search fixes & accent-insensitive search (M–L)
+
+Branch `port/upstream-p08-search`. Depends on P06: the HTTP status of `LocationLookUp_ERROR` comes from its error mapping.
 
 | Commit | Change | Notes |
 | --- | --- | --- |
-| `12bccc5a`, `eb9b96b4` | SQL escaping fixes | Escaping hunks only (see decisions). Test SQLite and MariaDB. |
-| `dea51c73` | Saved-search albums by date range | Vitest for query builder. |
-| `0d262ff3` | Report an invalid search query instead of crashing on a missing value | |
-| #1214 | Phone Enter key launches search; every button gets a `type` | 29 files; mostly templates. |
+| `12bccc5a`, `eb9b96b4` | SQL escaping fixes | Already in the fork (`ESCAPE '\\'` only on SQLite, `mysql2`). Record only. |
+| `0d262ff3` | Report an invalid search query instead of crashing on a missing value | The throw is in the fork; port the album warning and the test. |
+| `dea51c73` | Saved-search albums by date range | Vitest for query builder and albums. |
 | `a9066201` (#1274) | Search fields are valid when they have no errors | |
-
-### P08 — Accent-insensitive search (M)
-
-Branch `port/upstream-p08-accent-search`.
-
-| Commit | Change | Notes |
-| --- | --- | --- |
+| #1214 (`777914e7`, `4bce12ab`) | Phone Enter key launches search, also in the search dialog | Vitest + Cypress instead of Playwright. |
+| #1214 (`dc3aa0a0`) | Every button gets a `type` | Re-done on fork templates with the `button-has-type` lint rule, not cherry-picked. |
 | `e0d265c6` (#1380) | `Database.sqlite.accentInsensitiveSearch` (default off) | Keep `ESCAPE '\\'` handling. |
 | `38fc861f` (#1380) | Text cache; skip empty columns | |
 | `74473bc5` (#1380) | Bold typed text in autocomplete across accents | Vitest (`AutoCompleteRenderItem`). |
 | `3a8428de` (#1380) | Performance warning in settings and docs | |
 | `3f7f68ff` (#1380) | `fold()` once per keyword; Greek final sigma | |
-| `7177c0e1` (#1380) | `LocationLookUp_ERROR` on geocoding failure | Was Deferred; `LocationManager` is touched anyway. |
-| `8bb42c88`, `f70ed4bc` (#1383) | Accent-aware directory allow/block lists | Was Deferred. Needs P03 and the helpers above. |
+| `7177c0e1` (#1380) | `LocationLookUp_ERROR` on geocoding failure | Brings `SearchErrors.spec` deferred from P06. |
+| `8bb42c88`, `f70ed4bc` (#1383) | Accent-aware directory allow/block lists | Security: MariaDB already ignores accents in SQL, so the JS check must too. |
 
 Document the `ł`/`ø`/`ß` limitation in `docs/user-guide/configuration.md`. `e8dd72cb` stays skipped.
 

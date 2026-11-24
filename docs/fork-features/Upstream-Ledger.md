@@ -44,8 +44,7 @@ Every remaining upstream change is grouped into 15 packs. Each pack is one branc
 
 | Order | Upstream PR / Commits | Pack | Effort | Notes for This Fork |
 | --- | --- | --- | --- | --- |
-| 7 | `12bccc5a`, `eb9b96b4`, `dea51c73`, `0d262ff3`, #1214, `a9066201` (#1274) | P07 Search correctness | M | Escaping hunks only; no mysql2 upgrade. |
-| 8 | [#1380](https://github.com/bpatrik/pigallery2/pull/1380) (`e0d265c6`, `38fc861f`, `74473bc5`, `3a8428de`, `3f7f68ff`, `7177c0e1`), [#1383](https://github.com/bpatrik/pigallery2/pull/1383) | P08 Accent-insensitive search | M | Default off; MariaDB parity (no `ł`/`ø`/`ß` folding, documented). |
+| 8 | `12bccc5a`, `eb9b96b4`, `dea51c73`, `0d262ff3`, #1214, `a9066201` (#1274), [#1380](https://github.com/bpatrik/pigallery2/pull/1380) (`e0d265c6`, `38fc861f`, `74473bc5`, `3a8428de`, `3f7f68ff`, `7177c0e1`), [#1383](https://github.com/bpatrik/pigallery2/pull/1383) | P08 Search fixes & accent-insensitive search (P07 merged in) | M–L | Escaping already in the fork; accent folding default off; MariaDB parity (no `ł`/`ø`/`ß` folding, documented). |
 | 9 | [#1198](https://github.com/bpatrik/pigallery2/pull/1198), `97dfe73a`, `91e374dc` (#1371), #1343 (`e60006ac`), `9fe9eaaf` | P09 Directory sort/group | M | Re-implement grouping in the PR #45 virtual grid; check Timeline grouping. |
 | 10 | #1376, `2a83005f`, `1ade9d14` (#1394), `c214d5c5`, `a41d5577`, `8b5b6419`, `947f95d7` (#1410), #1416, #1391, `9ae9151b`, `bdc57a25`, `1d17b220`, `2cb691c4` | P10 Grid & lightbox parity | M | Many items may already be in PR #45; check each first. |
 | 11 | #1373 (`990af75e`, `7dab232d`, `3aec0c9e`, `182f0912`), `68ca3a26`, `7eafcd1e`, `be5da765`, `f01bf7e5` (#1371), `94e26454`, `2a9d28f4` | P11 Loading, empty & error states | M | Prism styling; folder errors use P03 `DIRECTORY_NOT_FOUND`. `2a9d28f4` changes the `IndexingManager` empty-root guard. |
