@@ -204,6 +204,8 @@ Branch `port/upstream-p06-session-ux`.
 
 `4cfcebfc`, `8c624135` (#1370), `f31ddcc4`, `451bd3a8` (#1372) stay skipped (e2e markers, AGENTS.md, lockfile).
 
+#1423 (`8b5f2bae`, OIDC login errors on the login page and no server paths in error messages) joined P06: with real HTTP statuses a failed OIDC callback would otherwise show a raw JSON 401/403 in the browser.
+
 ### P07 — Search correctness fixes (M)
 
 Branch `port/upstream-p07-search-fixes`.
