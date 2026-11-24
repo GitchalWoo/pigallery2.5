@@ -31,7 +31,7 @@ import {MediaButtonModalService} from './grid/photo/media-button-modal/media-but
 import {type SortingMethod} from '../../../../common/entities/SortingMethods';
 import {SearchQueryParserService} from './search/search-query-parser.service';
 import {BlogService, GroupedMarkdown} from './blog/blog.service';
-import {UploaderService, UploadProgress} from './uploader/uploader.service';
+import {UploaderService} from './uploader/uploader.service';
 import {UserRoles} from '../../../../common/entities/UserDTO';
 import {LightboxService} from './lightbox/lightbox.service';
 
@@ -93,7 +93,7 @@ class MockCacheService {
 }
 
 class MockBlogService{
-  getMarkDowns(date: Date): Observable<GroupedMarkdown[]>{
+  getMarkDowns(_date: Date): Observable<GroupedMarkdown[]>{
     return of([]);
   }
 }
@@ -117,10 +117,6 @@ class MockGPXFilesFilterPipe {
 
 class MockMDFilesFilterPipe {
   transform = vi.fn().mockReturnValue([]);
-}
-
-class MockRouter {
-  navigate = vi.fn().mockResolvedValue(true);
 }
 
 
@@ -308,9 +304,9 @@ describe('GalleryComponent', () => {
 
       // These should not throw errors due to the null checks in the template
       expect(() => {
-        const hasError = component.ContentWrapper?.error;
-        const hasDirectory = component.ContentWrapper?.directory;
-        const hasSearchResult = component.ContentWrapper?.searchResult;
+        const _hasError = component.ContentWrapper?.error;
+        const _hasDirectory = component.ContentWrapper?.directory;
+        const _hasSearchResult = component.ContentWrapper?.searchResult;
       }).not.toThrow();
     });
 

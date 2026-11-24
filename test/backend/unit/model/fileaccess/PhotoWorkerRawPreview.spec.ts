@@ -771,7 +771,7 @@ describe('PhotoWorker RAW Preview Safety and Orientation', () => {
 
       let getRawPreviewCalls = 0;
       const origGetRawPreview = ImageRendererFactory.getRawPreview;
-      ImageRendererFactory.getRawPreview = async (filePath: string) => {
+      ImageRendererFactory.getRawPreview = async (_filePath: string) => {
         getRawPreviewCalls++;
         return {
           buffer: validJpeg,

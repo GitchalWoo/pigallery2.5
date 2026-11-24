@@ -14,7 +14,7 @@ class MockUserService {
     return Promise.resolve();
   }
 
-  public login(credential: LoginCredential): Promise<UserDTO> {
+  public login(_credential: LoginCredential): Promise<UserDTO> {
     return Promise.resolve({name: 'testUserName'} as UserDTO);
   }
 
@@ -32,7 +32,7 @@ class MockNetworkService {
 }
 
 class MockShareService {
-  onNewUser(user: any): void {
+  onNewUser(_user: any): void {
     // mock fn
   }
 

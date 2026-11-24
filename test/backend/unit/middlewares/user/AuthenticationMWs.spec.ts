@@ -637,7 +637,6 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
         session: {},
         sessionOptions: {},
       };
-      const res: any = {};
       const next: any = (err: ErrorDTO) => {
         try {
           expect(err).to.be.undefined;
@@ -804,7 +803,7 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
         }
       };
       ObjectManagers.getInstance().UserManager = {
-        findOne: (filter: never) => {
+        findOne: (_filter: never) => {
           return Promise.resolve(testUser);
         }
       } as any;
@@ -869,14 +868,14 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
       };
 
       ObjectManagers.getInstance().UserManager = {
-        findOne: (filter: never) => {
+        findOne: (_filter: never) => {
           return Promise.resolve(testUser);
         }
       } as any;
 
       // Add SearchManager mock to avoid errors in buildContext
       ObjectManagers.getInstance().SearchManager = {
-        prepareAndBuildWhereQuery: (query: any) => {
+        prepareAndBuildWhereQuery: (_query: any) => {
           return Promise.resolve(null);
         }
       } as any;
@@ -931,7 +930,7 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
       };
 
       ObjectManagers.getInstance().UserManager = {
-        findOne: (filter: never) => {
+        findOne: (_filter: never) => {
           return Promise.resolve(testUser);
         }
       } as any;
@@ -989,7 +988,7 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
 
       // @ts-ignore
       ObjectManagers.getInstance().UserManager = {
-        findOne: (filter: never) => {
+        findOne: (_filter: never) => {
           return Promise.resolve(testUser);
         }
       } as UserManager;
@@ -1061,7 +1060,7 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
 
       // @ts-ignore
       ObjectManagers.getInstance().UserManager = {
-        findOne: (filter: never) => {
+        findOne: (_filter: never) => {
           return Promise.resolve({...testUser});
         }
       } as UserManager;

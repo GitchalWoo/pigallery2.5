@@ -27,7 +27,6 @@ describe('SharingRouter', () => {
     password: 'test',
     role: UserRoles.User
   };
-  const {password: pass, ...expectedUser} = testUser;
   const tempDir = path.join(__dirname, '../../tmp');
   let server: Server;
   const setUp = async () => {

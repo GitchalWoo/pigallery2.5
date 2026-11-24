@@ -62,7 +62,7 @@ export class ContentLoaderService implements OnDestroy {
               interval * 1000
             ).pipe(
               filter(() => this.ongoingContentRequest === null),
-              switchMap(i => from(this.reloadCurrentContent()))
+              switchMap(_i => from(this.reloadCurrentContent()))
             )
           )
         );

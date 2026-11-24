@@ -75,7 +75,7 @@ export class GallerySearchFieldComponent
         ), obj)) {
         return;
       }
-    } catch (e) {
+    } catch {
       // if cant parse they are not the same
     }
     this.searchQueryDTO = obj;
@@ -107,7 +107,7 @@ export class GallerySearchFieldComponent
         this.onChange();
         return;
       }
-    } catch (e) {
+    } catch {
       // if cant parse they are not the same
     }
     this.rawSearchText = this.searchQueryParserService.stringify(

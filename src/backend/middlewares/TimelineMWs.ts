@@ -3,7 +3,6 @@ import {Config} from '../../common/config/private/Config';
 import {ErrorCodes, ErrorDTO} from '../../common/entities/Error';
 import {TimelinePageDTO} from '../../common/entities/TimelineDTO';
 import {TimelineSummaryDTO} from '../../common/entities/TimelineDTO';
-import {UserRoles} from '../../common/entities/UserDTO';
 import {ThumbnailGeneratorMWs} from './thumbnail/ThumbnailGeneratorMWs';
 import {ObjectManagers} from '../model/ObjectManagers';
 import {TimelinePageOptions} from '../model/timeline/TimelineManager';

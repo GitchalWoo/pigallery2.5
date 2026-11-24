@@ -152,7 +152,7 @@ export class GalleryCacheService {
       for (const item of toRemove) {
         localStorage.removeItem(item);
       }
-    } catch (e) {
+    } catch {
       // ignoring errors
     }
   }
@@ -354,7 +354,7 @@ export class GalleryCacheService {
       if (value != null) {
         return JSON.parse(value);
       }
-    } catch (e) {
+    } catch {
       // ignoring errors
     }
     return {} as PackedContentWrapperWithError;
@@ -425,7 +425,7 @@ export class GalleryCacheService {
           GalleryCacheService.VERSION,
           this.versionService.version.value
       );
-    } catch (e) {
+    } catch {
       // ignoring errors
     }
   }

@@ -24,7 +24,7 @@ describe('SharingMWs', () => {
       let createdShare: any = null;
 
       const mockSharingManager: any = {
-        findOne: async (key: string): Promise<any> => {
+        findOne: async (_key: string): Promise<any> => {
           findOneCalled++;
           return null; // Key not in use
         },

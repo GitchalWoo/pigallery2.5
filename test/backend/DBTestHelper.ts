@@ -7,7 +7,6 @@ import {ProjectPath} from '../../src/backend/ProjectPath';
 import {DirectoryBaseDTO, ParentDirectoryDTO, SubDirectoryDTO} from '../../src/common/entities/DirectoryDTO';
 import {ObjectManagers} from '../../src/backend/model/ObjectManagers';
 import {DiskManager} from '../../src/backend/model/fileaccess/DiskManager';
-import {IndexingManager} from '../../src/backend/model/database/IndexingManager';
 import {GalleryManager} from '../../src/backend/model/database/GalleryManager';
 import {Connection} from 'typeorm';
 import {Utils} from '../../src/common/Utils';
@@ -23,13 +22,6 @@ import {ProjectedDirectoryCacheEntity} from '../../src/backend/model/database/en
 
 declare let describe: any;
 const savedDescribe = describe;
-
-class IndexingManagerTest extends IndexingManager {
-
-  public async saveToDB(scannedDirectory: ParentDirectoryDTO): Promise<void> {
-    return super.saveToDB(scannedDirectory);
-  }
-}
 
 class GalleryManagerTest extends GalleryManager {
 

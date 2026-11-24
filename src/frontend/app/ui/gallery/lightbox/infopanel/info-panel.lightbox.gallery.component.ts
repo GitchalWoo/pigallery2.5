@@ -7,7 +7,6 @@ import {Utils} from '../../../../../../common/Utils';
 import {QueryService} from '../../../../model/query.service';
 import {MapService} from '../../map/map.service';
 import {
-  type ANDSearchQuery,
   type DistanceSearch, type DateSearch,
   SearchQueryTypes,
   type TextSearch,

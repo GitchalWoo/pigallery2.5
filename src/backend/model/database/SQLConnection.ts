@@ -119,7 +119,7 @@ export class SQLConnection {
     try {
       await getConnection('test').close();
       // eslint-disable-next-line no-empty
-    } catch (err) {
+    } catch {
     }
     const options = this.getDriver(config);
     options.name = 'test';

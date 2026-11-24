@@ -1,6 +1,6 @@
 import {Config} from '../../../../src/common/config/private/Config';
 import {Server} from '../../../../src/backend/server';
-import {UserDTO, UserRoles} from '../../../../src/common/entities/UserDTO';
+import {UserRoles} from '../../../../src/common/entities/UserDTO';
 import {SQLConnection} from '../../../../src/backend/model/database/SQLConnection';
 import {ObjectManagers} from '../../../../src/backend/model/ObjectManagers';
 import {DatabaseType} from '../../../../src/common/config/private/PrivateConfig';
@@ -10,7 +10,6 @@ import {DBTestHelper} from '../../DBTestHelper';
 import {MockOIDCServer} from '../../unit/middlewares/MockOIDCServer';
 import {OIDCAuthService} from '../../../../src/backend/middlewares/user/OIDCAuthService';
 import {RateLimiter} from '../../../../src/backend/middlewares/RateLimiter';
-import {RouteTestingHelper} from './RouteTestingHelper';
 
 process.env.NODE_ENV = 'test';
 const should = chai.should();

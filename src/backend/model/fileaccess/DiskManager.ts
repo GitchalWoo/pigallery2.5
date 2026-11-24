@@ -117,7 +117,7 @@ export class DiskManager {
           path.relative(ProjectPath.ImageFolder, path.join(absoluteName, exclude)));
         await fsp.access(marker);
         return true;
-      } catch (e) {
+      } catch {
         // ignoring errors
       }
     }

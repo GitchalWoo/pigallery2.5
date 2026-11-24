@@ -1,6 +1,6 @@
 import {Component, EventEmitter, Input, Output, type OnChanges, ChangeDetectionStrategy} from '@angular/core';
 import {BlogService, type GroupedMarkdown} from './blog.service';
-import {map, Observable} from 'rxjs';
+import {Observable} from 'rxjs';
 import { AsyncPipe } from '@angular/common';
 import { MarkdownComponent } from 'ngx-markdown';
 import { NgIconComponent } from '@ng-icons/core';

@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { FilterService } from './filter.service';
 import { PhotoDTO, FaceRegion, PhotoMetadata } from '../../../../../common/entities/PhotoDTO';
 import { DirectoryContent } from '../contentLoader.service';
-import { BehaviorSubject, firstValueFrom } from 'rxjs';
+import { BehaviorSubject } from 'rxjs';
 
 describe('FilterService', () => {
   let service: FilterService;

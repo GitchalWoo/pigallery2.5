@@ -71,7 +71,7 @@ describe('Settings middleware', (sqlHelper: DBTestHelper) => {
 
     req.body.settings.enforcedUsers = [{name: 'Apple', password: 'Apple pass', role: UserRoles.User}];
 
-    const next2: any = (err: ErrorDTO) => {
+    const next2: any = (_err: ErrorDTO) => {
       try {
         expect(Config.Users.enforcedUsers.length).to.be.equal(1);
         expect(Config.Users.enforcedUsers[0].name).to.be.equal('Apple');

@@ -1,4 +1,4 @@
-import {Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn} from 'typeorm';
+import {Column, Entity, ManyToOne, PrimaryGeneratedColumn} from 'typeorm';
 import {BaseSharingDTO} from '../../../../common/entities/SharingDTO';
 import {UserEntity} from './UserEntity';
 import {DirectorySearch, SearchQueryDTO} from '../../../../common/entities/SearchQueryDTO';

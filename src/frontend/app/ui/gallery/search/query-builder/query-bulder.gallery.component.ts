@@ -97,7 +97,7 @@ export class GallerySearchQueryBuilderComponent
           ), obj)) {
         return;
       }
-    } catch (e) {
+    } catch {
       // if cant parse they are not the same
     }
     this.searchQueryDTO = obj;
@@ -120,7 +120,7 @@ export class GallerySearchQueryBuilderComponent
         this.propagateChange(this.searchQueryDTO);
         return;
       }
-    } catch (e) {
+    } catch {
       // if cant parse they are not the same
     }
     this.rawSearchText = this.searchQueryParserService.stringify(

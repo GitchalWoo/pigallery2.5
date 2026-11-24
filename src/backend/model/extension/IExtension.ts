@@ -254,6 +254,8 @@ export interface IExtensionObject<C = void> {
   ui: IUIExtension<C>;
 }
 
+// C is part of the published extension API (IExtensionObject<C>.ui), kept for compatibility
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export interface IUIExtension<C> {
   /**
    * Adds a new button on to UI to all media (photo, video).

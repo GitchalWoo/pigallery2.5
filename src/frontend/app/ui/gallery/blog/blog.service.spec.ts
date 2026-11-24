@@ -1,5 +1,5 @@
 import {TestBed} from '@angular/core/testing';
-import {BlogService, GroupedMarkdown} from './blog.service';
+import {BlogService} from './blog.service';
 import {NetworkService} from '../../../model/network/network.service';
 import {ContentService} from '../content.service';
 import {MDFilesFilterPipe} from '../../../pipes/MDFilesFilterPipe';

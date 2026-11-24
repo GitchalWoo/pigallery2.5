@@ -119,7 +119,7 @@ export class UsersComponent implements OnInit {
     try {
       await this.userSettings.unlinkOidc(user);
       await this.getUsersList();
-    } catch (error) {
+    } catch {
       this.notification.error($localize`Could not unlink OIDC identity`);
     }
   }

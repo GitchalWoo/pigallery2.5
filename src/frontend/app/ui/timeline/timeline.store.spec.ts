@@ -1,17 +1,15 @@
-import {BehaviorSubject, Subject} from 'rxjs';
+import {BehaviorSubject} from 'rxjs';
 import {TimelineStore} from './timeline.store';
 import {MediaDTO} from '../../../../common/entities/MediaDTO';
 import {TimelinePageDTO, TimelineSummaryDTO} from '../../../../common/entities/TimelineDTO';
 import {UserDTO, UserRoles} from '../../../../common/entities/UserDTO';
 import {
   formatTimelineMonth,
-  getTimelineMediaId,
   getTimelineMonth,
   getTimelineMonthEnd,
   groupTimelineByDay,
   parseTimelineMonth,
 } from './timeline-grouping';
-import {QueryParams} from '../../../../common/QueryParams';
 
 interface Deferred<T> {
   promise: Promise<T>;

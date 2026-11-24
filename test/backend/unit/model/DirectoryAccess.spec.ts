@@ -8,7 +8,6 @@ import {DirectorySearch, SearchQueryTypes, TextSearch, TextSearchQueryMatchTypes
 import {UserRoles} from '../../../../src/common/entities/UserDTO';
 import {SharingEntity} from '../../../../src/backend/model/database/enitites/SharingEntity';
 import {UserEntity} from '../../../../src/backend/model/database/enitites/UserEntity';
-import {TestHelper} from '../../../TestHelper';
 import {Config} from '../../../../src/common/config/private/Config';
 import {DatabaseType} from '../../../../src/common/config/private/PrivateConfig';
 
