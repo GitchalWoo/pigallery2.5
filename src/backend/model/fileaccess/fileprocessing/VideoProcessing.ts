@@ -46,7 +46,7 @@ export class VideoProcessing {
     try {
       await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, origFilePath));
       await fsp.access(origFilePath, fsConstants.R_OK);
-    } catch (e) {
+    } catch {
       return false;
     }
 
@@ -60,7 +60,7 @@ export class VideoProcessing {
       await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
       await fsp.access(outPath, fsConstants.R_OK);
       return true;
-    } catch (e) {
+    } catch {
       // ignoring errors
     }
 
@@ -74,7 +74,7 @@ export class VideoProcessing {
       await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
       await fsp.access(outPath, fsConstants.R_OK);
       return;
-    } catch (e) {
+    } catch {
       // ignoring errors
     }
 

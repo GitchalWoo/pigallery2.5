@@ -36,7 +36,8 @@ export class GallerySearchQueryBuilderComponent
     type: SearchQueryTypes.any_text,
     value: '',
   } as TextSearch;
-  @Output() search = new EventEmitter<void>();
+  // not 'search': that is also a native DOM event of the host element
+  @Output() searchSubmit = new EventEmitter<void>();
   @Input() placeholder = $localize`Search`;
   // the label of the Enter key of phone keyboards; only fields where Enter searches set it to 'search'
   @Input() enterKeyHint: 'search' | undefined;
@@ -97,7 +98,7 @@ export class GallerySearchQueryBuilderComponent
           ), obj)) {
         return;
       }
-    } catch (e) {
+    } catch {
       // if cant parse they are not the same
     }
     this.searchQueryDTO = obj;
@@ -120,7 +121,7 @@ export class GallerySearchQueryBuilderComponent
         this.propagateChange(this.searchQueryDTO);
         return;
       }
-    } catch (e) {
+    } catch {
       // if cant parse they are not the same
     }
     this.rawSearchText = this.searchQueryParserService.stringify(
@@ -129,7 +130,6 @@ export class GallerySearchQueryBuilderComponent
     this.propagateChange(this.searchQueryDTO);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private propagateChange = (_: SearchQueryDTO): void => {
     // ignoring
   };

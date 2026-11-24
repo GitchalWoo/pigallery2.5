@@ -4,8 +4,6 @@ import {TAGS} from '../../../../../src/common/config/public/ClientConfig';
 
 // to help WebStorm to handle the test cases
 declare let describe: any;
-declare const after: any;
-declare const before: any;
 declare const it: any;
 
 

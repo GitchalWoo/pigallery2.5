@@ -37,7 +37,8 @@ import {GallerySearchQueryBuilderComponent} from '../query-builder/query-bulder.
 })
 export class GallerySearchFieldComponent
   implements ControlValueAccessor, Validator {
-  @Output() search = new EventEmitter<void>();
+  // not 'search': that is also a native DOM event of the host element
+  @Output() searchSubmit = new EventEmitter<void>();
   @Input() placeholder: string;
   public rawSearchText = '';
   public searchQueryDTO: SearchQueryDTO;
@@ -75,7 +76,7 @@ export class GallerySearchFieldComponent
         ), obj)) {
         return;
       }
-    } catch (e) {
+    } catch {
       // if cant parse they are not the same
     }
     this.searchQueryDTO = obj;
@@ -107,7 +108,7 @@ export class GallerySearchFieldComponent
         this.onChange();
         return;
       }
-    } catch (e) {
+    } catch {
       // if cant parse they are not the same
     }
     this.rawSearchText = this.searchQueryParserService.stringify(
@@ -128,7 +129,6 @@ export class GallerySearchFieldComponent
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private propagateChange = (_: SearchQueryDTO): void => {
     //ignoring
   };

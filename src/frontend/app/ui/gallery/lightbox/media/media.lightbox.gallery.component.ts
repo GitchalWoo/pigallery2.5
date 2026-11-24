@@ -186,7 +186,7 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
         this.nextImage.onerror = null;
         try {
           this.nextImage.removeAttribute('src');
-        } catch (e) {
+        } catch {
           this.nextImage.src = '';
         }
       }
@@ -226,7 +226,7 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
       this.nextImage.onerror = null;
       try {
         this.nextImage.removeAttribute('src');
-      } catch (e) {
+      } catch {
         this.nextImage.src = '';
       }
     }
@@ -243,7 +243,7 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
       this.upgradeImage.onerror = null;
       try {
         this.upgradeImage.src = '';
-      } catch (e) {
+      } catch {
         // ignore
       }
       this.upgradeImage = null;

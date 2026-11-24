@@ -10,6 +10,8 @@ import {DirectorySearch, SearchQueryTypes, TextSearch, TextSearchQueryMatchTypes
 // to help WebStorm to handle the test cases
 declare let describe: any;
 declare const after: any;
+// replaces mocha's global describe for this file
+// eslint-disable-next-line prefer-const
 describe = DBTestHelper.describe();
 
 describe('SharingManager', (sqlHelper: DBTestHelper) => {
@@ -100,7 +102,7 @@ describe('SharingManager', (sqlHelper: DBTestHelper) => {
       timeStamp: Date.now()
     };
 
-    const saved = await sm.createSharing(sharing);
+    await sm.createSharing(sharing);
     const found = await sm.findOne('testKey');
 
     expect(found.id).to.not.equals(null);

@@ -68,7 +68,7 @@ export class AuthenticationMWs {
         await AuthenticationMWs.startSession(req, user);
       }
       // eslint-disable-next-line no-empty
-    } catch (err) {
+    } catch {
     }
 
     return next();
@@ -98,7 +98,8 @@ export class AuthenticationMWs {
     let user;
     try {
       user = await AuthenticationMWs.getSharingUser(req);
-    } catch (err) {
+    } catch {
+      // no valid sharing: checked below as no user
     }
 
     if (!user) {

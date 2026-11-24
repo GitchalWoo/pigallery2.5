@@ -64,6 +64,7 @@ export class NavigationService {
     return typeof url === 'string' &&
       url.length <= 2048 &&
       // no control characters and no backslash: browsers read '/\host' as another site
+      // eslint-disable-next-line no-control-regex -- matching control characters is the point
       !/[\u0000-\u001f\u007f\\]/.test(url) &&
       // a path of this app, not '//host'; not an encoded slash or backslash either
       /^\/(?![/]|%2f|%5c)/i.test(url) &&

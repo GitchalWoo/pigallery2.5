@@ -15,7 +15,7 @@ export class ScheduledJobsService {
   timer: number = null;
   public availableJobs: BehaviorSubject<JobDTO[]>;
   public availableMessengers: BehaviorSubject<string[]>;
-  public jobStartingStopping: { [key: string]: boolean } = {};
+  public jobStartingStopping: Record<string, boolean> = {};
   private subscribers = 0;
 
   constructor(
@@ -119,7 +119,7 @@ export class ScheduledJobsService {
   protected async loadProgress(): Promise<void> {
     const prevPrg = this.progress.value;
     this.progress.next(
-      await this.networkService.getJson<{ [key: string]: JobProgressDTO }>(
+      await this.networkService.getJson<Record<string, JobProgressDTO>>(
         '/admin/jobs/scheduled/progress'
       )
     );

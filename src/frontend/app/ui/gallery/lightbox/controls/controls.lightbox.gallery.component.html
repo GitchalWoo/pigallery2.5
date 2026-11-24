@@ -151,9 +151,9 @@
 
   <div id="swipeable-container" appLightboxGestures
     [class.hide-cursor]="controllersDimmed"
-    (swipeleft)="zoom == 1 && nextPhoto.emit()"
-    (swiperight)="zoom == 1 && previousPhoto.emit()"
-    (swipeup)="zoom == 1 && closed.emit()"
+    (swipeleft)="zoom === 1 && nextPhoto.emit()"
+    (swiperight)="zoom === 1 && previousPhoto.emit()"
+    (swipeup)="zoom === 1 && closed.emit()"
     (tap)="tap($event)"
     (pan)="pan($event)"
     (pinchstart)="pinchstart()"
@@ -209,7 +209,7 @@
 
   </div>
 
-  @if (navigation.hasPrev && zoom == 1) {
+  @if (navigation.hasPrev && zoom === 1) {
     <div [class.dim-controls]="controllersDimmed" class="navigation-arrow navigation-arrow-left highlight rounded-end"
       title="key: left arrow" id="leftArrow" i18n-title
       role="button"
@@ -219,7 +219,7 @@
       <ng-icon name="ionChevronBackOutline"></ng-icon>
     </div>
   }
-  @if (navigation.hasNext && zoom == 1) {
+  @if (navigation.hasNext && zoom === 1) {
     <div [class.dim-controls]="controllersDimmed" class="navigation-arrow navigation-arrow-right highlight rounded-start"
       [title]="navigation.nextLoops ? restartTitle : nextTitle" id="rightArrow"
       role="button"
@@ -263,7 +263,7 @@
     </div>
   }
 
-  @if (zoom == 1 && activePhoto && activePhoto.gridMedia.isPhoto()) {
+  @if (zoom === 1 && activePhoto && activePhoto.gridMedia.isPhoto()) {
     <div [class.dim-controls]="controllersDimmed" class="controls controls-playback"
       >
       <div class="controls-background rounded-start-top pe-1 pb-1">

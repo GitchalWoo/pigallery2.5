@@ -11,7 +11,6 @@ describe('VideoProcessing', () => {
     await Config.load();
   });
 
-  /* eslint-disable no-unused-expressions,@typescript-eslint/no-unused-expressions */
   it('should generate converted file path', async () => {
 
     ProjectPath.ImageFolder = path.join(__dirname, './../../../assets');

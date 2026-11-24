@@ -16,7 +16,7 @@ export class DatabaseMigrations {
     try {
       version = (await connection.getRepository(VersionEntity).find())[0];
       // eslint-disable-next-line no-empty
-    } catch (ex) {
+    } catch {
     }
     if (version && version.version === DataStructureVersion) {
       return;

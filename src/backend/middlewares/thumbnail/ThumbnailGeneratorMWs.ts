@@ -70,7 +70,6 @@ export class ThumbnailGeneratorMWs {
     ThumbnailGeneratorMWs.addThInfoToPhotos(media);
   }
 
-  // eslint-disable-next-line @typescript-eslint/typedef, @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
   public static addThumbnailInfoForPersons(
     req: Request,
     res: Response,

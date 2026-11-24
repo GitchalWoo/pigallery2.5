@@ -22,7 +22,7 @@ import {
   ClientUserConfig,
   ClientUserOIDCConfig,
   ClientVideoConfig,
-  ConfigPriority, MapProviders,
+  ConfigPriority,
   TAGS
 } from '../public/ClientConfig';
 import {ConfigProperty, SubConfigClass} from 'typeconfig/common';
@@ -1194,7 +1194,7 @@ export class ServerAlbumCoverConfig {
       priority: ConfigPriority.advanced
     },
     constraint: {
-      assert: (v: ClientSortingConfig[], c: ServerConfig) => {
+      assert: (v: ClientSortingConfig[], _c: ServerConfig) => {
         // random should stand on its own
         return !Array.isArray(v) || v.filter((s) => s.method == SortByTypes.Random).length == 0 || v.length == 1;
       },

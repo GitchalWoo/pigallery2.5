@@ -41,8 +41,8 @@ export class UsersComponent implements OnInit {
   public editOriginalUser: UserDTO = null;
 
   // Confirm password fields for validation
-  public newUserPasswordConfirm: string = '';
-  public confirmNewPassword: string = '';
+  public newUserPasswordConfirm = '';
+  public confirmNewPassword = '';
 
   get newUserPasswordsMismatch(): boolean {
     return !!this.newUser?.password && this.newUserPasswordConfirm !== this.newUser.password;
@@ -119,7 +119,7 @@ export class UsersComponent implements OnInit {
     try {
       await this.userSettings.unlinkOidc(user);
       await this.getUsersList();
-    } catch (error) {
+    } catch {
       this.notification.error($localize`Could not unlink OIDC identity`);
     }
   }

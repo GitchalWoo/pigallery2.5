@@ -6,13 +6,13 @@ import {SafePath} from '../SafePath';
 import {Config} from '../../../../common/config/private/Config';
 import {SupportedFormats} from '../../../../common/SupportedFormats';
 
-type gpxEntry = {
+interface gpxEntry {
   '@_lat': string | number;
   '@_lon': string | number;
   ele?: unknown;
   time?: string | string[];
   extensions?: unknown;
-};
+}
 
 export class GPXProcessing {
   private static readonly GPX_FLOAT_ACCURACY = 6;
@@ -54,7 +54,7 @@ export class GPXProcessing {
     try {
       await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, origFilePath));
       await fsp.access(origFilePath, fsConstants.R_OK);
-    } catch (e) {
+    } catch {
       return false;
     }
 
@@ -73,7 +73,7 @@ export class GPXProcessing {
       await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
       await fsp.access(outPath, fsConstants.R_OK);
       return true;
-    } catch (e) {
+    } catch {
       // ignoring errors
     }
     return false;
@@ -90,7 +90,7 @@ export class GPXProcessing {
       await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
       await fsp.access(outPath, fsConstants.R_OK);
       return outPath;
-    } catch (e) {
+    } catch {
       // ignoring errors
     }
 

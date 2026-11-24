@@ -12,7 +12,6 @@ import {SuperAgentStatic} from 'superagent';
 import {RouteTestingHelper} from './RouteTestingHelper';
 import {QueryParams} from '../../../../src/common/QueryParams';
 import {DatabaseType} from '../../../../src/common/config/private/PrivateConfig';
-import {TestHelper} from '../../../TestHelper';
 import {ProjectPath} from '../../../../src/backend/ProjectPath';
 import * as chai from "chai";
 import {default as chaiHttp, request} from "chai-http";
@@ -32,7 +31,6 @@ describe('PublicRouter', () => {
     password: 'test',
     role: UserRoles.User
   };
-  const {password: pass, ...expectedUser} = testUser;
 
   let server: Server;
   const setUp = async () => {
@@ -219,7 +217,7 @@ describe('PublicRouter', () => {
         .get('/icon.png')
         .buffer(true)
         .parse(function(res, callback) {
-          let data: any = [];
+          const data: any = [];
           res.on('data', function(chunk) {
             data.push(chunk);
           });
@@ -256,7 +254,7 @@ describe('PublicRouter', () => {
         .get('/icon.png')
         .buffer(true)
         .parse(function(res, callback) {
-          let data: any = [];
+          const data: any = [];
           res.on('data', function(chunk) {
             data.push(chunk);
           });
@@ -290,7 +288,7 @@ describe('PublicRouter', () => {
         .get('/icon.png')
         .buffer(true)
         .parse(function(res, callback) {
-          let data: any = [];
+          const data: any = [];
           res.on('data', function(chunk) {
             data.push(chunk);
           });
@@ -304,7 +302,7 @@ describe('PublicRouter', () => {
         .get('/icon_white.png')
         .buffer(true)
         .parse(function(res, callback) {
-          let data: any = [];
+          const data: any = [];
           res.on('data', function(chunk) {
             data.push(chunk);
           });

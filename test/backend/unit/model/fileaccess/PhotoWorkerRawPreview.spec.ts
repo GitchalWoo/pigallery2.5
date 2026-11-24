@@ -305,7 +305,6 @@ describe('PhotoWorker RAW Preview Safety and Orientation', () => {
   });
 
   describe('Candidate Fallback Sequencing (getRawPreview & render fallback)', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const exifr = require('exifr');
     const mockRawFile = path.join(tempDir, 'mock_raw_fallback.cr2');
 
@@ -772,7 +771,7 @@ describe('PhotoWorker RAW Preview Safety and Orientation', () => {
 
       let getRawPreviewCalls = 0;
       const origGetRawPreview = ImageRendererFactory.getRawPreview;
-      ImageRendererFactory.getRawPreview = async (filePath: string) => {
+      ImageRendererFactory.getRawPreview = async (_filePath: string) => {
         getRawPreviewCalls++;
         return {
           buffer: validJpeg,

@@ -6,7 +6,7 @@
 
 @if (state) {
   <div class="mb-1 row"
-    [class.mb-3]="settingsService.configStyle == ConfigStyle.full"
+    [class.mb-3]="settingsService.configStyle === ConfigStyle.full"
     [class.changed-settings]="changed"
     [class.docker-warning]="dockerWarning"
     [hidden]="shouldHide">
@@ -272,7 +272,7 @@
                         [name]="'list_ml_url_'+idName+i" [id]="'list_ml_url_'+idName+i" required>
                     </td>
                     <td>
-                      <button type="button" [disabled]="state.value.length == 1"
+                      <button type="button" [disabled]="state.value.length === 1"
                         [ngClass]="state.value.length > 1? 'btn-danger':'btn-secondary'"
                         (click)="removeLayer(layer)"
                         class="btn float-end">
@@ -305,7 +305,7 @@
                       (change)="onChange($event)"></app-settings-entry>
                     </div>
                     <div class="col-1 pe-0">
-                      <button type="button" [disabled]="state.value.length == 1" (click)="remove(i)"
+                      <button type="button" [disabled]="state.value.length === 1" (click)="remove(i)"
                         [ngClass]="state.value.length > 1? 'btn-danger':'btn-secondary'"
                         class="btn float-end">
                         <ng-icon name="ionTrashOutline" title="Delete" i18n-title></ng-icon>
@@ -367,7 +367,7 @@
                         [id]="'arr_n_'+idName+i" required>
                     </div>
                     <div class="col-1 pe-0">
-                      <button type="button" [disabled]="state.value.length == 1" (click)="remove(i)"
+                      <button type="button" [disabled]="state.value.length === 1" (click)="remove(i)"
                         [ngClass]="state.value.length > 1? 'btn-danger':'btn-secondary'"
                         class="btn float-end">
                         <ng-icon name="ionTrashOutline" title="Delete" i18n-title></ng-icon>
@@ -451,7 +451,7 @@
                     </div>
                   }
                   <div class="col-1 pe-0">
-                    <button type="button" [disabled]="state.value.length == 1" (click)="remove(i)"
+                    <button type="button" [disabled]="state.value.length === 1" (click)="remove(i)"
                       [ngClass]="state.value.length > 1? 'btn-danger':'btn-secondary'"
                       class="btn float-end">
                       <ng-icon name="ionTrashOutline" title="Delete" i18n-title></ng-icon>
@@ -520,7 +520,7 @@
                     }
                   </div>
                   <div class="col-1 pe-0">
-                    <button type="button" [disabled]="(state.value.length == 1 && !state.tags.uiOptional) || state.readonly"
+                    <button type="button" [disabled]="(state.value.length === 1 && !state.tags.uiOptional) || state.readonly"
                       (click)="remove(i)"
                       [ngClass]="(state.value.length > 1  || state.tags.uiOptional)? 'btn-danger':'btn-secondary'"
                       class="btn float-end">
@@ -566,7 +566,7 @@
                 <ng-container>
                   <div class="col-auto pe-0">
                     <button type="button" class="btn float-end"
-                      [disabled]="state.value.length == 1"
+                      [disabled]="state.value.length === 1"
                       [ngClass]="state.value.length > 1? 'btn-danger':'btn-secondary'"
                       [id]="'list_btn_'+idName+i"
                       [name]="'list_btn_'+idName+i" (click)="remove(i)">
@@ -608,7 +608,7 @@
                 <ng-container>
                   <div class="col-auto pe-0">
                     <button type="button" class="btn float-end"
-                      [disabled]="state.value.length == 1"
+                      [disabled]="state.value.length === 1"
                       [ngClass]="state.value.length > 1? 'btn-danger':'btn-secondary'"
                       [id]="'list_btn_'+idName+i"
                       [name]="'list_btn_'+idName+i" (click)="remove(i)">
@@ -653,7 +653,7 @@
           {{ message }}
         </small>
       }
-      @if (settingsService.configStyle == ConfigStyle.full) {
+      @if (settingsService.configStyle === ConfigStyle.full) {
         <small class="form-text text-muted">
           @if (experimental) {
             <ng-icon name="ionWarningOutline"></ng-icon>

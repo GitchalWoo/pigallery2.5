@@ -10,7 +10,7 @@ import {GalleryCacheService} from '../ui/gallery/cache.gallery.service';
 })
 export class ThemeService {
   mode: ThemeModes = ThemeModes.light;
-  public readonly darkMode: BehaviorSubject<boolean> = new BehaviorSubject(false);
+  public readonly darkMode = new BehaviorSubject<boolean>(false);
   public readonly matcher = window.matchMedia('(prefers-color-scheme: dark)');
 
   constructor(private cachingService: GalleryCacheService) {

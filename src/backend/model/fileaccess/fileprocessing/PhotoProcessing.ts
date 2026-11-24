@@ -64,7 +64,7 @@ export class PhotoProcessing {
       await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, thPath));
       await fsp.access(thPath, fsConstants.R_OK);
       return thPath;
-    } catch (e) {
+    } catch {
       // ignoring errors
     }
 
@@ -243,7 +243,7 @@ export class PhotoProcessing {
     try {
       await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, origFilePath));
       await fsp.access(origFilePath, fsConstants.R_OK);
-    } catch (e) {
+    } catch {
       return false;
     }
 
@@ -263,7 +263,7 @@ export class PhotoProcessing {
       await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
       await fsp.access(outPath, fsConstants.R_OK);
       return true;
-    } catch (e) {
+    } catch {
       // ignoring errors
     }
     return false;
@@ -284,7 +284,7 @@ export class PhotoProcessing {
       await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, outPath));
       await fsp.access(outPath, fsConstants.R_OK);
       return outPath;
-    } catch (e) {
+    } catch {
       // ignoring errors
     }
 
@@ -340,7 +340,7 @@ export class PhotoProcessing {
       await SafePath.resolveExisting(ProjectPath.TempFolder, path.relative(ProjectPath.TempFolder, hashedOutPath));
       await fsp.access(hashedOutPath, fsConstants.R_OK);
       return hashedOutPath;
-    } catch (e) {
+    } catch {
       // ignoring errors
     }
 

@@ -37,7 +37,7 @@ export class MediaButtonModalComponent implements OnInit, OnDestroy {
   }
 
   getFieldLabel(field: IClientMediaFields): string {
-    const labels: { [key in IClientMediaFields]: string } = {
+    const labels: Record<IClientMediaFields, string> = {
       title: $localize`Title`,
       caption: $localize`Caption`,
       cameraData: $localize`Camera Data`,

@@ -393,7 +393,7 @@ export class GalleryMWs {
       if ((await fsp.stat(fullMediaPath)).isDirectory()) {
         return next();
       }
-    } catch (e) {
+    } catch {
       return next(
         new ErrorDTO(
           ErrorCodes.PATH_ERROR,
@@ -426,7 +426,7 @@ export class GalleryMWs {
       await fsp.access(convertedVideo);
       req.resultPipe = convertedVideo;
       return next();
-    } catch (e) {
+    } catch {
       // An unconverted video would stream the original file.
       return GalleryMWs.authoriseDownload(req, res, next);
     }

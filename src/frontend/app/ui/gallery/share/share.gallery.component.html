@@ -195,7 +195,7 @@
                   <ng-icon name="ionCopyOutline"></ng-icon>
                 </button>
                 <button type="button" (click)="deleteSharing(share)"
-                  [disabled]="share.sharingKey == sharing?.sharingKey"
+                  [disabled]="share.sharingKey === sharing?.sharingKey"
                   class="btn btn-sm btn-danger">
                   <ng-icon name="ionTrashOutline" title="Delete" i18n-title></ng-icon>
                 </button>

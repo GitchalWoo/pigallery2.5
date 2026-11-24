@@ -15,7 +15,7 @@ import {HttpHeaders} from '@angular/common/http';
 @Injectable()
 export class NetworkService {
   readonly apiBaseUrl = Config.Server.getApiUrl();
-  private globalErrorHandlers: Array<(error: ErrorDTO) => boolean> = [];
+  private globalErrorHandlers: ((error: ErrorDTO) => boolean)[] = [];
 
   constructor(
     private http: HttpClient,
@@ -33,7 +33,7 @@ export class NetworkService {
     return headers;
   }
 
-  public static buildUrl(url: string, data?: { [key: string]: unknown }): string {
+  public static buildUrl(url: string, data?: Record<string, unknown>): string {
     if (data) {
       const keys = Object.getOwnPropertyNames(data);
       if (keys.length > 0) {
@@ -124,7 +124,7 @@ export class NetworkService {
     return this.callJson('put', url, data);
   }
 
-  public getJson<T>(url: string, query?: { [key: string]: any }): Promise<T> {
+  public getJson<T>(url: string, query?: Record<string, any>): Promise<T> {
     return this.callJson('get', NetworkService.buildUrl(url, query));
   }
 

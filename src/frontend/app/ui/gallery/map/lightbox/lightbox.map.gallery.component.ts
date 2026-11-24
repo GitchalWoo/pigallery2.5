@@ -1,4 +1,4 @@
-import {Component, ElementRef, HostListener, Input, type OnChanges, type OnDestroy, type SimpleChanges, ViewChild, ChangeDetectionStrategy} from '@angular/core';
+import {Component, ElementRef, HostListener, Input, type OnChanges, type OnDestroy, type SimpleChanges, ViewChild, ChangeDetectionStrategy, OnInit} from '@angular/core';
 import {type PhotoDTO} from '../../../../../../common/entities/PhotoDTO';
 import {type Dimension} from '../../../../model/IRenderable';
 import {FullScreenService} from '../../fullscreen.service';
@@ -56,7 +56,7 @@ import {QueryService} from '../../../../model/query.service';
     NgIconComponent
 ]
 })
-export class GalleryMapLightboxComponent implements OnChanges, OnDestroy {
+export class GalleryMapLightboxComponent implements OnChanges, OnDestroy, OnInit {
   @Input() photos: PhotoDTO[];
   @Input() gpxFiles: FileDTO[];
   @Input() parentDimension: Dimension;
@@ -141,7 +141,7 @@ export class GalleryMapLightboxComponent implements OnChanges, OnDestroy {
   }[] = [];
   private thumbnailsOnLoad: ThumbnailBase[] = [];
   private leafletMap: Map;
-  private longPathSEPairs: { [key: string]: number } = {}; // stores how often a long distance path pair comes up
+  private longPathSEPairs: Record<string, number> = {}; // stores how often a long distance path pair comes up
 
   constructor(
     public fullScreenService: FullScreenService,
@@ -156,8 +156,7 @@ export class GalleryMapLightboxComponent implements OnChanges, OnDestroy {
     this.setUpPathLayers();
     this.mapOptions.layers = [this.mapLayersControlOption.overlays.Photos];
     this.pathLayersConfigOrdered.forEach(pl => this.mapOptions.layers.push(pl.layer));
-    for (let i = 0; i < mapService.Layers.length; ++i) {
-      const l = mapService.Layers[i];
+    for (const l of mapService.Layers) {
       const tl = tileLayer(l.url, {attribution: mapService.Attributions});
       if (l.url === mapService.MapLayer.url) {
         this.defLayer = tl;

@@ -183,9 +183,9 @@ export class FilterService {
 
     // finding the resolution
     let usedDiv = H;
-    for (let i = 0; i < divs.length; ++i) {
-      if (diff / divs[i] < 26) {
-        usedDiv = divs[i];
+    for (const div of divs) {
+      if (diff / div < 26) {
+        usedDiv = div;
         break;
       }
     }
@@ -310,7 +310,7 @@ export class FilterService {
             for (const f of afilters.selectedFilters) {
 
               /* Update filter options */
-              const valueMap: { [key: string]: { name: string | number, count: number, selected: boolean } } = {};
+              const valueMap: Record<string, { name: string | number, count: number, selected: boolean }> = {};
               f.options.forEach((o) => {
                 valueMap[o.name] = o;
                 o.count = 0; // reset count so unknown options can be removed at the end

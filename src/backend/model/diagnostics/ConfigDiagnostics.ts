@@ -54,7 +54,6 @@ export class ConfigDiagnostics {
 
   static checkReadWritePermission(path: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      // eslint-disable-next-line no-bitwise
       fs.access(path, fs.constants.R_OK | fs.constants.W_OK, (err) => {
         if (err) {
           return reject(err);
@@ -74,7 +73,7 @@ export class ConfigDiagnostics {
         await this.checkReadWritePermission(
           SQLConnection.getSQLiteDB(databaseConfig)
         );
-      } catch (e) {
+      } catch {
         throw new Error(
           'Cannot read or write sqlite storage file: ' +
           SQLConnection.getSQLiteDB(databaseConfig)
@@ -152,7 +151,6 @@ export class ConfigDiagnostics {
 
   static async testSharp(): Promise<void> {
     Logger.debug(LOG_TAG, 'Testing sharp package');
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const sharp = require('sharp');
     sharp();
   }
@@ -342,7 +340,7 @@ export class ConfigDiagnostics {
       try {
         ConfigDiagnostics.testNavigationLink(l);
         return true;
-      } catch (e) {
+      } catch {
         return false;
       }
     });

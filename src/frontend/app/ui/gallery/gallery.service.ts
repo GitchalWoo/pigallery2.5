@@ -1,4 +1,4 @@
-import {Injectable} from '@angular/core';
+import {Injectable, OnDestroy} from '@angular/core';
 import {ActivatedRoute, type Params, Router} from '@angular/router';
 import {BehaviorSubject, Subscription} from 'rxjs';
 import {Config} from '../../../../common/config/public/Config';
@@ -7,7 +7,7 @@ import {QueryParams} from '../../../../common/QueryParams';
 @Injectable({
   providedIn: 'root'
 })
-export class GalleryService {
+export class GalleryService implements OnDestroy {
   public autoPollIntervalS = new BehaviorSubject(Config.Gallery.AutoUpdate.enable ? Config.Gallery.AutoUpdate.interval : 0);
   private subscription: Subscription;
 

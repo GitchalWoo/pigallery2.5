@@ -28,7 +28,7 @@ later, **L** = cleanup.
 |---|---|---|---|
 | T1 | Generated `.js` / `.js.map` files next to TypeScript sources | L | Completed in `cleanup/techdebt-modernization`: verified all git-ignored compiled files, working tree clean. |
 | T6 | Backend test fixtures tie on unrated album covers | L | Completed in `cleanup/techdebt-modernization`: added deterministic multi-criteria sorting and creationDate/name tie-breakers in `TestHelper.updateDirCache()`. |
-| T8 | ESLint config matches only top-level files | M | `eslint.config.mjs` uses `src/frontend/*.ts`, `src/frontend/*.html`, `src/backend/*.ts` and `test/*.ts`, so `ng lint` skips almost every source file. With `**` globs the existing rule sets report about 2,300 errors (mostly `no-explicit-any`, `prefer-inject`, `no-unused-vars`, template `eqeqeq`). P08 added a separate block that checks `button-has-type` in every template; widen the globs and fix or tune the rules in a dedicated cleanup. |
+| T8 | ESLint: explicit `any` and keyboard accessibility | M | Since `chore/lint-all-files`, `ng lint` checks every source, template and test file with zero errors. Still warnings: `@typescript-eslint/no-explicit-any` (about 1,350: 954 in tests, 266 frontend, 132 backend/common), to be removed after the upstream ports, and the keyboard and screen reader rules of `templateAccessibility` (79 findings in 16 legacy templates), fixed in the accessibility PR (adapting upstream `23eb43d7`). Then switch both to errors. |
 
 ## ARMv7 Docker follow-up
 

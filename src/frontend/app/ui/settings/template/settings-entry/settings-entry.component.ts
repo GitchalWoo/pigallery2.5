@@ -432,7 +432,7 @@ export class SettingsEntryComponent
     return this.checkRange();
   }
 
-  public onChange = (value: unknown): void => {
+  public onChange = (_value: unknown): void => {
     // empty
   };
 

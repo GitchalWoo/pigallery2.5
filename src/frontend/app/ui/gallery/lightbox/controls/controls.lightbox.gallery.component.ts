@@ -405,7 +405,7 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
       return null;
     }
     const m = this.activePhoto.gridMedia.media as PhotoDTO;
-    let retTexts = [];
+    const retTexts = [];
     const getDir = () => {
       const p = Utils.concatUrls(
         m.directory.path,
@@ -446,10 +446,11 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
         case LightBoxTitleTexts.persons:
           retTexts.push(m.metadata?.faces?.map(f => f.name)?.join(', '));
           break;
-        case LightBoxTitleTexts.date:
+        case LightBoxTitleTexts.date: {
           const isThisYear = MediaDTOUtils.createdThisYear(m);
           retTexts.push(this.datePipe.transform(Utils.getTimeMS(m.metadata.creationDate, m.metadata.creationDateOffset, Config.Gallery.ignoreTimestampOffset), isThisYear ? 'MMMM d' : 'longDate', 'UTC'));
           break;
+        }
         case LightBoxTitleTexts.location:
           if (!m.metadata?.positionData) {
             break;

@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-expressions,@typescript-eslint/no-unused-expressions */
 import {Brackets} from 'typeorm';
 import {expect} from 'chai';
 import {AuthenticationMWs} from '../../../../../src/backend/middlewares/user/AuthenticationMWs';
@@ -638,7 +637,6 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
         session: {},
         sessionOptions: {},
       };
-      const res: any = {};
       const next: any = (err: ErrorDTO) => {
         try {
           expect(err).to.be.undefined;
@@ -805,7 +803,7 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
         }
       };
       ObjectManagers.getInstance().UserManager = {
-        findOne: (filter: never) => {
+        findOne: (_filter: never) => {
           return Promise.resolve(testUser);
         }
       } as any;
@@ -870,19 +868,19 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
       };
 
       ObjectManagers.getInstance().UserManager = {
-        findOne: (filter: never) => {
+        findOne: (_filter: never) => {
           return Promise.resolve(testUser);
         }
       } as any;
 
       // Add SearchManager mock to avoid errors in buildContext
       ObjectManagers.getInstance().SearchManager = {
-        prepareAndBuildWhereQuery: (query: any) => {
+        prepareAndBuildWhereQuery: (_query: any) => {
           return Promise.resolve(null);
         }
       } as any;
 
-      // @ts-ignore
+      // @ts-expect-error buildContext is replaced by a mock
       ObjectManagers.getInstance().SessionManager.buildContext = async (user: any) => {
         expect(user).to.deep.include(testUser);
         return testContext;
@@ -932,13 +930,13 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
       };
 
       ObjectManagers.getInstance().UserManager = {
-        findOne: (filter: never) => {
+        findOne: (_filter: never) => {
           return Promise.resolve(testUser);
         }
       } as any;
 
 
-      // @ts-ignore
+      // @ts-expect-error buildContext is replaced by a mock
       ObjectManagers.getInstance().SessionManager.buildContext = async (user: any) => {
         expect(user).to.deep.include(testUser);
         return testContext;
@@ -988,9 +986,9 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
         }
       };
 
-      // @ts-ignore
+      // @ts-expect-error UserManager is replaced by a mock
       ObjectManagers.getInstance().UserManager = {
-        findOne: (filter: never) => {
+        findOne: (_filter: never) => {
           return Promise.resolve(testUser);
         }
       } as UserManager;
@@ -1003,7 +1001,7 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
         }
       } as any;
 
-      // @ts-ignore
+      // @ts-expect-error buildContext is replaced by a mock
       ObjectManagers.getInstance().SessionManager.buildContext = async (user: any) => {
         expect(user).to.deep.include(testUser);
         return testContext;
@@ -1060,9 +1058,9 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
         }
       };
 
-      // @ts-ignore
+      // @ts-expect-error UserManager is replaced by a mock
       ObjectManagers.getInstance().UserManager = {
-        findOne: (filter: never) => {
+        findOne: (_filter: never) => {
           return Promise.resolve({...testUser});
         }
       } as UserManager;
@@ -1076,7 +1074,7 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
         }
       } as any;
 
-      // @ts-ignore
+      // @ts-expect-error buildContext is replaced by a mock
       ObjectManagers.getInstance().SessionManager.buildContext = async (user: any) => {
         expect(user).to.deep.include({
           name: testUser.name,

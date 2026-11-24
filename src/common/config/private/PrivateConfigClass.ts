@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
 import {ServerConfig} from './PrivateConfig';
 import * as crypto from 'crypto';
 import * as path from 'path';
@@ -7,8 +6,6 @@ import {ConfigClass} from 'typeconfig/node';
 import {IConfigClass} from 'typeconfig/common';
 import {PasswordHelper} from '../../../backend/model/PasswordHelper';
 import {ClientConfig, TAGS} from '../public/ClientConfig';
-import {IConfigClassPrivate} from 'typeconfig/src/decorators/class/IConfigClass';
-import {Utils} from '../../Utils';
 
 declare const process: any;
 const upTime = new Date().toISOString();

@@ -10,7 +10,7 @@ export class ExtensionInstallerService {
   constructor(private networkService: NetworkService) {
   }
 
-  public getExtensions(): Promise<Array<ExtensionListItem>> {
+  public getExtensions(): Promise<ExtensionListItem[]> {
     return this.networkService.getJson('/extension/list');
   }
 

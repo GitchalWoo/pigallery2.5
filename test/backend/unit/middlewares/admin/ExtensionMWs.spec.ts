@@ -6,7 +6,7 @@ import {ObjectManagers} from '../../../../../src/backend/model/ObjectManagers';
 describe('ExtensionMWs', () => {
   let managers: ObjectManagers;
   let originalExtensionManager: unknown;
-  let calls: Array<{name: string; args: unknown[]}>
+  let calls: {name: string; args: unknown[]}[]
   let error: any;
 
   const invoke = async (method: (req: any, res: any, next: (err?: any) => void) => Promise<void>, req: any) => {

@@ -13,7 +13,7 @@ describe('SharingMWs management', () => {
   const originalEnabled = Config.Sharing.enabled;
   const originalPasswordRequired = Config.Sharing.passwordRequired;
   let originalSharingManager: unknown;
-  let calls: Array<{name: string; args: unknown[]}>;
+  let calls: {name: string; args: unknown[]}[];
   let error: any;
   let statusCode: number | undefined;
 

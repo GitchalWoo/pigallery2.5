@@ -1,5 +1,4 @@
 import {Component, type OnDestroy, type OnInit, ChangeDetectionStrategy} from '@angular/core';
-import {RouterLink} from '@angular/router';
 import {type FilterOption, FilterService, type SelectedFilter} from './filter.service';
 import { NgClass, DatePipe } from '@angular/common';
 import { PopoverDirective } from 'ngx-bootstrap/popover';
@@ -103,7 +102,7 @@ export class GalleryFilterComponent implements OnInit, OnDestroy {
     this.filterService.onFilterChange();
   }
 
-  newMinDate($event: Event): void {
+  newMinDate(_$event: Event): void {
     const diff =
         (this.ActiveFilters.dateFilter.maxDate -
             this.ActiveFilters.dateFilter.minDate) *
@@ -120,7 +119,7 @@ export class GalleryFilterComponent implements OnInit, OnDestroy {
     this.filterService.onFilterChange();
   }
 
-  newMaxDate($event: Event): void {
+  newMaxDate(_$event: Event): void {
     const diff =
         (this.ActiveFilters.dateFilter.maxDate -
             this.ActiveFilters.dateFilter.minDate) *

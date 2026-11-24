@@ -108,7 +108,7 @@
             <div class="row">
               @for (type of sortingByTypes; track type) {
                 <div class="dropdown-item sorting-grouping-item ps-3 pe-3" role="menuitem"
-                  [class.active]="sortingService.sorting.value.method == type.key"
+                  [class.active]="sortingService.sorting.value.method === type.key"
                   (click)="setSortingBy(type.key)">
                   <div class="me-2 d-inline-block">
                     <app-sorting-method-icon [method]="type.key"></app-sorting-method-icon>
@@ -120,7 +120,7 @@
               @if (isDirectionalSort(sortingService.sorting.value.method)) {
                 <hr>
                   <div class="dropdown-item sorting-grouping-item ps-3 pe-3" role="menuitem"
-                    [class.active]="sortingService.sorting.value.ascending == true"
+                    [class.active]="sortingService.sorting.value.ascending === true"
                     (click)="setSortingAscending(true)">
                     <div class="me-2 d-inline-block">
                       <ng-icon name="ionArrowUpOutline"></ng-icon>
@@ -128,7 +128,7 @@
                     <div class="d-inline-block" i18n>ascending</div>
                   </div>
                   <div class="dropdown-item sorting-grouping-item ps-3 pe-3" role="menuitem"
-                    [class.active]="sortingService.sorting.value.ascending == false"
+                    [class.active]="sortingService.sorting.value.ascending === false"
                     (click)="setSortingAscending(false)">
                     <div class="me-2 d-inline-block">
                       <ng-icon name="ionArrowDownOutline"></ng-icon>
@@ -143,7 +143,7 @@
               <div class="row">
                 @for (type of groupingByTypes; track type) {
                   <div class="dropdown-item sorting-grouping-item ps-3 pe-3" role="menuitem"
-                    [class.active]="sortingService.grouping.value.method == type.key"
+                    [class.active]="sortingService.grouping.value.method === type.key"
                     (click)="setGroupingBy(type.key)">
                     <div class="me-2 d-inline-block">
                       <app-sorting-method-icon [method]="type.key"></app-sorting-method-icon>
@@ -154,7 +154,7 @@
                 @if (isDirectionalSort(sortingService.grouping.value.method)) {
                   <hr>
                     <div class="dropdown-item sorting-grouping-item ps-3 pe-3" role="menuitem"
-                      [class.active]="sortingService.grouping.value.ascending == true"
+                      [class.active]="sortingService.grouping.value.ascending === true"
                       (click)="setGroupingAscending(true)">
                       <div class="me-2 d-inline-block">
                         <ng-icon name="ionArrowUpOutline"></ng-icon>
@@ -162,7 +162,7 @@
                       <div class="d-inline-block" i18n>ascending</div>
                     </div>
                     <div class="dropdown-item sorting-grouping-item ps-3 pe-3" role="menuitem"
-                      [class.active]="sortingService.grouping.value.ascending == false"
+                      [class.active]="sortingService.grouping.value.ascending === false"
                       (click)="setGroupingAscending(false)">
                       <div class="me-2 d-inline-block">
                         <ng-icon name="ionArrowDownOutline"></ng-icon>
@@ -190,7 +190,7 @@
             <h6 class="ps-2" i18n>Grid size</h6>
             @for (type of gridSizes; track type) {
               <div class="dropdown-item sorting-grouping-item ps-3 pe-3" role="menuitem"
-                [class.active]="navigatorService.girdSize.value == type.key"
+                [class.active]="navigatorService.girdSize.value === type.key"
                 (click)="navigatorService.setGridSize(type.key)">
                 <div class="me-2 d-inline-block">
                   <app-grid-size-icon [method]="type.key"></app-grid-size-icon>

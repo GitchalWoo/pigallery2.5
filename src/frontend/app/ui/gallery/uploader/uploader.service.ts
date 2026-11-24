@@ -90,8 +90,8 @@ export class UploaderService {
       return;
     }
     const files = [];
-    for (let i = 0; i < filesIn.length; i++) {
-      files.push(filesIn[i]);
+    for (const file of filesIn) {
+      files.push(file);
     }
     const dirDto = this.contentLoaderService.content.value.directory;
     const directory = Utils.concatUrls(dirDto.path, dirDto.name);

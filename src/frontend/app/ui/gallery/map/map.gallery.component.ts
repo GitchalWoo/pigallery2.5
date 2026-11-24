@@ -1,4 +1,4 @@
-import {Component, ElementRef, Input, type OnChanges, ViewChild, ChangeDetectionStrategy} from '@angular/core';
+import {Component, ElementRef, Input, type OnChanges, ViewChild, ChangeDetectionStrategy, OnDestroy} from '@angular/core';
 import {type PhotoDTO} from '../../../../../common/entities/PhotoDTO';
 import {type Dimension, type IRenderable} from '../../../model/IRenderable';
 import {GalleryMapLightboxComponent} from './lightbox/lightbox.map.gallery.component';
@@ -20,7 +20,7 @@ import {Router} from '@angular/router';
   changeDetection: ChangeDetectionStrategy.Eager,
   imports: [GalleryMapLightboxComponent, LeafletModule]
 })
-export class GalleryMapComponent implements OnChanges, IRenderable {
+export class GalleryMapComponent implements OnChanges, IRenderable, OnDestroy {
   @Input() photos: PhotoDTO[];
   @Input() gpxFiles: FileDTO[];
   @ViewChild(GalleryMapLightboxComponent, {static: false})
