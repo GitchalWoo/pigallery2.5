@@ -1,6 +1,6 @@
 import {Component, type OnDestroy, TemplateRef, ChangeDetectionStrategy} from '@angular/core';
 import {AutoCompleteService} from './autocomplete.service';
-import {ActivatedRoute, type Params, Router, RouterLink} from '@angular/router';
+import {ActivatedRoute, type Params, Router} from '@angular/router';
 import {Subscription} from 'rxjs';
 import {QueryParams} from '../../../../../common/QueryParams';
 import {MetadataSearchQueryTypes, type SearchQueryDTO, SearchQueryTypes, type TextSearch,} from '../../../../../common/entities/SearchQueryDTO';
@@ -28,7 +28,6 @@ import {SearchQueryUtils} from '../../../../../common/SearchQueryUtils';
   imports: [
     FormsModule,
     GallerySearchFieldBaseComponent,
-    RouterLink,
     NgIconComponent,
     GallerySearchQueryBuilderComponent,
     SavedSearchPopupComponent
@@ -142,6 +141,11 @@ export class GallerySearchComponent implements OnDestroy {
     this.router
       .navigate(['/search', this.HTMLSearchQuery])
       .catch(console.error);
+  }
+
+  searchFromModal(): void {
+    this.hideSearchModal();
+    this.Search();
   }
 
   async saveSearch(): Promise<void> {

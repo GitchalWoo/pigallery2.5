@@ -36,6 +36,8 @@ import {NgIconComponent} from '@ng-icons/core';
 export class GallerySearchFieldBaseComponent
   implements ControlValueAccessor, Validator, OnDestroy {
   @Input() placeholder = $localize`Search`;
+  // the label of the Enter key of phone keyboards; only fields where Enter searches set it to 'search'
+  @Input() enterKeyHint: 'search' | undefined;
   @Output() search = new EventEmitter<void>();
 
   @ViewChild('SearchField', {static: false}) searchField: ElementRef;

@@ -38,6 +38,8 @@ export class GallerySearchQueryBuilderComponent
   } as TextSearch;
   @Output() search = new EventEmitter<void>();
   @Input() placeholder = $localize`Search`;
+  // the label of the Enter key of phone keyboards; only fields where Enter searches set it to 'search'
+  @Input() enterKeyHint: 'search' | undefined;
   public rawSearchText = '';
 
   constructor(private searchQueryParserService: SearchQueryParserService) {

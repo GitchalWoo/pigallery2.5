@@ -8,6 +8,7 @@
     [(ngModel)]="rawSearchText"
     (ngModelChange)="onChange()"
     (keydown.enter)="OnEnter()"
+    [attr.enterkeyhint]="enterKeyHint"
     (keydown.arrowRight)="applyHint($event)"
     (keydown.arrowUp)="selectAutocompleteUp()"
     (keydown.arrowDown)="selectAutocompleteDown()"
