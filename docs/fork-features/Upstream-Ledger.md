@@ -13,6 +13,7 @@ Run `node scripts/upstream-status.mjs --fetch` to list new upstream commits. Bef
 
 | Upstream PR / Commit | Summary | Fork PR | Notes |
 | --- | --- | --- | --- |
+| [#1380](https://github.com/bpatrik/pigallery2/pull/1380) (`e0d265c6`, `38fc861f`, `74473bc5`, `3a8428de`, `3f7f68ff`, `7177c0e1`), [#1383](https://github.com/bpatrik/pigallery2/pull/1383) (`8bb42c88`, `f70ed4bc`), [#1214](https://github.com/bpatrik/pigallery2/pull/1214) (`777914e7`, `4bce12ab`, `dc3aa0a0`), `dea51c73`, `0d262ff3`, `a9066201` (#1274) | P08 Search fixes & accent-insensitive search (P07 merged in). `Database.sqlite.accentInsensitiveSearch` (default off) with a settings warning; autocomplete bolds typed text across accents; folder allow/block lists ignore accents and collapse spaces like the SQL search; `LocationLookUp_ERROR` on geocoding failures; saved-search albums by date range; phone Enter key searches; every button has a `type`; album warning names the album. | P08 PR | Fork `ESCAPE '\\'` kept in the new `like()` helper; fork title autocomplete folded too. `8bb42c88` also brings the `SearchQueryUtils` part of `3891c1e7` that `8c04aafb` left out. `dc3aa0a0` re-done on fork templates (56 buttons) with a separate `button-has-type` lint block (the fork's ESLint globs only match top-level files, Techdebt T8) and a Mocha template test. `SearchErrors.spec` location cases only. Playwright replaced by Vitest, Mocha and Cypress. |
 | [#1370](https://github.com/bpatrik/pigallery2/pull/1370) (`6abd72d6`, `ba061baf`, `c76f1daf`), `207eef3f`, [#1372](https://github.com/bpatrik/pigallery2/pull/1372) (`93cfd4b5`, `14122e83`, `7de24347`), [#1379](https://github.com/bpatrik/pigallery2/pull/1379) (`527c8abc`, `09baecd1`, `6c74f3e1`), [#1348](https://github.com/bpatrik/pigallery2/pull/1348) (`0630b7f9`, applicable scenarios), [#1423](https://github.com/bpatrik/pigallery2/pull/1423) (`8b5f2bae`) | P06 Session UX & API error statuses. Every API error carries its HTTP status, unknown API paths answer a JSON 404, the interceptor logs out on `NOT_AUTHORISED`, the login returns to the deep link (also after OIDC), a session-ended toast, a cleared password after a wrong login, no self-demotion of admins, an admin-page guard, settings limits, OIDC login errors on the login page and no server paths in error messages. | [#52](https://github.com/GitchalWoo/pigallery2.5/pull/52) | Statuses set on purpose (429, 503, upload limits) are kept; error codes unchanged (`SHARING_NOT_FOUND` stays 53). The 401/403 logout keeps the fork's loop guard; a `NOT_AUTHORISED` logout does not keep the page. `returnUrl` accepts app paths only (no `//`, backslash, control characters or login/error pages); OIDC keeps it in `sessionStorage` for 10 minutes. AUD2 linking refusals show as access denied; the callback URL stays out of notifications. Schema 46. |
 | `52ebed29`, `e007799f`, `f6b22cdd`, `fe16aead` ([#1303](https://github.com/bpatrik/pigallery2/pull/1303)), [#1349](https://github.com/bpatrik/pigallery2/pull/1349) (`4428284c`, `1e8a78ea`, applicable scenarios) | P05 application links and OIDC. Shared URL helpers, UserInfo profile claims, optional stricter linking rules and an HTTP issuer warning. | [#51](https://github.com/GitchalWoo/pigallery2.5/pull/51) | Kept AUD2 issuer/subject binding, the Admin/Developer auto-binding ban and generated bootstrap credentials. Covered provider-advertised signing algorithms with PS256. Unlinking uses CSRF, target role checks and session revocation. Schema 46. |
 | [#1374](https://github.com/bpatrik/pigallery2/pull/1374) (`b41608d6`, `c0bc7229`, `a369c245`, `78e24893`, `ec95c780`, `d90170bb`), [#1392](https://github.com/bpatrik/pigallery2/pull/1392) (`251d002f`), [#1351](https://github.com/bpatrik/pigallery2/pull/1351) (applicable scenarios) | P04 Sharing follow-ups. Admin edits within role limits, a plain-text 404 for empty random links, one invalid-link page, retained guest URLs, an empty frame state, and **Prevent downloading**. | [#50](https://github.com/GitchalWoo/pigallery2.5/pull/50) | Schema 45 → 46 adds `SharingEntity.preventDownload` with a false default. Enforces the policy on ZIP and original-file routes, serves generated previews, and refuses original playback fallbacks. Explicit keys select the guest's share session. Kept signed cookies, CSRF, session stamps, projections, directory isolation, and the 401 guard. |
@@ -44,7 +45,6 @@ Every remaining upstream change is grouped into 15 packs. Each pack is one branc
 
 | Order | Upstream PR / Commits | Pack | Effort | Notes for This Fork |
 | --- | --- | --- | --- | --- |
-| 8 | `12bccc5a`, `eb9b96b4`, `dea51c73`, `0d262ff3`, #1214, `a9066201` (#1274), [#1380](https://github.com/bpatrik/pigallery2/pull/1380) (`e0d265c6`, `38fc861f`, `74473bc5`, `3a8428de`, `3f7f68ff`, `7177c0e1`), [#1383](https://github.com/bpatrik/pigallery2/pull/1383) | P08 Search fixes & accent-insensitive search (P07 merged in) | M–L | Escaping already in the fork; accent folding default off; MariaDB parity (no `ł`/`ø`/`ß` folding, documented). |
 | 9 | [#1198](https://github.com/bpatrik/pigallery2/pull/1198), `97dfe73a`, `91e374dc` (#1371), #1343 (`e60006ac`), `9fe9eaaf` | P09 Directory sort/group | M | Re-implement grouping in the PR #45 virtual grid; check Timeline grouping. |
 | 10 | #1376, `2a83005f`, `1ade9d14` (#1394), `c214d5c5`, `a41d5577`, `8b5b6419`, `947f95d7` (#1410), #1416, #1391, `9ae9151b`, `bdc57a25`, `1d17b220`, `2cb691c4` | P10 Grid & lightbox parity | M | Many items may already be in PR #45; check each first. |
 | 11 | #1373 (`990af75e`, `7dab232d`, `3aec0c9e`, `182f0912`), `68ca3a26`, `7eafcd1e`, `be5da765`, `f01bf7e5` (#1371), `94e26454`, `2a9d28f4` | P11 Loading, empty & error states | M | Prism styling; folder errors use P03 `DIRECTORY_NOT_FOUND`. `2a9d28f4` changes the `IndexingManager` empty-root guard. |
@@ -57,11 +57,7 @@ Every remaining upstream change is grouped into 15 packs. Each pack is one branc
 
 ## Deferred
 
-The item below is scheduled in [Upstream-Port-Packs.md](Upstream-Port-Packs.md) (P08). Its `#1205` dependency is on `master` since P03a.
-
-| Upstream PR / Commit | Summary | Blocked By |
-| --- | --- | --- |
-| [#1383](https://github.com/bpatrik/pigallery2/pull/1383) | Accent-aware directory allow/block lists | `#1205` |
+No deferred items. #1383 was ported in P08.
 
 ---
 
@@ -93,9 +89,8 @@ Every candidate below is assigned to a pack in [Upstream-Port-Packs.md](Upstream
 
 | Upstream | Behavior to compare | Related fork work |
 | --- | --- | --- |
-| `12bccc5a`, `eb9b96b4`, `dea51c73`, `0d262ff3` | SQL escaping, saved-search date ranges and missing search values | Check SQLite and MariaDB. |
 | #1168, `de4c72a4`, `eebd645f`, `33b99240` | Folder exclusion globs, case-sensitive folder/file matching and setting descriptions | Check existing configurations. |
-| #1200, `36caf087`, #1214 | Extension metadata filters, in-place refresh after metadata edits, mobile Enter key and form button types | Compare both search entry points. |
+| #1200, `36caf087` | Extension metadata filters and in-place refresh after metadata edits | Compare both search entry points (P13). #1214 was ported in P08. |
 | `bdc57a25` | Job progress, search field validity, navbar accessibility and lightbox animation teardown | Compare with #1210. |
 | #1386 | Extension reload cleanup | Review reload independently (P13). #1387 and #1388 are skipped (see below). |
 | #1390, #1391, #1393, #1416 | Installed app on phones, slideshow restart control, version link and inline blog layout | Check against Prism and gallery grouping. |
@@ -117,7 +112,7 @@ Where this table says **Deferred**, the pack assignment in [Upstream-Port-Packs.
 | #1371 | **Ported** (P01): map/GPX `053ea9f7`, zip query parameters `7b5b6e51`. **Skipped**: face names `85edb8da` (already in fork via `6b0d52d2`) | **Deferred** for fork comparison: flattening `91e374dc`, grouping `97dfe73a`, notifications `7eafcd1e`, duplicates `be5da765` and `f01bf7e5`, slideshow `9ae9151b`. **Skipped** upstream e2e setup `b5f96bfd`. |
 | #1372 | **Ported** (P06): password field reset `93cfd4b5`, deep-link return `14122e83` (also after OIDC) and session-ended toast `7de24347` | **Skipped** test relabel `f31ddcc4` and lockfile `451bd3a8`. |
 | #1370 | **Ported** (P06): HTTP statuses of API errors `6abd72d6` and `ba061baf`, logout on `NOT_AUTHORISED` `c76f1daf` (with the fork's loop guard) | **Skipped** Playwright marker `4cfcebfc` and upstream AGENTS.md note `8c624135` (the fork's AGENTS.md has its own). |
-| #1348 | **Ported** (P06) applicable scenarios of `0630b7f9`: status of every error code, unknown API paths, video ranges | **Skipped** expected-failure markers `cb7d99fd` and English fixture `b4d48cf8` (SearchErrors.spec not ported: the random link case differs since P04 and geocoding errors come with `7177c0e1` in P08). |
+| #1348 | **Ported** (P06) applicable scenarios of `0630b7f9`: status of every error code, unknown API paths, video ranges | **Skipped** expected-failure markers `cb7d99fd` and English fixture `b4d48cf8` (the location cases of SearchErrors.spec were ported in P08 with `7177c0e1`; its random link cases differ since P04 and stay out). |
 | #1373 | No individually queued commit | **Deferred** loading and empty states, folder errors and unknown routes (`990af75e`, `7dab232d`, `3aec0c9e`, `182f0912`). Folder errors can use `DIRECTORY_NOT_FOUND` (P03a). |
 | #1374 | **Ported** (P04) sharing permissions, invalid-link handling, guest navigation, random-link and frame results (`b41608d6`, `a369c245`, `78e24893`, `ec95c780`, `c0bc7229`, `d90170bb`) | **Skipped** translation refresh `fa70a527`. |
 | #1349 | **Ported** (P05) applicable user, visitor, fresh bootstrap and proxy-prefix test scenarios from `4428284c` and the English fixture choice from `1e8a78ea`. | **Skipped** the expected-failure wrappers in `a305d156`. The self-demotion guard was ported in P06 (`527c8abc`). |
@@ -125,7 +120,7 @@ Where this table says **Deferred**, the pack assignment in [Upstream-Port-Packs.
 | #1376 | No individually queued commit | **Deferred** history/scroll and fade behavior (`aa1a5fea`, `15eacc82`, `2379cd7f`, `74d8ce3c`) for comparison during #1384. Also compare keyboard and touch behavior (`e4476463`, `420bdbe4`). |
 | #1379 | **Ported** (P01): album deletion confirmation `23e9b9b2`. **Ported** (P06): self-demotion guard `527c8abc`, admin-page redirect `09baecd1` and settings limits `6c74f3e1` | — |
 | #1381 | **Ported** (P01): folder zip naming `13b54a9b`, deleted-file download feedback `01790a52` | — |
-| #1380 | **Planned** accent folding, search performance and autocomplete behavior (`e0d265c6`, `38fc861f`, `74473bc5`, `3a8428de`, `3f7f68ff`) | **Deferred** geocoding error handling `7177c0e1` for comparison. **Skipped** upstream config documentation convention `e8dd72cb`. |
+| #1380 | **Ported** (P08): accent folding, search performance and autocomplete behavior (`e0d265c6`, `38fc861f`, `74473bc5`, `3a8428de`, `3f7f68ff`) and geocoding error handling `7177c0e1` | **Skipped** upstream config documentation convention `e8dd72cb`. |
 | #1385 | **Ported** upload fixes from `db893d56` (PR #41) and its route check (P03a) | **Skipped** upstream old-browser e2e fixture adjustment `b4dc9f46`. |
 | #1394 | **Planned** grid rendering, scrolling and related config changes (`2a83005f`, `1ade9d14`, `bf6b8bc9`) | **Skipped** upstream e2e adjustments `003790d4`, `46d443f8` and sponsor markup `d1fea9a6`. |
 | #1400 | **Ported on the port branch**: role and album-read checks (`cc4e220e`, `a5b99924`), including the fail-closed guard from `31fe743d` | **Skipped** optional album creation/write roles (`1191b11a`, `f08aec3d`, `6952395f`, `676a2a2d` and corresponding hunks in later commits). |
@@ -135,6 +130,7 @@ Where this table says **Deferred**, the pack assignment in [Upstream-Port-Packs.
 | Upstream | Reason |
 | --- | --- |
 | `e47258fa` | Path containment follows the fork’s SafePath policy, as for #1300. |
+| `12bccc5a`, `eb9b96b4` | Already in the fork: `ESCAPE '\\'` only on SQLite and the `mysql2` driver (checked in P08). |
 | `0583c8c8` (#1205, SQLite LIKE escaping hunk) | The fork has its own escaping (`ESCAPE '\\'`); P03a ported only the test, which covers directory searches and sharings. |
 | `6d52e24d` (#1378) | nginx examples at `500m` with `proxy_request_buffering off`. The fork keeps `55m` (matching the 50 MB `Upload.maxFileSizeMB` default) with buffering on, so slow clients cannot hold the 5 upload slots (P02 decision). |
 | #1185, #1276, #1341, `477f4d96`, `954cd607`, `241763d2`, `7ae98058`, `44c47a58`, `d7c74170`, `c36b1fdc` | Upstream directory listings, sponsorship, docs formatting, copy and README maintenance. |
