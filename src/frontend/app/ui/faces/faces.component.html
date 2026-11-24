@@ -17,7 +17,7 @@
       [size]="size"></app-face>
     }
 
-    @if ((nonFavourites | async).length == 0 && (favourites | async).length == 0) {
+    @if ((nonFavourites | async).length === 0 && (favourites | async).length === 0) {
       <div class="d-flex no-face-msg"
         >
         <div class="flex-fill">

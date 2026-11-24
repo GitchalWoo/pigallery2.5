@@ -63,8 +63,8 @@
                 dropdownToggle
                 id="config-style"
                 class="btn dropdown-toggle"
-                [class.btn-secondary]="settingsService.configStyle == ConfigStyle.full"
-                [class.btn-primary]="settingsService.configStyle == ConfigStyle.compact"
+                [class.btn-secondary]="settingsService.configStyle === ConfigStyle.full"
+                [class.btn-primary]="settingsService.configStyle === ConfigStyle.compact"
                 data-bs-toggle="dropdown" aria-expanded="false">
                 {{ConfigStyle[settingsService.configStyle] | stringifyEnum}}
               </button>
