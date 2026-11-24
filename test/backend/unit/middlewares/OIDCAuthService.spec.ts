@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-expressions,@typescript-eslint/no-unused-expressions */
 import {expect} from 'chai';
 import {Config} from '../../../../src/common/config/private/Config';
 import {OIDCAuthService} from '../../../../src/backend/middlewares/user/OIDCAuthService';

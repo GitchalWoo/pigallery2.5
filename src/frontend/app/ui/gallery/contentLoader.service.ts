@@ -94,7 +94,7 @@ export class ContentLoaderService implements OnDestroy {
     this.lastContentRequest = {type: 'directory', value: directoryName};
 
     // prepare server request
-    const params: { [key: string]: unknown } = {};
+    const params: Record<string, unknown> = {};
     if (Config.Sharing.enabled === true) {
       if (this.shareService.isSharing()) {
         params[QueryParams.gallery.sharingKey_query] =
@@ -147,7 +147,7 @@ export class ContentLoaderService implements OnDestroy {
       return;
     }
 
-    if (!!cw?.directory) {
+    if (cw?.directory) {
       this.galleryCacheService.setDirectory(cw); // save it before adding references
     }
     this.setContent(ContentWrapperUtils.unpack(cw));

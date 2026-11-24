@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-expressions,@typescript-eslint/no-unused-expressions */
 import {expect} from 'chai';
 import {ErrorCodes, ErrorDTO} from '../../../../../src/common/entities/Error';
 import {ObjectManagers} from '../../../../../src/backend/model/ObjectManagers';

@@ -6,13 +6,13 @@ import {SafePath} from '../SafePath';
 import {Config} from '../../../../common/config/private/Config';
 import {SupportedFormats} from '../../../../common/SupportedFormats';
 
-type gpxEntry = {
+interface gpxEntry {
   '@_lat': string | number;
   '@_lon': string | number;
   ele?: unknown;
   time?: string | string[];
   extensions?: unknown;
-};
+}
 
 export class GPXProcessing {
   private static readonly GPX_FLOAT_ACCURACY = 6;

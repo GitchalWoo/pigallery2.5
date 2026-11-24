@@ -11,7 +11,7 @@ import {ShareService} from '../../ui/gallery/share.service';
 import {CookieService} from 'ngx-cookie-service';
 
 /* Injected config / user from server side */
-// eslint-disable-next-line @typescript-eslint/prefer-namespace-keyword, @typescript-eslint/no-namespace
+// eslint-disable-next-line @typescript-eslint/no-namespace
 declare namespace ServerInject {
   export let user: UserDTO;
 }

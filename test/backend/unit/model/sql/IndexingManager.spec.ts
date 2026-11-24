@@ -22,9 +22,7 @@ import {DiskManager} from '../../../../../src/backend/model/fileaccess/DiskManag
 import {SessionContext} from '../../../../../src/backend/model/SessionContext';
 import {PhotoEntity} from '../../../../../src/backend/model/database/enitites/PhotoEntity';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const deepEqualInAnyOrder = require('deep-equal-in-any-order');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const chai = require('chai');
 
 chai.use(deepEqualInAnyOrder);

@@ -88,7 +88,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
   public isUploadOver = false;
   private expiryCheckedFor: {key: string; expires: number} = null;
   private $counter: Observable<number>;
-  private subscription: { [key: string]: Subscription } = {
+  private subscription: Record<string, Subscription> = {
     content: null,
     route: null,
     timer: null,

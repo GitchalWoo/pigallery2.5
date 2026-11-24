@@ -7,7 +7,7 @@ import {MessengerRepository} from '../../../../../src/backend/model/messenger/Me
 describe('AdminMWs', () => {
   let managers: ObjectManagers;
   const originals: Record<string, unknown> = {};
-  let calls: Array<{name: string; args: unknown[]}>;
+  let calls: {name: string; args: unknown[]}[];
   let error: any;
   let originalGetMessengers: () => unknown[];
 

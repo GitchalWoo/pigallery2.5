@@ -211,7 +211,7 @@
                 <label class="col-md-2 control-label"
                 [for]="configEntry.id+'_'+i">{{ backendTextService.get(configEntry.name) }}</label>
                 <div class="col-md-10">
-                  <div [class.input-group]="'MediaPickDTO-array'!=configEntry.type">
+                  <div [class.input-group]="'MediaPickDTO-array'!==configEntry.type">
                     @switch (configEntry.type) {
                       @case ('boolean') {
                         <div
@@ -396,7 +396,7 @@
                   </div>
                   @if (settingsService.configStyle == ConfigStyle.full) {
                     <small class="form-text text-muted">
-                      @if (configEntry.type == 'number-array') {
+                      @if (configEntry.type === 'number-array') {
                         <ng-container i18n>';' separated integers.
                 </ng-container>
                       }

@@ -40,7 +40,7 @@ import {NotificationService} from '../../../../../model/notification.service';
 })
 export class SortingMethodSettingsEntryComponent
   implements ControlValueAccessor, Validator, OnInit {
-  @Input() sortingByEnum: Record<string, number | string> & { [k: number]: string };
+  @Input() sortingByEnum: Record<string, number | string> & Record<number, string>;
 
   public sortingMethod: SortingMethod;
   public sortingByTypes: { key: number; value: string }[] = [];
@@ -99,7 +99,6 @@ export class SortingMethodSettingsEntryComponent
     this.onChange();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private propagateChange = (_: SortingMethod): void => {
     //ignoring
   };

@@ -57,7 +57,7 @@ export class MetadataLoader {
     fileSize: 0,
   };
 
-  private static async readSidecar(sidecarPath: string, options?: {[key: string]: boolean}): Promise<any> {
+  private static async readSidecar(sidecarPath: string, options?: Record<string, boolean>): Promise<any> {
     try {
       const safePath = await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, sidecarPath));
       return await exifr.sidecar(safePath, options);
@@ -196,7 +196,6 @@ export class MetadataLoader {
           metadata.contentIdentifier = (data.format.tags as any)['com.apple.quicktime.content.identifier'];
         }
 
-        // eslint-disable-next-line no-empty
       } catch (err) {
         Logger.silly(LOG_TAG, 'Error loading metadata for : ' + fullPath);
         Logger.silly(err);
@@ -244,7 +243,7 @@ export class MetadataLoader {
       creationDate: 0,
       fileSize: 0,
     };
-    const exifrOptions: {[key: string]: boolean} = {
+    const exifrOptions: Record<string, boolean> = {
       tiff: true,
       xmp: true,
       icc: false,

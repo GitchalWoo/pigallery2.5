@@ -11,8 +11,8 @@ import {defaultQueryKeywords, SearchQueryParser} from '../../../../../common/Sea
 @Injectable()
 export class AutoCompleteService {
   private keywords: string[] = [];
-  private textSearchKeywordsMap: { [key: string]: SearchQueryTypes } = {};
-  private noACKeywordsMap: { [key: string]: SearchQueryTypes } = {}; // these commands do not have autocompete
+  private textSearchKeywordsMap: Record<string, SearchQueryTypes> = {};
+  private noACKeywordsMap: Record<string, SearchQueryTypes> = {}; // these commands do not have autocompete
 
   constructor(
     private networkService: NetworkService,
@@ -117,8 +117,8 @@ export class AutoCompleteService {
     current: string;
     prev: string;
   }): BehaviorSubject<RenderableAutoCompleteItem[]> {
-    const items: BehaviorSubject<RenderableAutoCompleteItem[]> =
-      new BehaviorSubject(
+    const items =
+      new BehaviorSubject<RenderableAutoCompleteItem[]>(
         this.sortResults(text.current, this.getQueryKeywords(text))
       );
 

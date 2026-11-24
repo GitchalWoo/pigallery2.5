@@ -118,18 +118,18 @@
               #tmpl
               [ConfigPath]="cp"
               [hidden]="!tmpl.HasAvailableSettings">
-              @if (cp=='Indexing') {
+              @if (cp==='Indexing') {
                 <br/>
                 <hr class="mt-2"/>
                 <app-settings-gallery-statistic></app-settings-gallery-statistic>
               }
-              @if (cp=='Users') {
+              @if (cp==='Users') {
                 <app-settings-users></app-settings-users>
               }
-              @if (cp=='Sharing') {
+              @if (cp==='Sharing') {
                 <app-settigns-sharings-list></app-settigns-sharings-list>
               }
-              @if (cp=='Extensions') {
+              @if (cp==='Extensions') {
                 <app-extension-installer></app-extension-installer>
               }
             </app-settings-template>

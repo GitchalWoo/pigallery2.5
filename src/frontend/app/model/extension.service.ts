@@ -2,7 +2,7 @@ import {Injectable} from '@angular/core';
 import {type UIExtensionDTO} from '../../../common/entities/extension/IClientUIConfig';
 
 /* Injected config / user from server side */
-// eslint-disable-next-line @typescript-eslint/prefer-namespace-keyword, @typescript-eslint/no-namespace
+// eslint-disable-next-line @typescript-eslint/no-namespace
 declare namespace ServerInject {
   export let UIExtensionConfigs: UIExtensionDTO[];
 }

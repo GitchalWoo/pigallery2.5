@@ -40,9 +40,7 @@ import {UserRoles} from '../../../../../src/common/entities/UserDTO';
 import {UserEntity} from '../../../../../src/backend/model/database/enitites/UserEntity';
 import {SharingEntity} from '../../../../../src/backend/model/database/enitites/SharingEntity';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const deepEqualInAnyOrder = require('deep-equal-in-any-order');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const chai = require('chai');
 
 chai.use(deepEqualInAnyOrder);
@@ -1243,7 +1241,6 @@ describe('SearchManager', (sqlHelper: DBTestHelper) => {
         }
       };
 
-      // eslint-disable-next-line @typescript-eslint/prefer-for-of
       for (let i = 1; i < alphabet.length / 2; ++i) {
         const query: SomeOfSearchQuery = {
           type: SearchQueryTypes.SOME_OF,
@@ -2383,7 +2380,6 @@ describe('SearchManager', (sqlHelper: DBTestHelper) => {
       type: SearchQueryTypes.keyword
     } as TextSearch;
 
-    // eslint-disable-next-line
     expect(await sm.getNMedia(DBTestHelper.defaultSession, query, [{
       method: SortByTypes.Random,
       ascending: null

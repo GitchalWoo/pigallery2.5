@@ -23,7 +23,7 @@ declare global {
       locale?: string;
       localePath?: string;
       tpl?: Record<string, any>;
-      timing?: { [key: string]: ServerTimeEntry };
+      timing?: Record<string, ServerTimeEntry>;
     }
 
     interface Response {

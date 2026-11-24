@@ -17,11 +17,11 @@ export interface FfprobeStream {
   avg_frame_rate?: string;
   r_frame_rate?: string;
   tags?: Record<string, any>;
-  side_data_list?: Array<{
+  side_data_list?: {
     side_data_type?: string;
     rotation?: number;
     [key: string]: any;
-  }>;
+  }[];
   [key: string]: any;
 }
 
@@ -352,13 +352,12 @@ export class FFmpegCommand extends EventEmitter {
   }
 }
 
-export type FFmpegFactoryGetter = {
+export interface FFmpegFactoryGetter {
   (path?: string): FFmpegCommand;
   setFfmpegPath(p: string): void;
   setFfprobePath(p: string): void;
-};
+}
 
-/* eslint-disable @typescript-eslint/no-var-requires */
 export class FFmpegFactory {
   private static ffmpegPath: string | null = null;
   private static ffprobePath: string | null = null;

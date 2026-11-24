@@ -12,9 +12,7 @@ import {ProjectedAlbumCacheEntity} from '../../../../../src/backend/model/databa
 import {SessionContext} from '../../../../../src/backend/model/SessionContext';
 
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const deepEqualInAnyOrder = require('deep-equal-in-any-order');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const chai = require('chai');
 
 chai.use(deepEqualInAnyOrder);

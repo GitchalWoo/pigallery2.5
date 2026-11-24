@@ -1,4 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 import {DBTestHelper} from '../../../DBTestHelper';
 import {Connection} from 'typeorm';
 import {SessionContext} from '../../../../../src/backend/model/SessionContext';
@@ -12,7 +11,6 @@ import {UserEntity} from '../../../../../src/backend/model/database/enitites/Use
 import {UserDTO} from '../../../../../src/common/entities/UserDTO';
 
 const deepEqualInAnyOrder = require('deep-equal-in-any-order');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const chai = require('chai');
 
 chai.use(deepEqualInAnyOrder);

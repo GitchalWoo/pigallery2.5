@@ -3,10 +3,8 @@ import {ClientClass} from './config/public/Config';
 let Config: ClientClass;
 
 if (typeof window !== 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   Config = require('./config/public/Config').Config;
 } else {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   Config = require('./config/private/Config').Config;
 }
 

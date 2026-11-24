@@ -309,11 +309,11 @@ export class GallerySearchFieldBaseComponent
     });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars,@typescript-eslint/no-empty-function
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   private propagateChange = (_: string): void => {
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars,@typescript-eslint/no-empty-function
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   private propagateTouch = (_: never): void => {
   };
 

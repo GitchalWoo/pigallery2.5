@@ -405,7 +405,7 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
       return null;
     }
     const m = this.activePhoto.gridMedia.media as PhotoDTO;
-    let retTexts = [];
+    const retTexts = [];
     const getDir = () => {
       const p = Utils.concatUrls(
         m.directory.path,

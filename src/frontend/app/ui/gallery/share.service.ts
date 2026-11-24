@@ -21,15 +21,15 @@ export class ShareService {
   sharingKey: string = null;
   inited = false;
   public ReadyPR: Promise<void>;
-  public sharingSubject: BehaviorSubject<ResponseSharingDTO> = new BehaviorSubject(
+  public sharingSubject = new BehaviorSubject<ResponseSharingDTO>(
     null
   );
-  public sharingIsValid: BehaviorSubject<boolean> = new BehaviorSubject(
+  public sharingIsValid = new BehaviorSubject<boolean>(
     null
   );
   private resolve: () => void;
   private publicSharingRequest: {key: string; promise: Promise<void>} = null;
-  public publicSharingSubject: BehaviorSubject<PublicSharingDTO> = new BehaviorSubject(
+  public publicSharingSubject = new BehaviorSubject<PublicSharingDTO>(
     null
   );
 

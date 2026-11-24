@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
 const sharp = require('sharp') as typeof import('sharp');
 import {Metadata, Sharp, SharpOptions} from 'sharp';
 import {Logger} from '../../Logger';

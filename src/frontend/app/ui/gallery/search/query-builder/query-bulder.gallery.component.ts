@@ -129,7 +129,6 @@ export class GallerySearchQueryBuilderComponent
     this.propagateChange(this.searchQueryDTO);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private propagateChange = (_: SearchQueryDTO): void => {
     // ignoring
   };

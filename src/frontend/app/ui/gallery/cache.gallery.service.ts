@@ -297,13 +297,13 @@ export class GalleryCacheService {
   public setAutoComplete(
       text: string,
       type: SearchQueryTypes,
-      items: Array<IAutoCompleteItem>
+      items: IAutoCompleteItem[]
   ): void {
     if (!this.canUseMediaCache()) {
       return;
     }
     const key = this.mediaKey(GalleryCacheService.AUTO_COMPLETE_PREFIX, JSON.stringify([text, type]));
-    const tmp: CacheItem<Array<IAutoCompleteItem>> = {
+    const tmp: CacheItem<IAutoCompleteItem[]> = {
       timestamp: Date.now(),
       item: items,
     };

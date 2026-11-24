@@ -1,4 +1,4 @@
-import {Injectable, inject, signal} from '@angular/core';
+import {Injectable, inject, signal, OnDestroy} from '@angular/core';
 import {Config} from '../../../../../common/config/public/Config';
 import {ActivatedRoute, type Params, Router} from '@angular/router';
 import {QueryParams} from '../../../../../common/QueryParams';
@@ -10,7 +10,7 @@ import {QueryService} from '../../../model/query.service';
 @Injectable({
   providedIn: 'root'
 })
-export class LightboxService {
+export class LightboxService implements OnDestroy {
   private queryService = inject(QueryService);
   private subscription: Subscription;
   readonly playbackSignal = signal(false);

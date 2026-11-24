@@ -65,7 +65,7 @@ export class GallerySearchQueryEntryComponent
   @Output() delete = new EventEmitter<void>();
   @Input() id = 'NA';
 
-  public locationInputText: string = '';
+  public locationInputText = '';
 
   constructor() {
     this.SearchQueryTypesEnum = Utils.enumToArray(SearchQueryTypes);
