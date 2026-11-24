@@ -230,6 +230,28 @@ export class GallerySearchQueryEntryComponent
     this.onChange();
   }
 
+  /**
+   * Date inputs emit 'yyyy-MM-dd' strings, but RangeSearch expects UTC timestamps
+   */
+  onDateChange(field: 'min' | 'max', value: string): void {
+    const parts = (value || '').split('-').map((t) => parseInt(t, 10));
+    if (parts.length === 3 && parts.every((p) => !isNaN(p))) {
+      this.AsRangeQuery[field] = Date.UTC(parts[0], parts[1] - 1, parts[2]);
+    } else {
+      delete this.AsRangeQuery[field];
+    }
+    // keep the range valid: moving one end past the other drags the other end along
+    const q = this.AsRangeQuery;
+    if (q.min !== undefined && q.max !== undefined && q.min > q.max) {
+      if (field === 'min') {
+        q.max = q.min;
+      } else {
+        q.min = q.max;
+      }
+    }
+    this.onChange();
+  }
+
   onLocationInputChange(value: string): void {
     // Check if input matches coordinate pattern (number, number)
     const coordMatch = value.match(/^\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)\s*$/);
