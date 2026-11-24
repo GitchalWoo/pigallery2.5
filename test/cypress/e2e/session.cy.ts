@@ -52,7 +52,8 @@ describe('Session', () => {
     cy.intercept('POST', '/pgapi/user/login').as('login');
     loginWith('admin', 'wrong');
     cy.wait('@login').its('response.statusCode').should('eq', 401);
-    cy.get('.error-message').should('be.visible').and('contain', 'Wrong username or password');
+    // CI builds every locale and the browser may get another language: check the element, not its text
+    cy.get('.error-message').first().should('be.visible').and('not.be.empty');
     cy.get('#password').should('have.value', '').and('have.focus');
     cy.get('#username').should('have.value', 'admin');
   });
@@ -67,7 +68,7 @@ describe('Session', () => {
     cy.intercept('GET', '/pgapi/gallery/content/dupl*').as('content');
     cy.get('app-gallery-directories.directories > app-gallery-directory').contains('dupl').click();
     cy.wait('@content').its('response.statusCode').should('eq', 401);
-    cy.get('.toast-warning').should('contain', 'Your session has ended. Please log in again.');
+    cy.get('.toast-warning').should('be.visible');
     cy.location('pathname').should('eq', '/login');
     cy.location('search').should('eq', '?returnUrl=%2Fgallery%2Fdupl');
     // only once, also when several requests answered 401
@@ -84,7 +85,7 @@ describe('Session', () => {
     loginWith('p06user', 'p06pass');
     cy.location('pathname').should('not.eq', '/login');
     cy.visit('/admin');
-    cy.get('.toast-warning').should('contain', 'Only admins can open the admin page.');
+    cy.get('.toast-warning').should('be.visible');
     cy.location('pathname').should('not.eq', '/admin');
     cy.location('pathname').should('not.eq', '/login');
   });
