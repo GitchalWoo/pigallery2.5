@@ -23,7 +23,6 @@ import {
   FormsModule,
   NG_VALIDATORS,
   NG_VALUE_ACCESSOR,
-  UntypedFormControl,
   type ValidationErrors,
   type Validator
 } from '@angular/forms';
@@ -158,8 +157,9 @@ export class GallerySearchQueryEntryComponent
     return TextSearchMatchingTypes.getDescription(type, this.IsTextQuery);
   }
 
-  validate(control: UntypedFormControl): ValidationErrors {
-    return {required: true};
+  // the field has no constraints, so it is always valid
+  validate(): ValidationErrors | null {
+    return null;
   }
 
   addQuery(): void {
