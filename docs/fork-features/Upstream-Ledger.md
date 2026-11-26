@@ -3,7 +3,7 @@
 Ever-growing ledger tracking upstream commits and pull requests from [bpatrik/pigallery2](https://github.com/bpatrik/pigallery2) since the fork's common ancestor (`dc456950`, 2026-08-25). See [Upstream-Porting.md](Upstream-Porting.md) for porting rules, conflict guidelines, and testing requirements.
 
 - **Common ancestor:** `dc456950` (2026-08-25)
-- **Last surveyed upstream commit:** `2a9d28f4` (2026-11-22)
+- **Last surveyed upstream commit:** `3b61ddc9` (2026-11-26)
 
 Run `node scripts/upstream-status.mjs --fetch` to list new upstream commits. Before merging a ledger update, run `node scripts/upstream-status.mjs --fetch --check` to verify the watermark, PR entries, direct commit references and individual hashes in the selective PR table.
 
@@ -49,8 +49,8 @@ Every remaining upstream change is grouped into 15 packs. Each pack is one branc
 | 9 | [#1198](https://github.com/bpatrik/pigallery2/pull/1198), `97dfe73a`, `91e374dc` (#1371), #1343 (`e60006ac`), `9fe9eaaf` | P09 Directory sort/group | M | Re-implement grouping in the PR #45 virtual grid; check Timeline grouping. |
 | 10 | #1376, `2a83005f`, `1ade9d14` (#1394), `c214d5c5`, `a41d5577`, `8b5b6419`, `947f95d7` (#1410), #1416, #1391, `9ae9151b`, `bdc57a25`, `1d17b220`, `2cb691c4` | P10 Grid & lightbox parity | M | Many items may already be in PR #45; check each first. |
 | 11 | #1373 (`990af75e`, `7dab232d`, `3aec0c9e`, `182f0912`), `68ca3a26`, `7eafcd1e`, `be5da765`, `f01bf7e5` (#1371), `94e26454`, `2a9d28f4` | P11 Loading, empty & error states | M | Prism styling; folder errors use P03 `DIRECTORY_NOT_FOUND`. `2a9d28f4` changes the `IndexingManager` empty-root guard. |
-| 12 | `8ba350db`, `36fc6635`, `9b6911b1`, `5c161414` (#1274), `bcad49e0`, `d5fd716b`, `c4f66156`, #1390, #1393, #1352 | P12 Shell, admin & PWA polish | M | Fork design wins styling conflicts. |
-| 13 | #1168, `de4c72a4`, `33b99240`, `eebd645f`, #1200, `36caf087`, #1386, `bf6b8bc9` (#1394) | P13 Indexing, extensions & config | M | Independent of the other packs. Old configurations must keep loading. |
+| 12 | `8ba350db`, `36fc6635`, `9b6911b1`, `5c161414` (#1274), `bcad49e0`, `d5fd716b`, `c4f66156`, #1390, #1393, #1352, #1430 (`64d7d6b5`) | P12 Shell, admin & PWA polish | M | Fork design wins styling conflicts. |
+| 13 | #1168, `de4c72a4`, `33b99240`, `eebd645f`, #1200, `36caf087`, #1386, `bf6b8bc9` (#1394), #1428 (`c3e257e7`) | P13 Indexing, extensions & config | M | Independent of the other packs. Old configurations must keep loading. |
 | 14 | `a82bec8b`, `3a43889a`, `c7564ca8`, `1084031d`, `10165e9c`, `8d8a22c2`, #1353 | P14 Test infrastructure | M | `c7564ca8` changes runtime cover selection and collation. |
 | 15 | #1220, #1221, #1255, #1259, #1262, #1265, #1296, #1301 (runtime hunks only) | P15 Stack-PR sweep | S–M | Framework migrations stay skipped. |
 
@@ -102,6 +102,8 @@ Every candidate below is assigned to a pack in [Upstream-Port-Packs.md](Upstream
 | `a82bec8b`, `3a43889a`, `c7564ca8`, `1084031d`, `10165e9c`, `8d8a22c2` | DB test races, cache cleanup, deterministic covers, collation, teardown, MySQL reset and benchmark runner | Compare with the fork’s database test isolation and benchmark scripts. |
 | #1352, #1353 | Backend regression scenarios for users, jobs, settings and gallery changes | Reuse applicable cases with the feature port. Preserve the fork’s upload-limit coverage. #1348 was ported in P06. |
 | `2a9d28f4` | Empty gallery instead of a listing error for an empty photo folder on a new install; the empty-root guard stops indexing only when something is already indexed | Surveyed 2026-11-22 (`b46e2b47..2a9d28f4`); P11. Keep the guard against wiping the gallery from an unmounted drive. |
+| [#1428](https://github.com/bpatrik/pigallery2/pull/1428) (`c3e257e7`) | Warn when indexing finds an unreadable video (ffprobe fails, e.g. no moov atom) or a photo without a readable size; both are still indexed. Every skipped file is logged with the `DiskManager` tag; a file gone between listing and reading is skipped instead of failing the folder | Surveyed 2026-11-26 (`2a9d28f4..3b61ddc9`); P13. The fork already reads `Dirent` types and checks symbolic links with `SafePath`, so the stat-skip hunk only needs comparing. Upstream replaces the admin notification for photo loading errors with a log warning: decide in the P13 impact report. |
+| [#1430](https://github.com/bpatrik/pigallery2/pull/1430) (`64d7d6b5`) | Login and sharing login forms use the standard `autocomplete` tokens `username` and `current-password` (the invalid `login-username`/`login-password` leave password managers guessing) | Surveyed 2026-11-26; P12. The fork has the same invalid tokens in `login`, `share-login` **and** the fork-only Prism login (`prism-login.component.html`): fix all three. Playwright assertions become Cypress/Vitest checks. Release-note commit `f6f41186` skipped. |
 | #1421, #1417, `03a6f7c7`, `5f0bd5e8` | Empty-folder upload hint (#1421), daily relative-date projection cache refresh (#1417), JPEG XL support (`03a6f7c7`), grid badge corner rounding (`5f0bd5e8`) | Surveyed 2026-11-22 (`c36b1fdc..b46e2b47`); compare with P10/P11/P13 and Prism. #1423 (`8b5f2bae`) was deferred in P05 and ported in P06. #1421 was reviewed in P02 and moved to P11: it extends the #1373 empty state the fork does not have yet. |
 
 ### Commit decisions within selective PRs

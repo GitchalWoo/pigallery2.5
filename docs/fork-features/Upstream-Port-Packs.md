@@ -1,6 +1,6 @@
 # Upstream Port Packs
 
-Execution plan for porting every remaining upstream change from [bpatrik/pigallery2](https://github.com/bpatrik/pigallery2) up to watermark `c36b1fdc` (2026-11-21). The plan is meant for an agent working **one pack at a time, one PR per pack**.
+Execution plan for porting every remaining upstream change from [bpatrik/pigallery2](https://github.com/bpatrik/pigallery2) up to watermark `c36b1fdc` (2026-11-21), extended by later surveys up to `3b61ddc9` (2026-11-26; the current watermark is in the ledger). The plan is meant for an agent working **one pack at a time, one PR per pack**.
 
 - How to port (workflow, impact report, conflict rules, tests, PR process): [Upstream-Porting.md](Upstream-Porting.md).
 - Status of every upstream PR and commit: [Upstream-Ledger.md](Upstream-Ledger.md).
@@ -43,6 +43,7 @@ The workflow for every pack — presence check, impact report and approval, port
 | `f6b22cdd` "keep users on scheme updates" | **Skip that hunk**, compare the OIDC strict mode. | `DatabaseMigrations` already keeps users. Strict mode must not weaken `AUD2`. |
 | #1387 publish extension kit, #1388 enum move for the kit | **Skip.** | The fork does not publish an extension kit. The #1388 enum move churns 35 files for no runtime gain. Reopen if the fork starts publishing the kit. |
 | Stack PRs (#1220, #1221, #1255, #1259, #1262, #1265, #1296, #1301) | **Sweep runtime hunks once** (P15); framework migration stays skipped. | Upstream mixed a few bug fixes into the framework PRs. |
+| Template accessibility (PR [#55](https://github.com/GitchalWoo/pigallery2.5/pull/55), upstream `23eb43d7`) | **Ported templates must pass the accessibility lint errors.** | Since PR #55 the six `templateAccessibility` rules are errors. Upstream templates written before `23eb43d7` (e.g. clickable `div`s in P09–P12) are adapted to buttons, or to a role, `tabindex` and Enter/Space handlers, while porting. |
 | Upstream Playwright, e2e fixtures, translations, release tooling | **Skip** (unchanged). | See the ledger. Behavior is covered by Vitest, Mocha and Cypress instead. |
 
 ---
@@ -243,7 +244,7 @@ Branch `port/upstream-p09-directory-sort`.
 | `97dfe73a` (#1371) | Group by name, accent-aware | Uses P08 helpers. |
 | `91e374dc` (#1371) | Flatten only the folder and its subfolders | |
 | #1343 (`e60006ac`) | Breadcrumb Home links to `/gallery` | |
-| `9fe9eaaf` | Sort/group menu stays on screen on phones | Check against Prism. |
+| `9fe9eaaf` | Sort/group menu stays on screen on phones | Check against Prism. Since PR #55 the menu items are `<button>`s (with `span` labels), not `div`s: adapt the upstream CSS selectors to that markup and keep the keyboard Cypress spec (`accessibility.cy.ts`) passing. |
 
 ### P10 — Grid & lightbox parity (M)
 
@@ -288,6 +289,7 @@ Branch `port/upstream-p12-shell-polish`. Fork design wins every styling conflict
 | #1390 | Installed app (PWA) on phones | Manifest/meta behavior only; drop `.xlf` churn. |
 | #1393 | Clickable git commit in admin version popover | |
 | #1352 | Backend admin and job tests | Reuse scenarios. |
+| #1430 (`64d7d6b5`) | Login forms use the `username` / `current-password` autocomplete tokens | Also fix the fork-only Prism login (`themes/prism/login/prism-login.component.html`). Assert the tokens in Cypress (`login.cy.ts`, `share.cy.ts`) instead of Playwright. Skip release-note commit `f6f41186`. |
 
 ### P13 — Indexing, extensions & config (M)
 
@@ -299,6 +301,7 @@ Branch `port/upstream-p13-indexing-extensions`. Independent; can run any time.
 | #1200, `36caf087` | `contains` / `!contains` in extension media-button `metadataFilter` | |
 | #1386 | Extension reload runs changed code and drops old routes | Check that dropped routes really stop serving. |
 | `bf6b8bc9` (#1394) | Remove `enableOnScrollRendering` | Fork still has the setting (`ClientConfig.ts`). Remove only if the PR #45 grid ignores it; keep old configs loading. |
+| #1428 (`c3e257e7`) | Warn about unreadable videos and photos without a size while indexing; log skipped files with the `DiskManager` tag | The fork lists folders with `Dirent` types and checks symbolic links with `SafePath`; compare the stat-skip hunk instead of copying it. Upstream drops the admin notification for photo loading errors (log only): decide in the impact report. Port the `DiskManagerWorker` and `MetaDataLoader` Mocha tests. |
 
 ### P14 — Test infrastructure & regression scenarios (M)
 
