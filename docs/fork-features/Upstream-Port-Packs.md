@@ -13,7 +13,7 @@ Execution plan for porting every remaining upstream change from [bpatrik/pigalle
 The workflow for every pack — presence check, impact report and approval, porting, tests, ledger, PR — is in [Upstream-Porting.md](Upstream-Porting.md). This section only covers how the plan is laid out.
 
 1. **One pack = one branch = one PR**, named `port/upstream-p<NN>-<topic>`. A pack may be split into smaller PRs (rule 5). Packs are merged together only by a user decision recorded in section 2 (P07 went into P08).
-2. **Packs run in the numbered order.** Start a pack only after the packs it depends on (section 3) are merged to `master`.
+2. **Packs run in the numbered order.** Start a pack only after the packs it depends on (section 3) are merged to `master`. A `C<N>` card is fork CI work inserted between packs; it runs where section 4 places it (C1 runs after P09, before P10).
 3. **Order follows upstream chronology where packs share files.** Upstream merged #1205 (directory access) before #1212, #1372, #1380 and #1383, and merged #1198 before its virtual grid. The fork already ported some later changes without those earlier ones (PR #42, PR #45). Porting the remaining base changes first, and their followers after them, keeps each conflict in one PR.
 4. **Security-sensitive work is isolated.** Uploads (P02), directory access (P03), sharing (P04), OIDC (P05) and session handling (P06) each have their own pack, so a reviewer can read them with the fork's hardening rules in mind.
 5. **Split a pack when it grows too large.** If a pack exceeds about 60 changed source files (excluding `.xlf`) or mixes backend and UI review, split it into `p<NN>a`/`p<NN>b` along the line given in the pack. The first part must leave `master` working and must fail closed.
@@ -43,6 +43,7 @@ The workflow for every pack — presence check, impact report and approval, port
 | `f6b22cdd` "keep users on scheme updates" | **Skip that hunk**, compare the OIDC strict mode. | `DatabaseMigrations` already keeps users. Strict mode must not weaken `AUD2`. |
 | #1387 publish extension kit, #1388 enum move for the kit | **Skip.** | The fork does not publish an extension kit. The #1388 enum move churns 35 files for no runtime gain. Reopen if the fork starts publishing the kit. |
 | Stack PRs (#1220, #1221, #1255, #1259, #1262, #1265, #1296, #1301) | **Sweep runtime hunks once** (P15); framework migration stays skipped. | Upstream mixed a few bug fixes into the framework PRs. |
+| #1259 GitHub Actions versions (`824b9f32`) | **Adapt in C1**, not P15. | Adapts all four workflow files (`build.yml`, `codeql-analysis.yml`, `dockerfile-hadolint.yml`, `docs.yml`) because `build.yml` overlaps the Docker job lines that C1 rewrites. The other CI commits of #1259 (`5a91bb72` Coveralls frontend coverage, `cfe33e6e` HEALTHCHECK exec form) stay skipped. |
 | Template accessibility (PR [#55](https://github.com/GitchalWoo/pigallery2.5/pull/55), upstream `23eb43d7`) | **Ported templates must pass the accessibility lint errors.** | Since PR #55 the six `templateAccessibility` rules are errors. Upstream templates written before `23eb43d7` (e.g. clickable `div`s in P09–P12) are adapted to buttons, or to a role, `tabindex` and Enter/Space handlers, while porting. |
 | Upstream Playwright, e2e fixtures, translations, release tooling | **Skip** (unchanged). | See the ledger. Behavior is covered by Vitest, Mocha and Cypress instead. |
 
@@ -61,6 +62,7 @@ The workflow for every pack — presence check, impact report and approval, port
 | P07 | Merged into P08 | — | — | — |
 | P08 | Search fixes & accent-insensitive search (#1380, #1383, #1214) | M–L | P03, P06 | Escaping, directory lists |
 | P09 | Sort/group by directory & navigator | M | P08 | — |
+| C1 | Faster Docker verification in CI (fork work) | S–M | — | Workflow permissions and cache writes |
 | P10 | Grid & lightbox parity | M | P09 | — |
 | P11 | Loading, empty & error states | M | P03, P06 | — |
 | P12 | Prism shell, admin & PWA polish | M | P11 | — |
@@ -245,6 +247,21 @@ Branch `port/upstream-p09-directory-sort`. **Ported** in PR [#56](https://github
 | `91e374dc` (#1371) | Flatten only the folder and its subfolders | |
 | #1343 (`e60006ac`) | Breadcrumb Home links to `/gallery` | |
 | `9fe9eaaf` | Sort/group menu stays on screen on phones | Check against Prism. Since PR #55 the menu items are `<button>`s (with `span` labels), not `div`s: adapt the upstream CSS selectors to that markup and keep the keyboard Cypress spec (`accessibility.cy.ts`) passing. |
+
+### C1 — Faster Docker verification in CI (S–M)
+
+Branch `ci/docker-verify-speed`. **Done** in PR #C1PR. Fork CI work, not an upstream port; it runs after P09 and before P10. Upstream's `ci.yml` (at `3b61ddc9`) builds Docker the same way as the fork (QEMU, one shared cache scope, Docker after the tests), so no upstream change speeds this up or conflicts with it.
+
+Baseline from PR #55 (run `45896904201`): no Docker layer came from the cache. Tests took 8 min, then Debian 24 min and Alpine 7 min. Debian arm64 under QEMU spent 897 s compiling libvips (106 s on amd64), 194 s building Sharp (35 s) and 345 s installing runtime packages (54 s). The Actions cache held 10.9 GB against the 10 GB limit, so the least recently used entries were being evicted.
+
+| Step | Change | Notes |
+| --- | --- | --- |
+| 1 | `build-verify-docker-image` needs only `create-release`; `push-docker` needs `[test, build-verify-docker]` | Docker runs alongside the tests, saving about 8 min. Publishing still waits for both. |
+| 2 | Verify each distro and architecture in its own job (`build-verify-docker-image`): amd64 on `ubuntu-latest`, arm64 on `ubuntu-24.04-arm` (free for public repositories), no QEMU. One aggregate `build-verify-docker` job (`if: ${{ !cancelled() }}`) passes only when all four pass. | Same Dockerfiles and build-time diagnostics, which now run on real arm64. `master` currently has no branch protection ruleset; the aggregate `build-verify-docker` job gives a single stable check name ready for branch protection if enabled later. `push-docker` keeps its multi-arch QEMU build on tags. |
+| 3 | One cache scope per distro and architecture (`scope=<container>-<arch>`, `mode=max`). Only `master` writes the cache; PRs read it. Add a `push` trigger for `master` (with `paths-ignore` matching `pull_request`) so the cache is seeded, and set top-level `permissions: { contents: read }`. | A PR cache cannot be read by other PRs and pushes the master cache out. `mode=max` keeps the libvips layer, which lives in the builder stage. `push-docker` reads both `<container>-amd64` and `<container>-arm64` scopes and stays limited to tags. |
+| 4 | Adapted from `824b9f32` (#1259) across `build.yml`, `codeql-analysis.yml`, `dockerfile-hadolint.yml`, and `docs.yml`: `actions/checkout`, `actions/setup-node`, and `actions/setup-python` v7; `actions/cache` v6; `docker/setup-qemu-action`, `docker/setup-buildx-action`, and `docker/login-action` v4; `hadolint/hadolint-action` v3.5.0 | Covers all four workflows changed by `824b9f32` (`build.yml` overlaps steps 1–3). |
+
+Verification: the PR verifies the cold native run (and confirms PRs do not write cache), the post-merge `master` push seeds the four scoped caches, and the next run/PR verifies warm cache hits. Job times are recorded in the PR description. Out of scope: a separate cacheable stage for the Sharp build.
 
 ### P10 — Grid & lightbox parity (M)
 
