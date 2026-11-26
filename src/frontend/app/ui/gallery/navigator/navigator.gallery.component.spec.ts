@@ -12,7 +12,8 @@ import {UserRoles} from '../../../../../common/entities/UserDTO';
 import {Config} from '../../../../../common/config/public/Config';
 import {type ContentWrapperWithError} from '../../../../../common/entities/ContentWrapper';
 import {GroupByTypes, SortByTypes} from '../../../../../common/entities/SortingMethods';
-import {SearchQueryTypes, TextSearchQueryMatchTypes} from '../../../../../common/entities/SearchQueryDTO';
+import {SearchQueryTypes, type TextSearch, TextSearchQueryMatchTypes} from '../../../../../common/entities/SearchQueryDTO';
+import {SearchQueryUtils} from '../../../../../common/SearchQueryUtils';
 
 class MockAuthenticationService {
   canSearch() {
@@ -185,5 +186,29 @@ describe('GalleryNavigatorComponent sorting by directory', () => {
       }
     } as unknown as ContentWrapperWithError);
     expect(offered()).toEqual([true, true]);
+  });
+});
+
+describe('GalleryNavigatorComponent flatten folder', () => {
+  const content = new BehaviorSubject<ContentWrapperWithError>(null);
+  const component = new GalleryNavigatorComponent(
+    null, {getParams: () => ({})} as never, {content} as never, null, null, null, null, null
+  );
+  const flattenQuery = () => SearchQueryUtils.parseURLifiedQuery(component.getDirectoryFlattenSearchQuery());
+
+  // "<folder>*" would also match the sibling folders that start with the same name
+  // (e.g.: "Árvíztűrő tükörfúrógép 2"). "<folder>/*" matches the folder and its subfolders only (SearchManager.expandDirectoryGlobs).
+  it('should not search the sibling folders that start with the same name', () => {
+    content.next({directory: {path: 'Vacation/Lake/', name: 'Árvíztűrő tükörfúrógép'}} as unknown as ContentWrapperWithError);
+    expect(flattenQuery()).toEqual({
+      type: SearchQueryTypes.directory,
+      matchType: TextSearchQueryMatchTypes.globMatch,
+      value: 'Vacation/Lake/Árvíztűrő tükörfúrógép/*'
+    });
+  });
+
+  it('should search everything from the root', () => {
+    content.next({directory: {path: './', name: '.'}} as unknown as ContentWrapperWithError);
+    expect((flattenQuery() as TextSearch).value).toBe('./*');
   });
 });
