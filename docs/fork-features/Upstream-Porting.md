@@ -146,7 +146,7 @@ npx ng lint
 npx ng test --watch=false
 ```
 
-`npx ng lint` lints `src/` and `test/` and must report **0 errors**. Warnings (explicit `any`, template accessibility) are tracked in Techdebt T8; do not add new ones in ported code.
+`npx ng lint` lints `src/` and `test/` and must report **0 errors**. The template accessibility rules are errors. Warnings (explicit `any`) are tracked in Techdebt T8; do not add new ones in ported code.
 
 Backend full suite against **both SQLite and MariaDB**:
 
