@@ -5,12 +5,12 @@
         <ol id="directory-path" class="mb-0 mt-1 breadcrumb">
           @for (path of routes | async; track path) {
             <li class="breadcrumb-item">
-              @if (path.route) {
+              @if (path.route !== null) {
                 <a [routerLink]="['/gallery',path.route]"
                   [title]="path.title || ''"
                 [queryParams]="queryService.getParams()">{{path.name}}</a>
               }
-              @if (!path.route) {
+              @if (path.route === null) {
                 {{path.name}}
               }
             </li>

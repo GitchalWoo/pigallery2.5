@@ -144,9 +144,28 @@ describe('GalleryNavigatorComponent directory parents', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/gallery', 'one/two'], {queryParams: {sk: 'share'}});
 
     content.next({...content.value, directory: {...content.value.directory, availableParents: [true, true, false]}});
-    expect((await firstValueFrom(component.routes)).map(crumb => crumb.route)).toEqual(['/', 'one', null, null]);
+    // '' and not '/': the folder is one URL segment, so '/' would become /gallery/%2F
+    expect((await firstValueFrom(component.routes)).map(crumb => crumb.route)).toEqual(['', 'one', null, null]);
     component.navigateToParentDirectory();
     expect(router.navigate).toHaveBeenCalledOnce();
+  });
+
+  it('opens the root from a top level folder', async () => {
+    const content = new BehaviorSubject<ContentWrapperWithError>({
+      directory: {path: './', name: 'Nyaralás', availableParents: [true]},
+      searchResult: null
+    } as ContentWrapperWithError);
+    const router = {navigate: vi.fn().mockResolvedValue(true)};
+    const component = new GalleryNavigatorComponent(
+      {user: {value: {role: UserRoles.Admin}}} as never, {getParams: () => ({})} as never,
+      {content} as never, null, null, null, router as never, null
+    );
+
+    const routes = await firstValueFrom(component.routes);
+    expect(routes.map(crumb => crumb.route)).toEqual(['', null]);
+    expect(routes[0].title).toBe('key: alt + up');
+    component.onKeyPress(new KeyboardEvent('keydown', {key: 'ArrowUp', altKey: true}));
+    expect(router.navigate).toHaveBeenCalledWith(['/gallery', ''], {queryParams: {}});
   });
 });
 
