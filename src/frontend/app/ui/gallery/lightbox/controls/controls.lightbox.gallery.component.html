@@ -16,13 +16,13 @@
   <div [class.dim-controls]="controllersDimmed"
     class="controls controls-top">
     <div class="controls-background rounded-start-bottom">
-      <div class="highlight control-button" (click)="toggleInfoPanel.emit()"
+      <div role="button" tabindex="-1" class="highlight control-button" (click)="toggleInfoPanel.emit()"
         title="info key: i" i18n-title>
         <ng-icon name="ionInformationOutline"></ng-icon>
       </div>
 
       @if (fullScreenService.isFullScreenEnabled()) {
-        <div
+        <div role="button" tabindex="-1"
           class="highlight control-button"
           (click)="toggleFullScreen.emit()"
           title="toggle fullscreen, key: f" i18n-title>
@@ -32,7 +32,7 @@
       }
 
       @if (!fullScreenService.isFullScreenEnabled()) {
-        <div
+        <div role="button" tabindex="-1"
           class="highlight control-button"
           (click)="toggleFullScreen.emit(true)"
           title="toggle fullscreen, key: f" i18n-title>
@@ -141,7 +141,7 @@
         </ul>
       </div>
 
-      <div class="highlight control-button"
+      <div role="button" tabindex="-1" class="highlight control-button"
         (click)="closeLightbox()"
         title="close, key: Escape" i18n-title>
         <ng-icon size="1.2em" name="ionCloseOutline"></ng-icon>
@@ -149,7 +149,7 @@
     </div>
   </div>
 
-  <div id="swipeable-container" appLightboxGestures
+  <div id="swipeable-container" role="presentation" appLightboxGestures
     [class.hide-cursor]="controllersDimmed"
     (swipeleft)="zoom === 1 && nextPhoto.emit()"
     (swiperight)="zoom === 1 && previousPhoto.emit()"
@@ -212,7 +212,7 @@
   @if (navigation.hasPrev && zoom === 1) {
     <div [class.dim-controls]="controllersDimmed" class="navigation-arrow navigation-arrow-left highlight rounded-end"
       title="key: left arrow" id="leftArrow" i18n-title
-      role="button"
+      role="button" tabindex="-1"
       (pointerdown)="$event.stopPropagation()"
       (pointerup)="$event.stopPropagation()"
       (click)="$event.stopPropagation(); previousPhoto.emit()">
@@ -222,7 +222,7 @@
   @if (navigation.hasNext && zoom === 1) {
     <div [class.dim-controls]="controllersDimmed" class="navigation-arrow navigation-arrow-right highlight rounded-start"
       [title]="navigation.nextLoops ? restartTitle : nextTitle" id="rightArrow"
-      role="button"
+      role="button" tabindex="-1"
       (pointerdown)="$event.stopPropagation()"
       (pointerup)="$event.stopPropagation()"
       (click)="nextMediaManuallyTriggered($event)">

@@ -8,10 +8,10 @@
 }
 
 @if (dropDownItem) {
-  <a class="dropdown-item" (click)="openModal(shareModal)">
+  <button type="button" class="dropdown-item" (click)="openModal(shareModal)">
     <ng-icon name="ionShareSocialOutline"></ng-icon>
     <ng-container i18n>Share</ng-container>
-  </a>
+  </button>
 }
 
 <ng-template #shareModal>
@@ -155,13 +155,13 @@
 @if (activeShares && activeShares.length>0) {
   <div class="modal-footer">
     @if (!showSharingList) {
-      <a
+      <button type="button"
         (click)="showSharingList = true"
-        class="list-shares-button m-0">
+        class="list-shares-button btn btn-link p-0 m-0">
         <span class="badge text-bg-secondary me-1">{{ activeShares.length }}</span>
         <ng-container i18n>active share(s)</ng-container>
         <ng-icon name="ionChevronForwardOutline" class="ms-1"></ng-icon>
-      </a>
+      </button>
     }
     @if (showSharingList) {
       <table class="table table-hover table-sm">

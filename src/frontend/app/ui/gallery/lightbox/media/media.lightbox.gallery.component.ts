@@ -78,6 +78,14 @@ export class GalleryLightboxMediaComponent implements OnChanges, OnDestroy {
               private loadingBarService: LoadingBarService) {
   }
 
+  /**
+   * Text alternative for the photo: its file name, as in the grid. The lightbox already shows
+   * the title and caption as text, so they would be read twice.
+   */
+  get altText(): string {
+    return this.gridMedia?.media?.name ?? '';
+  }
+
   get ImageTransform(): SafeStyle {
     return this.sanitizer.bypassSecurityTrustStyle(
       'scale(' +
