@@ -250,7 +250,7 @@ Branch `port/upstream-p09-directory-sort`. **Ported** in PR [#56](https://github
 
 ### C1 — Faster Docker verification in CI (S–M)
 
-Branch `ci/docker-verify-speed`. **Done** in PR #C1PR. Fork CI work, not an upstream port; it runs after P09 and before P10. Upstream's `ci.yml` (at `3b61ddc9`) builds Docker the same way as the fork (QEMU, one shared cache scope, Docker after the tests), so no upstream change speeds this up or conflicts with it.
+Branch `ci/docker-verify-speed`. **Done** in PR [#57](https://github.com/GitchalWoo/pigallery2.5/pull/57). Fork CI work, not an upstream port; it runs after P09 and before P10. Upstream's `ci.yml` (at `3b61ddc9`) builds Docker the same way as the fork (QEMU, one shared cache scope, Docker after the tests), so no upstream change speeds this up or conflicts with it.
 
 Baseline from PR #55 (run `45896904201`): no Docker layer came from the cache. Tests took 8 min, then Debian 24 min and Alpine 7 min. Debian arm64 under QEMU spent 897 s compiling libvips (106 s on amd64), 194 s building Sharp (35 s) and 345 s installing runtime packages (54 s). The Actions cache held 10.9 GB against the 10 GB limit, so the least recently used entries were being evicted.
 
