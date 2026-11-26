@@ -234,7 +234,8 @@ export class GallerySortingService {
         }
 
       case SortByTypes.Name:
-        return (m: MediaDTO) => m.name.at(0).toUpperCase();
+        // by the first letter without its accent (Á is in the A group), like the names sort
+        return (m: MediaDTO) => (m.name.normalize('NFD').at(0) ?? '').toUpperCase();
 
       case SortByTypes.Directory:
         return (m: MediaDTO) => this.directoryPath(m);

@@ -90,6 +90,16 @@ describe('GallerySortingService', () => {
     });
   });
 
+  // #1308: a letter with an accent does not split the A group: Árvíztűrő is in the same group as Avocado,
+  // like it sorts with A
+  it('should group by name accent aware: Árvíztűrő is in the A group', async () => {
+    const m = (name: string): MediaDTO => ({name, directory: {path: './', name: '.'}, metadata: {size: {width: 1, height: 1}}} as unknown as MediaDTO);
+    const groups = (await apply({directories: [], metaFile: [], media: [m('Zebra.jpg'), m('éclair.jpg'), m('Avocado.jpg'), m('Árvíztűrő.jpg')]} as DirectoryContent,
+      {method: SortByTypes.Name, ascending: true}, {method: GroupByTypes.Name, ascending: true})).mediaGroups;
+    expect(groups.map(g => g.name)).toEqual(['A', 'E', 'Z']);
+    expect(groups.map(g => g.media.map(x => x.name))).toEqual([['Árvíztűrő.jpg', 'Avocado.jpg'], ['éclair.jpg'], ['Zebra.jpg']]);
+  });
+
   it('should still group by day', async () => {
     const at = (name: string, iso: string): MediaDTO =>
       ({name, directory: {path: './', name: '.'}, metadata: {creationDate: Date.parse(iso), size: {width: 1, height: 1}}} as unknown as MediaDTO);
