@@ -179,6 +179,15 @@ export class GalleryNavigatorComponent {
     return !!content?.searchResult && !this.isExactDirectorySearch(content);
   }
 
+  // Sorting and grouping by directory only makes sense if media from several directories is shown
+  get visibleSortingByTypes(): { key: number; value: string }[] {
+    return this.sortingByTypes.filter((t) => t.key !== SortByTypes.Directory || this.isSearch);
+  }
+
+  get visibleGroupingByTypes(): { key: number; value: string }[] {
+    return this.groupingByTypes.filter((t) => t.key !== GroupByTypes.Directory || this.isSearch);
+  }
+
   get ItemCount(): number {
     const c = this.contentLoaderService.content.value;
     return c?.directory
