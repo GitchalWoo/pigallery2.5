@@ -27,6 +27,20 @@
                     </h6>
                   </div>
                 }
+                @case (GroupByTypes.Directory) {
+                  <!-- the path does not widen the group, its start is cut instead: hover shows the whole, a tap on a phone too -->
+                  <div class="group-header directory-header">
+                    <h6 class="ms-2 d-flex align-items-center">
+                      <ng-icon class="me-1 flex-shrink-0" name="ionFolderOutline" />
+                      <a class="directory-link trim-start"
+                        [class.expanded]="expandedDirectory() === segment.group.directoryPath"
+                        [title]="segment.group.name"
+                        [routerLink]="(!touchOnly || expandedDirectory() === segment.group.directoryPath) ? ['/gallery', directoryRoute(segment.group.directoryPath)] : null"
+                        [queryParams]="queryService.params()"
+                        (click)="onDirectoryHeaderClick($event, segment.group.directoryPath)"><bdi>{{ segment.group.name }}</bdi></a>
+                    </h6>
+                  </div>
+                }
                 @default {
                   <div class="group-header"><h6 class="ms-2">{{ segment.group.name }}</h6></div>
                 }

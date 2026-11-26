@@ -61,6 +61,7 @@ export class GalleryNavigatorComponent {
   public showFilters = false;
   @ViewChild('dropdown', {static: true}) dropdown: BsDropdownDirective;
   @ViewChild('navigator', {read: ElementRef}) navigatorElement: ElementRef<HTMLInputElement>;
+  @ViewChild('sortingMenu', {read: ElementRef}) sortingMenu: ElementRef<HTMLElement>;
   public groupingFollowSorting = true; // if grouping should be set after sorting automatically
   protected readonly GroupByTypes = GroupByTypes;
   private readonly RootFolderName: string;
@@ -140,7 +141,8 @@ export class GalleryNavigatorComponent {
         } else {
           arr.push({
             name: this.RootFolderName,
-            route: canOpenParent(0) ? '/' : null,
+            // the folder is one URL segment: '/' would be encoded to /gallery/%2F
+            route: canOpenParent(0) ? '' : null,
           });
         }
 
@@ -159,7 +161,7 @@ export class GalleryNavigatorComponent {
         });
 
         // parent directory has a shortcut to navigate to
-        if (arr.length >= 2 && arr[arr.length - 2].route) {
+        if (arr.length >= 2 && arr[arr.length - 2].route !== null) {
           this.parentPath = arr[arr.length - 2].route;
           arr[arr.length - 2].title = $localize`key: alt + up`;
         }
@@ -179,6 +181,15 @@ export class GalleryNavigatorComponent {
     return !!content?.searchResult && !this.isExactDirectorySearch(content);
   }
 
+  // Sorting and grouping by directory only makes sense if media from several directories is shown
+  get visibleSortingByTypes(): { key: number; value: string }[] {
+    return this.sortingByTypes.filter((t) => t.key !== SortByTypes.Directory || this.isSearch);
+  }
+
+  get visibleGroupingByTypes(): { key: number; value: string }[] {
+    return this.groupingByTypes.filter((t) => t.key !== GroupByTypes.Directory || this.isSearch);
+  }
+
   get ItemCount(): number {
     const c = this.contentLoaderService.content.value;
     return c?.directory
@@ -195,6 +206,38 @@ export class GalleryNavigatorComponent {
   }
 
 
+  onSortingMenuOpenChange(open: boolean): void {
+    if (open) {
+      this.scheduleFitSortingMenu();
+    }
+  }
+
+  // the menu grows when the direction options appear: fit it again after it is rendered
+  private scheduleFitSortingMenu(): void {
+    requestAnimationFrame(() => this.fitSortingMenu());
+  }
+
+  /**
+   * The sorting menu opens leftwards from its button. When it doesn't fit there (phones, long translations),
+   * shift it right into the free space instead of letting it run off the left edge of the screen.
+   * The menu is created again on every open, so the shift that is already applied is read from the element itself.
+   */
+  fitSortingMenu(): void {
+    const menu = this.sortingMenu?.nativeElement;
+    if (!menu) {
+      return;
+    }
+    const gutter = 8;
+    const applied = -(parseFloat(menu.style.marginRight) || 0);
+    const rect = menu.getBoundingClientRect();
+    const left = rect.left - applied;
+    const spaceOnRight = document.documentElement.clientWidth - gutter - (rect.right - applied);
+    const shift = Math.max(0, Math.min(gutter - left, spaceOnRight));
+    if (shift !== applied) {
+      menu.style.marginRight = shift ? `-${shift}px` : '';
+    }
+  }
+
   isDirectionalSort(value: number) {
     return Utils.isValidEnumInt(SortByDirectionalTypes, value);
   }
@@ -208,6 +251,7 @@ export class GalleryNavigatorComponent {
       s.ascending = true;
     }
     this.sortingService.setSorting(s);
+    this.scheduleFitSortingMenu();
     // you cannot group by random
     if (!this.isDirectionalSort(sorting) ||
       // if grouping is disabled, do not update it
@@ -233,6 +277,7 @@ export class GalleryNavigatorComponent {
   setGroupingBy(grouping: number): void {
     const s = {method: grouping, ascending: this.sortingService.grouping.value.ascending};
     this.sortingService.setGrouping(s);
+    this.scheduleFitSortingMenu();
   }
 
   setGroupingAscending(asc: boolean) {
@@ -282,13 +327,13 @@ export class GalleryNavigatorComponent {
     return SearchQueryUtils.urlify({
       type: SearchQueryTypes.directory,
       matchType: TextSearchQueryMatchTypes.globMatch,
-      value: Utils.concatUrls('./', c?.directory.path, c?.directory.name) + '*',
+      value: Utils.concatUrls('./', c?.directory.path, c?.directory.name) + '/*', // the folder and its subfolders, not its siblings
     } as TextSearch);
   }
 
 
   navigateToParentDirectory() {
-    if (!this.parentPath) {
+    if (this.parentPath === null) {
       return;
     }
     this.router.navigate(['/gallery', this.parentPath],

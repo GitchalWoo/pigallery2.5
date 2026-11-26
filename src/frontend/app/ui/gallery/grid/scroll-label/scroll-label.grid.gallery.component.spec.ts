@@ -2,7 +2,7 @@ import {ComponentFixture, TestBed} from '@angular/core/testing';
 import {formatDate} from '@angular/common';
 import {BehaviorSubject} from 'rxjs';
 import {provideIcons} from '@ng-icons/core';
-import {ionChevronExpandOutline, ionPeopleOutline, ionStar, ionStarOutline} from '@ng-icons/ionicons';
+import {ionChevronExpandOutline, ionFolderOutline, ionPeopleOutline, ionStar, ionStarOutline} from '@ng-icons/ionicons';
 
 import {GalleryGridScrollLabelComponent} from './scroll-label.grid.gallery.component';
 import {GridLayout} from '../GridLayout';
@@ -14,7 +14,7 @@ import {MediaDTO} from '../../../../../../common/entities/MediaDTO';
 import {PageHelper} from '../../../../model/page.helper';
 import {ScrollRestorationService} from '../../../../model/scroll-restoration.service';
 
-const appIcons = {ionChevronExpandOutline, ionPeopleOutline, ionStar, ionStarOutline};
+const appIcons = {ionChevronExpandOutline, ionFolderOutline, ionPeopleOutline, ionStar, ionStarOutline};
 
 class MockGallerySortingService {
   readonly sorting = new BehaviorSubject({method: SortByTypes.Date, ascending: false});
@@ -191,6 +191,14 @@ describe('GalleryGridScrollLabelComponent', () => {
     sortingService.scrollLabelFn = {order: SortByTypes.PersonCount, label: () => '2'};
     scroll(250);
     expect(label()?.textContent?.trim()).toBe('2');
+    expect(label()?.querySelectorAll('ng-icon').length).toBe(1);
+  });
+
+  it('should show a directory path with the folder icon, cut at its start like the group headers', () => {
+    sortingService.scrollLabelFn = {order: SortByTypes.Directory, label: () => '2020/Summer'};
+    scroll(250);
+    expect(label()?.classList).toContain('directory-label');
+    expect(label()?.querySelector('.trim-start bdi')?.textContent).toBe('2020/Summer');
     expect(label()?.querySelectorAll('ng-icon').length).toBe(1);
   });
 

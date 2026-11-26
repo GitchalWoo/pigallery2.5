@@ -11,6 +11,9 @@ import {GalleryNavigatorService} from './navigator.service';
 import {UserRoles} from '../../../../../common/entities/UserDTO';
 import {Config} from '../../../../../common/config/public/Config';
 import {type ContentWrapperWithError} from '../../../../../common/entities/ContentWrapper';
+import {GroupByTypes, SortByTypes} from '../../../../../common/entities/SortingMethods';
+import {SearchQueryTypes, type TextSearch, TextSearchQueryMatchTypes} from '../../../../../common/entities/SearchQueryDTO';
+import {SearchQueryUtils} from '../../../../../common/SearchQueryUtils';
 
 class MockAuthenticationService {
   canSearch() {
@@ -141,8 +144,156 @@ describe('GalleryNavigatorComponent directory parents', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/gallery', 'one/two'], {queryParams: {sk: 'share'}});
 
     content.next({...content.value, directory: {...content.value.directory, availableParents: [true, true, false]}});
-    expect((await firstValueFrom(component.routes)).map(crumb => crumb.route)).toEqual(['/', 'one', null, null]);
+    // '' and not '/': the folder is one URL segment, so '/' would become /gallery/%2F
+    expect((await firstValueFrom(component.routes)).map(crumb => crumb.route)).toEqual(['', 'one', null, null]);
     component.navigateToParentDirectory();
     expect(router.navigate).toHaveBeenCalledOnce();
+  });
+
+  it('opens the root from a top level folder', async () => {
+    const content = new BehaviorSubject<ContentWrapperWithError>({
+      directory: {path: './', name: 'Nyaralás', availableParents: [true]},
+      searchResult: null
+    } as ContentWrapperWithError);
+    const router = {navigate: vi.fn().mockResolvedValue(true)};
+    const component = new GalleryNavigatorComponent(
+      {user: {value: {role: UserRoles.Admin}}} as never, {getParams: () => ({})} as never,
+      {content} as never, null, null, null, router as never, null
+    );
+
+    const routes = await firstValueFrom(component.routes);
+    expect(routes.map(crumb => crumb.route)).toEqual(['', null]);
+    expect(routes[0].title).toBe('key: alt + up');
+    component.onKeyPress(new KeyboardEvent('keydown', {key: 'ArrowUp', altKey: true}));
+    expect(router.navigate).toHaveBeenCalledWith(['/gallery', ''], {queryParams: {}});
+  });
+});
+
+// all media of a folder are in the same folder: sorting or grouping it by directory is meaningless
+describe('GalleryNavigatorComponent sorting by directory', () => {
+  const content = new BehaviorSubject<ContentWrapperWithError>(null);
+  const component = new GalleryNavigatorComponent(
+    null, {getParams: () => ({})} as never, {content} as never, null, null, null, null, null
+  );
+  const offered = (): boolean[] => [
+    component.visibleSortingByTypes.some((t) => t.key === SortByTypes.Directory),
+    component.visibleGroupingByTypes.some((t) => t.key === GroupByTypes.Directory)
+  ];
+
+  it('should not be offered for a folder', () => {
+    content.next({directory: {path: 'Vacation/', name: 'Árvíztűrő tükörfúrógép'}} as unknown as ContentWrapperWithError);
+    expect(offered()).toEqual([false, false]);
+    // the other methods stay
+    expect(component.visibleSortingByTypes.map(t => t.key)).toContain(SortByTypes.Name);
+  });
+
+  it('should not be offered for an exact directory search', () => {
+    content.next({
+      searchResult: {
+        searchQuery: {type: SearchQueryTypes.directory, matchType: TextSearchQueryMatchTypes.exact_match, value: './Vacation/Lake'}
+      }
+    } as unknown as ContentWrapperWithError);
+    expect(offered()).toEqual([false, false]);
+  });
+
+  it('should be offered for a search and a flattened folder', () => {
+    content.next({searchResult: {searchQuery: {type: SearchQueryTypes.any_text, value: 'Lake'}}} as unknown as ContentWrapperWithError);
+    expect(offered()).toEqual([true, true]);
+    content.next({
+      searchResult: {
+        searchQuery: {type: SearchQueryTypes.directory, matchType: TextSearchQueryMatchTypes.globMatch, value: 'Vacation/Lake/*'}
+      }
+    } as unknown as ContentWrapperWithError);
+    expect(offered()).toEqual([true, true]);
+  });
+});
+
+describe('GalleryNavigatorComponent flatten folder', () => {
+  const content = new BehaviorSubject<ContentWrapperWithError>(null);
+  const component = new GalleryNavigatorComponent(
+    null, {getParams: () => ({})} as never, {content} as never, null, null, null, null, null
+  );
+  const flattenQuery = () => SearchQueryUtils.parseURLifiedQuery(component.getDirectoryFlattenSearchQuery());
+
+  // "<folder>*" would also match the sibling folders that start with the same name
+  // (e.g.: "Árvíztűrő tükörfúrógép 2"). "<folder>/*" matches the folder and its subfolders only (SearchManager.expandDirectoryGlobs).
+  it('should not search the sibling folders that start with the same name', () => {
+    content.next({directory: {path: 'Vacation/Lake/', name: 'Árvíztűrő tükörfúrógép'}} as unknown as ContentWrapperWithError);
+    expect(flattenQuery()).toEqual({
+      type: SearchQueryTypes.directory,
+      matchType: TextSearchQueryMatchTypes.globMatch,
+      value: 'Vacation/Lake/Árvíztűrő tükörfúrógép/*'
+    });
+  });
+
+  it('should search everything from the root', () => {
+    content.next({directory: {path: './', name: '.'}} as unknown as ContentWrapperWithError);
+    expect((flattenQuery() as TextSearch).value).toBe('./*');
+  });
+});
+
+// long (e.g. Hungarian) labels on a phone: the menu opens leftwards from its button and would run off the screen
+describe('GalleryNavigatorComponent sorting menu on a phone', () => {
+  const component = new GalleryNavigatorComponent(
+    null, null, {content: new BehaviorSubject<ContentWrapperWithError>(null)} as never, null, null, null, null, null
+  );
+  // the menu as the browser lays it out without a shift, moved by its margin
+  const menu = (left: number, width: number): HTMLElement => {
+    const el = document.createElement('div');
+    el.getBoundingClientRect = () => {
+      const shift = -(parseFloat(el.style.marginRight) || 0);
+      return {left: left + shift, right: left + width + shift} as DOMRect;
+    };
+    component.sortingMenu = {nativeElement: el};
+    return el;
+  };
+
+  beforeEach(() => {
+    vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(375);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('should shift the menu right into the screen when it runs off the left edge', () => {
+    const el = menu(-40, 300);
+    component.fitSortingMenu();
+    expect(el.style.marginRight).toBe('-48px'); // 8px from the edge
+    expect(el.getBoundingClientRect().left).toBe(8);
+    component.fitSortingMenu(); // already fits: stays
+    expect(el.style.marginRight).toBe('-48px');
+  });
+
+  it('should not shift it past the right edge of the screen', () => {
+    const el = menu(-40, 400);
+    component.fitSortingMenu();
+    expect(el.style.marginRight).toBe('-7px'); // its right edge at 360: 375 - 8 - 360
+  });
+
+  it('should shift the menu again when it is opened again (a new element)', () => {
+    menu(-40, 300);
+    component.fitSortingMenu();
+    const reopened = menu(-40, 300);
+    component.fitSortingMenu();
+    expect(reopened.style.marginRight).toBe('-48px');
+  });
+
+  it('should not move a menu that fits', () => {
+    const el = menu(20, 300);
+    component.fitSortingMenu();
+    expect(el.style.marginRight).toBe('');
+  });
+
+  it('should fit the menu on the next frame after it opens', () => {
+    const frame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback): number => {
+      cb(0);
+      return 1;
+    });
+    const el = menu(-40, 300);
+    component.onSortingMenuOpenChange(false);
+    expect(frame).not.toHaveBeenCalled();
+    component.onSortingMenuOpenChange(true);
+    expect(el.style.marginRight).toBe('-48px');
   });
 });

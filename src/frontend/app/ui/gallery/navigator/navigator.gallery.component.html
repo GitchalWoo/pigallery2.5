@@ -5,12 +5,12 @@
         <ol id="directory-path" class="mb-0 mt-1 breadcrumb">
           @for (path of routes | async; track path) {
             <li class="breadcrumb-item">
-              @if (path.route) {
+              @if (path.route !== null) {
                 <a [routerLink]="['/gallery',path.route]"
                   [title]="path.title || ''"
                 [queryParams]="queryService.getParams()">{{path.name}}</a>
               }
-              @if (!path.route) {
+              @if (path.route === null) {
                 {{path.name}}
               }
             </li>
@@ -65,6 +65,7 @@
       }
       <div class="btn-group" dropdown #dropdown="bs-dropdown" placement="bottom right"
         [insideClick]="true"
+        (isOpenChange)="onSortingMenuOpenChange($event)"
         title="Sort and group" i18n-title>
         <button id="button-alignment" dropdownToggle type="button"
           class="btn dropdown-toggle  btn-outline-secondary btn-navigator"
@@ -90,7 +91,7 @@
             </div>
           }
         </button>
-        <div id="sorting-dropdown" *dropdownMenu class="dropdown-menu dropdown-menu-right"
+        <div id="sorting-dropdown" #sortingMenu *dropdownMenu class="dropdown-menu dropdown-menu-right"
           role="menu" aria-labelledby="button-alignment">
           <div class="row flex-nowrap">
             <div class="col  p-1 border-end">
@@ -106,8 +107,8 @@
             </h6>
 
             <div class="row">
-              @for (type of sortingByTypes; track type) {
-                <button type="button" class="dropdown-item sorting-grouping-item ps-3 pe-3" role="menuitem"
+              @for (type of visibleSortingByTypes; track type) {
+                <button type="button" class="dropdown-item sorting-grouping-item ps-2 pe-2 ps-sm-3 pe-sm-3" role="menuitem"
                   [class.active]="sortingService.sorting.value.method === type.key"
                   (click)="setSortingBy(type.key)">
                   <span class="me-2 d-inline-block">
@@ -119,7 +120,7 @@
 
               @if (isDirectionalSort(sortingService.sorting.value.method)) {
                 <hr>
-                  <button type="button" class="dropdown-item sorting-grouping-item ps-3 pe-3" role="menuitem"
+                  <button type="button" class="dropdown-item sorting-grouping-item ps-2 pe-2 ps-sm-3 pe-sm-3" role="menuitem"
                     [class.active]="sortingService.sorting.value.ascending === true"
                     (click)="setSortingAscending(true)">
                     <span class="me-2 d-inline-block">
@@ -127,7 +128,7 @@
                     </span>
                     <span class="d-inline-block" i18n>ascending</span>
                   </button>
-                  <button type="button" class="dropdown-item sorting-grouping-item ps-3 pe-3" role="menuitem"
+                  <button type="button" class="dropdown-item sorting-grouping-item ps-2 pe-2 ps-sm-3 pe-sm-3" role="menuitem"
                     [class.active]="sortingService.sorting.value.ascending === false"
                     (click)="setSortingAscending(false)">
                     <span class="me-2 d-inline-block">
@@ -141,8 +142,8 @@
             <div class="col p-1">
               <h6 class="ps-2" i18n>Grouping</h6>
               <div class="row">
-                @for (type of groupingByTypes; track type) {
-                  <button type="button" class="dropdown-item sorting-grouping-item ps-3 pe-3" role="menuitem"
+                @for (type of visibleGroupingByTypes; track type) {
+                  <button type="button" class="dropdown-item sorting-grouping-item ps-2 pe-2 ps-sm-3 pe-sm-3" role="menuitem"
                     [class.active]="sortingService.grouping.value.method === type.key"
                     (click)="setGroupingBy(type.key)">
                     <span class="me-2 d-inline-block">
@@ -153,7 +154,7 @@
                 }
                 @if (isDirectionalSort(sortingService.grouping.value.method)) {
                   <hr>
-                    <button type="button" class="dropdown-item sorting-grouping-item ps-3 pe-3" role="menuitem"
+                    <button type="button" class="dropdown-item sorting-grouping-item ps-2 pe-2 ps-sm-3 pe-sm-3" role="menuitem"
                       [class.active]="sortingService.grouping.value.ascending === true"
                       (click)="setGroupingAscending(true)">
                       <span class="me-2 d-inline-block">
@@ -161,7 +162,7 @@
                       </span>
                       <span class="d-inline-block" i18n>ascending</span>
                     </button>
-                    <button type="button" class="dropdown-item sorting-grouping-item ps-3 pe-3" role="menuitem"
+                    <button type="button" class="dropdown-item sorting-grouping-item ps-2 pe-2 ps-sm-3 pe-sm-3" role="menuitem"
                       [class.active]="sortingService.grouping.value.ascending === false"
                       (click)="setGroupingAscending(false)">
                       <span class="me-2 d-inline-block">
