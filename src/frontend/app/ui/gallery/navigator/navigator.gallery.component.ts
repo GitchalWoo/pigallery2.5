@@ -61,6 +61,7 @@ export class GalleryNavigatorComponent {
   public showFilters = false;
   @ViewChild('dropdown', {static: true}) dropdown: BsDropdownDirective;
   @ViewChild('navigator', {read: ElementRef}) navigatorElement: ElementRef<HTMLInputElement>;
+  @ViewChild('sortingMenu', {read: ElementRef}) sortingMenu: ElementRef<HTMLElement>;
   public groupingFollowSorting = true; // if grouping should be set after sorting automatically
   protected readonly GroupByTypes = GroupByTypes;
   private readonly RootFolderName: string;
@@ -205,6 +206,38 @@ export class GalleryNavigatorComponent {
   }
 
 
+  onSortingMenuOpenChange(open: boolean): void {
+    if (open) {
+      this.scheduleFitSortingMenu();
+    }
+  }
+
+  // the menu grows when the direction options appear: fit it again after it is rendered
+  private scheduleFitSortingMenu(): void {
+    requestAnimationFrame(() => this.fitSortingMenu());
+  }
+
+  /**
+   * The sorting menu opens leftwards from its button. When it doesn't fit there (phones, long translations),
+   * shift it right into the free space instead of letting it run off the left edge of the screen.
+   * The menu is created again on every open, so the shift that is already applied is read from the element itself.
+   */
+  fitSortingMenu(): void {
+    const menu = this.sortingMenu?.nativeElement;
+    if (!menu) {
+      return;
+    }
+    const gutter = 8;
+    const applied = -(parseFloat(menu.style.marginRight) || 0);
+    const rect = menu.getBoundingClientRect();
+    const left = rect.left - applied;
+    const spaceOnRight = document.documentElement.clientWidth - gutter - (rect.right - applied);
+    const shift = Math.max(0, Math.min(gutter - left, spaceOnRight));
+    if (shift !== applied) {
+      menu.style.marginRight = shift ? `-${shift}px` : '';
+    }
+  }
+
   isDirectionalSort(value: number) {
     return Utils.isValidEnumInt(SortByDirectionalTypes, value);
   }
@@ -218,6 +251,7 @@ export class GalleryNavigatorComponent {
       s.ascending = true;
     }
     this.sortingService.setSorting(s);
+    this.scheduleFitSortingMenu();
     // you cannot group by random
     if (!this.isDirectionalSort(sorting) ||
       // if grouping is disabled, do not update it
@@ -243,6 +277,7 @@ export class GalleryNavigatorComponent {
   setGroupingBy(grouping: number): void {
     const s = {method: grouping, ascending: this.sortingService.grouping.value.ascending};
     this.sortingService.setGrouping(s);
+    this.scheduleFitSortingMenu();
   }
 
   setGroupingAscending(asc: boolean) {

@@ -231,3 +231,69 @@ describe('GalleryNavigatorComponent flatten folder', () => {
     expect((flattenQuery() as TextSearch).value).toBe('./*');
   });
 });
+
+// long (e.g. Hungarian) labels on a phone: the menu opens leftwards from its button and would run off the screen
+describe('GalleryNavigatorComponent sorting menu on a phone', () => {
+  const component = new GalleryNavigatorComponent(
+    null, null, {content: new BehaviorSubject<ContentWrapperWithError>(null)} as never, null, null, null, null, null
+  );
+  // the menu as the browser lays it out without a shift, moved by its margin
+  const menu = (left: number, width: number): HTMLElement => {
+    const el = document.createElement('div');
+    el.getBoundingClientRect = () => {
+      const shift = -(parseFloat(el.style.marginRight) || 0);
+      return {left: left + shift, right: left + width + shift} as DOMRect;
+    };
+    component.sortingMenu = {nativeElement: el};
+    return el;
+  };
+
+  beforeEach(() => {
+    vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(375);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('should shift the menu right into the screen when it runs off the left edge', () => {
+    const el = menu(-40, 300);
+    component.fitSortingMenu();
+    expect(el.style.marginRight).toBe('-48px'); // 8px from the edge
+    expect(el.getBoundingClientRect().left).toBe(8);
+    component.fitSortingMenu(); // already fits: stays
+    expect(el.style.marginRight).toBe('-48px');
+  });
+
+  it('should not shift it past the right edge of the screen', () => {
+    const el = menu(-40, 400);
+    component.fitSortingMenu();
+    expect(el.style.marginRight).toBe('-7px'); // its right edge at 360: 375 - 8 - 360
+  });
+
+  it('should shift the menu again when it is opened again (a new element)', () => {
+    menu(-40, 300);
+    component.fitSortingMenu();
+    const reopened = menu(-40, 300);
+    component.fitSortingMenu();
+    expect(reopened.style.marginRight).toBe('-48px');
+  });
+
+  it('should not move a menu that fits', () => {
+    const el = menu(20, 300);
+    component.fitSortingMenu();
+    expect(el.style.marginRight).toBe('');
+  });
+
+  it('should fit the menu on the next frame after it opens', () => {
+    const frame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback): number => {
+      cb(0);
+      return 1;
+    });
+    const el = menu(-40, 300);
+    component.onSortingMenuOpenChange(false);
+    expect(frame).not.toHaveBeenCalled();
+    component.onSortingMenuOpenChange(true);
+    expect(el.style.marginRight).toBe('-48px');
+  });
+});
