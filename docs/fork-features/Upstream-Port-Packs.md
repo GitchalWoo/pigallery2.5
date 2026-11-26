@@ -236,7 +236,7 @@ Document the `ł`/`ø`/`ß` limitation in `docs/user-guide/configuration.md`. `e
 
 ### P09 — Sort/group by directory & navigator (M)
 
-Branch `port/upstream-p09-directory-sort`. **Ported** in PR #P09PR. The PR #45 grid needed no layout change: its segments carry the whole `MediaGroup`, so only the header and scroll-label cases and the sorting logic were added.
+Branch `port/upstream-p09-directory-sort`. **Ported** in PR [#56](https://github.com/GitchalWoo/pigallery2.5/pull/56). The PR #45 grid needed no layout change: its segments carry the whole `MediaGroup`, so only the header and scroll-label cases and the sorting logic were added.
 
 | Commit | Change | Notes |
 | --- | --- | --- |
