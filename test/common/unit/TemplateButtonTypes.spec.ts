@@ -32,19 +32,44 @@ describe('Frontend templates', () => {
     }
   }
 
-  it('should give every button a type', () => {
-    const files = templates(root);
-    expect(files.length).to.be.greaterThan(50);
+  // a clickable menu item must be a native button or link, so Tab, Enter and Space reach it
+  // (sort, group and grid size menus, adapted from upstream 23eb43d7)
+  class ClickableMenuItems extends TmplAstRecursiveVisitor {
+    readonly lines: number[] = [];
+
+    override visitElement(element: TmplAstElement): void {
+      if (element.attributes.some((a) => a.name === 'role' && a.value === 'menuitem') &&
+        element.outputs.some((o) => o.name === 'click') &&
+        element.name !== 'button' && element.name !== 'a') {
+        this.lines.push(element.sourceSpan.start.line + 1);
+      }
+      super.visitElement(element);
+    }
+  }
+
+  const findIn = (files: string[], create: () => {lines: number[]} & TmplAstRecursiveVisitor): string[] => {
     const found: string[] = [];
     for (const f of files) {
       const parsed = parseTemplate(fs.readFileSync(f, 'utf8'), f);
       expect(parsed.errors ?? [], f).to.deep.equal([]);
-      const visitor = new UntypedButtons();
+      const visitor = create();
       tmplAstVisitAll(visitor, parsed.nodes);
       for (const line of visitor.lines) {
         found.push(path.relative(root, f) + ':' + line);
       }
     }
-    expect(found).to.deep.equal([]);
+    return found;
+  };
+
+  it('should make every clickable menu item a button or a link', () => {
+    const files = templates(root);
+    expect(files.length).to.be.greaterThan(50);
+    expect(findIn(files, () => new ClickableMenuItems())).to.deep.equal([]);
+  });
+
+  it('should give every button a type', () => {
+    const files = templates(root);
+    expect(files.length).to.be.greaterThan(50);
+    expect(findIn(files, () => new UntypedButtons())).to.deep.equal([]);
   });
 });

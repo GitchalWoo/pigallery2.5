@@ -4,17 +4,6 @@ import tseslint from "typescript-eslint";
 import angular from "angular-eslint";
 import chaiFriendly from 'eslint-plugin-chai-friendly';
 
-// The keyboard and screen reader rules of templateAccessibility: warnings until the
-// clickable elements are made keyboard accessible (Techdebt T8, accessibility PR)
-const accessibilityWarnings = {
-  "@angular-eslint/template/click-events-have-key-events": "warn",
-  "@angular-eslint/template/interactive-supports-focus": "warn",
-  "@angular-eslint/template/mouse-events-have-key-events": "warn",
-  "@angular-eslint/template/label-has-associated-control": "warn",
-  "@angular-eslint/template/alt-text": "warn",
-  "@angular-eslint/template/elements-content": "warn",
-};
-
 export default tseslint.config(
   {
     files: ["src/frontend/**/*.ts"],
@@ -59,7 +48,6 @@ export default tseslint.config(
       "@angular-eslint/template/eqeqeq": ["error", {allowNullOrUndefined: true}],
       // a button without a type submits its form: the Enter key in any field of the form clicks the first one
       "@angular-eslint/template/button-has-type": "error",
-      ...accessibilityWarnings,
     },
   },
   {

@@ -2,6 +2,7 @@
   @if (showThumbnail()) {
     <img
       decoding="sync"
+      [alt]="altText"
       [style.width.%]="imageSize.width"
       [style.height.%]="imageSize.height"
       [style.transform]="ImageTransform"
@@ -15,7 +16,7 @@
       [style.height.%]="imageSize.height"
       [style.transform]="ImageTransform"
       [src]="photo.src"
-      [alt]="gridMedia.media.name"
+      [alt]="altText"
       (load)="onImageLoad()"
       (error)="onImageError()"
       #image/>
@@ -35,7 +36,7 @@
         #liveVideo>
         <source [src]="liveVideoSrc" (error)="onSourceError()">
       </video>
-      <div class="live-photo-badge"
+      <button type="button" class="live-photo-badge"
         [class.active]="liveVideoPlaying"
         (mouseenter)="startLiveVideo()"
         (mouseleave)="stopLiveVideo()"
@@ -44,7 +45,7 @@
         (touchcancel)="stopLiveVideo()"
         (click)="toggleLiveVideo()">
         LIVE
-      </div>
+      </button>
     </div>
   }
 

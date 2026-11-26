@@ -28,7 +28,7 @@ later, **L** = cleanup.
 |---|---|---|---|
 | T1 | Generated `.js` / `.js.map` files next to TypeScript sources | L | Completed in `cleanup/techdebt-modernization`: verified all git-ignored compiled files, working tree clean. |
 | T6 | Backend test fixtures tie on unrated album covers | L | Completed in `cleanup/techdebt-modernization`: added deterministic multi-criteria sorting and creationDate/name tie-breakers in `TestHelper.updateDirCache()`. |
-| T8 | ESLint: explicit `any` and keyboard accessibility | M | Since `chore/lint-all-files`, `ng lint` checks every source, template and test file with zero errors. Still warnings: `@typescript-eslint/no-explicit-any` (about 1,350: 954 in tests, 266 frontend, 132 backend/common), to be removed after the upstream ports, and the keyboard and screen reader rules of `templateAccessibility` (79 findings in 16 legacy templates), fixed in the accessibility PR (adapting upstream `23eb43d7`). Then switch both to errors. |
+| T8 | ESLint: explicit `any` | M | Since `chore/lint-all-files`, `ng lint` checks every source, template and test file with zero errors. Since `chore/lint-accessibility` (adapting upstream `23eb43d7`), the keyboard and screen reader rules of `templateAccessibility` are errors with no findings. Still warnings: `@typescript-eslint/no-explicit-any` (about 1,350: 954 in tests, 266 frontend, 132 backend/common), to be removed after the upstream ports (after P15). Then switch it to an error. |
 
 ## ARMv7 Docker follow-up
 

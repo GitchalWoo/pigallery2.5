@@ -255,12 +255,12 @@
                   </li>
                   @if (uploadService.canUpload()) {
                     <li role="menuitem">
-                      <a class="dropdown-item cursor-pointer" (click)="uploadInput.click()">
+                      <button type="button" class="dropdown-item" (click)="uploadInput.click()">
                         <ng-icon name="ionCloudUploadOutline"></ng-icon>
                         <ng-container i18n>Upload</ng-container>
-                        <input #uploadInput type="file" multiple [style.display]="'none'"
-                          (change)="uploadService.uploadFiles(uploadInput.files); uploadInput.value = ''">
-                      </a>
+                      </button>
+                      <input #uploadInput type="file" multiple [style.display]="'none'"
+                        (change)="uploadService.uploadFiles(uploadInput.files); uploadInput.value = ''">
                     </li>
                   }
                   @if (isAdmin()) {

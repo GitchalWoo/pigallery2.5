@@ -9,6 +9,9 @@ import {AutoCompleteRenderItem} from '../AutoCompleteRenderItem';
 import { NgClass } from '@angular/common';
 import {NgIconComponent} from '@ng-icons/core';
 
+// the navbar and the search modal can show a search field at the same time
+let nextAutoCompleteListId = 0;
+
 @Component({
   selector: 'app-gallery-search-field-base',
   templateUrl: './search-field-base.gallery.component.html',
@@ -53,6 +56,7 @@ export class GallerySearchFieldBaseComponent
     key: SearchQueryTypes;
   }[];
   public highlightedAutoCompleteItem = -1;
+  readonly autoCompleteListId = 'autocomplete-list-' + nextAutoCompleteListId++;
   inFocus: boolean;
   private cache = {
     lastAutocomplete: '',

@@ -147,6 +147,46 @@ describe('GalleryLightboxMediaComponent - Live Photo', () => {
     expect(badge).not.toBeNull();
     expect(badge.textContent.trim()).toBe('LIVE');
   });
+
+  // a native button: Tab reaches it, Enter and Space click it
+  it('should make the LIVE badge a button that toggles the live video', () => {
+    component.gridMedia = makeGridMedia({
+      liveVideoPath: 'photos/IMG_001_HEVC.MOV',
+    } as unknown as Partial<PhotoDTO>);
+    component.loadMedia = true;
+    component.ngOnChanges();
+    fixture.detectChanges();
+
+    const badge: HTMLButtonElement = fixture.nativeElement.querySelector('.live-photo-badge');
+    expect(badge.tagName).toBe('BUTTON');
+    expect(badge.type).toBe('button');
+    const toggle = vi.spyOn(component, 'toggleLiveVideo').mockImplementation(() => undefined);
+    badge.click();
+    expect(toggle).toHaveBeenCalledTimes(1);
+  });
+
+  // the lightbox shows the title and caption as text already: the alt text is the file name, as in the grid
+  it('should describe the photo with its file name', () => {
+    component.gridMedia = makeGridMedia({
+      metadata: {
+        size: {width: 4032, height: 3024}, creationDate: Date.now(), fileSize: 2048000,
+        title: 'Sunset over the lake',
+      },
+    } as unknown as Partial<PhotoDTO>);
+    component.loadMedia = true;
+    component.ngOnChanges();
+    fixture.detectChanges();
+
+    expect(component.altText).toBe('IMG_001.HEIC');
+    const images: HTMLImageElement[] = Array.from(fixture.nativeElement.querySelectorAll('img'));
+    expect(images.length).toBeGreaterThan(0);
+    for (const img of images) {
+      expect(img.alt).toBe('IMG_001.HEIC');
+    }
+
+    component.gridMedia = null;
+    expect(component.altText).toBe('');
+  });
 });
 
 describe('GalleryLightboxMediaComponent - Photo Loading & Lifecycle', () => {

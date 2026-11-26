@@ -36,6 +36,8 @@
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 1px;
+  font-family: inherit;
+  line-height: inherit;
   pointer-events: auto;
   cursor: pointer;
   user-select: none;
