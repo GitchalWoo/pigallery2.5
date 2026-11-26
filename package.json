@@ -13,7 +13,7 @@
     "create-release": "node scripts/release.mjs",
     "build-backend": "tsc && node scripts/build-info.mjs",
     "pretest": "npm run build-backend",
-    "test": "node --test scripts/test/*.test.mjs && ng test --watch=false && c8 mocha test",
+    "test": "node --test scripts/test/*.test.mjs && ng test --watch=false && c8 --reporter=text --reporter=lcovonly mocha test",
     "test-frontend": "ng test --watch=false",
     "test-backend": "mocha test",
     "coverage": "c8 report --reporter=lcov",

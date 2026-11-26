@@ -51,7 +51,6 @@ declare let describe: any;
 declare const after: any;
 declare const before: any;
 const tmpDescribe = describe;
-describe = DBTestHelper.describe(); // fake it os IDE plays nicely (recognize the test)
 
 
 class SearchManagerTest extends SearchManager {
@@ -63,6 +62,60 @@ class SearchManagerTest extends SearchManager {
 }
 
 
+describe('SearchManager query rewriting', () => {
+  /**
+   * flattenSameOfQueries converts some-of queries to AND and OR queries
+   * E.g.:
+   * 2-of:(A B C) to (A and (B or C)) or (B and C)
+   * this tests makes sure that all queries has at least 2 constraints
+   */
+  it('flattens SOME_OF queries', () => {
+    const sm = new SearchManagerTest();
+    const parser = new SearchQueryParser();
+    const alphabet = 'abcdefghijklmnopqrs';
+
+    const shortestDepth = (q: SearchQueryDTO): number => {
+      let depth = 0;
+      if ((q as SearchListQuery).list) {
+        if (q.type === SearchQueryTypes.AND) {
+          for (const l of (q as SearchListQuery).list) {
+            depth += shortestDepth(l);
+          }
+          return depth;
+        }
+        // it's an OR
+        const lengths = (q as SearchListQuery).list.map(l => shortestDepth(l)).sort();
+        return lengths[0];
+      }
+      return 1;
+    };
+
+    const checkBoolLogic = (q: SearchQueryDTO) => {
+      if ((q as SearchListQuery).list) {
+        expect((q as SearchListQuery).list).to.not.have.lengthOf(1);
+        for (const l of (q as SearchListQuery).list) {
+          checkBoolLogic(l);
+        }
+      }
+    };
+
+    for (let i = 1; i < alphabet.length / 2; ++i) {
+      const query: SomeOfSearchQuery = {
+        type: SearchQueryTypes.SOME_OF,
+        min: i,
+        list: alphabet.split('').map(t => ({
+          type: SearchQueryTypes.file_name,
+          value: t
+        } as TextSearch))
+      };
+      const q = sm.flattenSameOfQueries(query);
+      expect(shortestDepth(q)).to.equal(i, parser.stringify(query) + '\n' + parser.stringify(q));
+      checkBoolLogic(q);
+    }
+  }).timeout(20000);
+});
+
+describe = DBTestHelper.describe();
 describe('SearchManager', (sqlHelper: DBTestHelper) => {
   describe = tmpDescribe;
   /**
@@ -1203,59 +1256,6 @@ describe('SearchManager', (sqlHelper: DBTestHelper) => {
       } as SearchResultDTO));
 
     });
-
-    /**
-     * flattenSameOfQueries converts some-of queries to AND and OR queries
-     * E.g.:
-     * 2-of:(A B C) to (A and (B or C)) or (B and C)
-     * this tests makes sure that all queries has at least 2 constraints
-     */
-    (it('should flatter SOME_OF query', () => {
-      const sm = new SearchManagerTest();
-      const parser = new SearchQueryParser();
-      const alphabet = 'abcdefghijklmnopqrs';
-
-
-      const shortestDepth = (q: SearchQueryDTO): number => {
-        let depth = 0;
-        if ((q as SearchListQuery).list) {
-          if (q.type === SearchQueryTypes.AND) {
-            for (const l of (q as SearchListQuery).list) {
-              depth += shortestDepth(l);
-            }
-            return depth;
-          }
-          // it's an OR
-          const lengths = (q as SearchListQuery).list.map(l => shortestDepth(l)).sort();
-          return lengths[0];
-        }
-        return 1;
-      };
-
-      const checkBoolLogic = (q: SearchQueryDTO) => {
-        if ((q as SearchListQuery).list) {
-          expect((q as SearchListQuery).list).to.not.equal(1);
-          for (const l of (q as SearchListQuery).list) {
-            checkBoolLogic(l);
-          }
-        }
-      };
-
-      for (let i = 1; i < alphabet.length / 2; ++i) {
-        const query: SomeOfSearchQuery = {
-          type: SearchQueryTypes.SOME_OF,
-          min: i,
-          //
-          list: alphabet.split('').map(t => ({
-            type: SearchQueryTypes.file_name,
-            value: t
-          } as TextSearch))
-        };
-        const q = sm.flattenSameOfQueries(query);
-        expect(shortestDepth(q)).to.equal(i, parser.stringify(query) + '\n' + parser.stringify(q));
-        checkBoolLogic(q);
-      }
-    }) as any).timeout(20000);
 
     (it('should execute complex SOME_OF query', async () => {
       const sm = new SearchManager();
