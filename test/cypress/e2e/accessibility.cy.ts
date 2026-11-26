@@ -22,7 +22,9 @@ describe('Keyboard accessibility', () => {
   });
 
   it('sorts with the keyboard', () => {
-    cy.get('app-gallery-navbar #button-alignment').focus().type('{enter}');
+    // no scrolling: a scroll closes the dropdown
+    cy.get('app-gallery-navbar #button-alignment').focus().type('{enter}', {scrollBehavior: false});
+    cy.get('#sorting-dropdown').should('be.visible');
     cy.get('#sorting-dropdown button.sorting-grouping-item[role="menuitem"]').should('have.length.greaterThan', 3);
     shot('sort-menu');
 
@@ -30,7 +32,7 @@ describe('Keyboard accessibility', () => {
     cy.get('#sorting-dropdown button.sorting-grouping-item').contains('descending').closest('button')
       .as('descending')
       .focus().should('have.focus')
-      .type('{enter}');
+      .type('{enter}', {scrollBehavior: false});
     cy.get('@descending').should('have.class', 'active');
   });
 
