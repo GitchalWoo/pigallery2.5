@@ -37,7 +37,7 @@ import {GalleryBlogComponent} from '../blog/blog.gallery.component';
 import {BlogService} from '../blog/blog.service';
 import {ParseIntPipe} from '../../../pipes/ParseIntPipe';
 import {ScrollRestorationService} from '../../../model/scroll-restoration.service';
-import {NavigationEnd, Params, Router} from '@angular/router';
+import {NavigationEnd, Params, Router, RouterLink} from '@angular/router';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {type Subscription} from 'rxjs';
 import {type GroupedMarkdown} from '../blog/blog.service';
@@ -55,7 +55,8 @@ import {type GroupedMarkdown} from '../blog/blog.service';
     GalleryBlogComponent,
     GalleryPhotoComponent,
     GalleryGridScrollLabelComponent,
-    ParseIntPipe
+    ParseIntPipe,
+    RouterLink
   ]
 })
 export class GalleryGridComponent
@@ -301,6 +302,11 @@ export class GalleryGridComponent
    * On a phone, the first tap on a directory group header shows its whole path if it was cut, the next one opens the directory.
    * Otherwise (or with a mouse) the header is a plain link.
    */
+  /** The route of a directory group: the gallery root is '' (not '.'), like the breadcrumb's Home. */
+  directoryRoute(directoryPath: string | undefined): string {
+    return !directoryPath || directoryPath === '.' ? '' : directoryPath;
+  }
+
   onDirectoryHeaderClick(event: MouseEvent, directoryPath: string | undefined): void {
     if (!this.touchOnly || !directoryPath || this.expandedDirectory() === directoryPath) {
       return; // the routerLink opens it
@@ -310,7 +316,7 @@ export class GalleryGridComponent
       this.expandedDirectory.set(directoryPath);
       return;
     }
-    this.router.navigate(['/gallery', directoryPath], {queryParams: this.queryService.params()}).catch(console.error);
+    this.router.navigate(['/gallery', this.directoryRoute(directoryPath)], {queryParams: this.queryService.params()}).catch(console.error);
   }
 
   // the line of a blog is rendered again when it is scrolled back: it keeps whether it was open

@@ -170,6 +170,26 @@
               (ngModelChange)="onChange($event)">
             </app-settings-entry-sorting-method>
           }
+          @case ('ClientDirectorySortingConfig') {
+            <app-settings-entry-sorting-method
+              class="w-100"
+              [(ngModel)]="state.value"
+              [sortingByEnum]="DirectorySortByTypes"
+              [id]="idName"
+              [name]="idName"
+              (ngModelChange)="onChange($event)">
+            </app-settings-entry-sorting-method>
+          }
+          @case ('ClientDirectoryGroupingConfig') {
+            <app-settings-entry-sorting-method
+              class="w-100"
+              [(ngModel)]="state.value"
+              [sortingByEnum]="DirectoryGroupByTypes"
+              [id]="idName"
+              [name]="idName"
+              (ngModelChange)="onChange($event)">
+            </app-settings-entry-sorting-method>
+          }
           @case ('JobScheduleConfig-Array') {
             <app-settings-workflow
               class="w-100"

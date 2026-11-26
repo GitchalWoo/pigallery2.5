@@ -11,6 +11,8 @@ import {GalleryNavigatorService} from './navigator.service';
 import {UserRoles} from '../../../../../common/entities/UserDTO';
 import {Config} from '../../../../../common/config/public/Config';
 import {type ContentWrapperWithError} from '../../../../../common/entities/ContentWrapper';
+import {GroupByTypes, SortByTypes} from '../../../../../common/entities/SortingMethods';
+import {SearchQueryTypes, TextSearchQueryMatchTypes} from '../../../../../common/entities/SearchQueryDTO';
 
 class MockAuthenticationService {
   canSearch() {
@@ -144,5 +146,44 @@ describe('GalleryNavigatorComponent directory parents', () => {
     expect((await firstValueFrom(component.routes)).map(crumb => crumb.route)).toEqual(['/', 'one', null, null]);
     component.navigateToParentDirectory();
     expect(router.navigate).toHaveBeenCalledOnce();
+  });
+});
+
+// all media of a folder are in the same folder: sorting or grouping it by directory is meaningless
+describe('GalleryNavigatorComponent sorting by directory', () => {
+  const content = new BehaviorSubject<ContentWrapperWithError>(null);
+  const component = new GalleryNavigatorComponent(
+    null, {getParams: () => ({})} as never, {content} as never, null, null, null, null, null
+  );
+  const offered = (): boolean[] => [
+    component.visibleSortingByTypes.some((t) => t.key === SortByTypes.Directory),
+    component.visibleGroupingByTypes.some((t) => t.key === GroupByTypes.Directory)
+  ];
+
+  it('should not be offered for a folder', () => {
+    content.next({directory: {path: 'Vacation/', name: 'Árvíztűrő tükörfúrógép'}} as unknown as ContentWrapperWithError);
+    expect(offered()).toEqual([false, false]);
+    // the other methods stay
+    expect(component.visibleSortingByTypes.map(t => t.key)).toContain(SortByTypes.Name);
+  });
+
+  it('should not be offered for an exact directory search', () => {
+    content.next({
+      searchResult: {
+        searchQuery: {type: SearchQueryTypes.directory, matchType: TextSearchQueryMatchTypes.exact_match, value: './Vacation/Lake'}
+      }
+    } as unknown as ContentWrapperWithError);
+    expect(offered()).toEqual([false, false]);
+  });
+
+  it('should be offered for a search and a flattened folder', () => {
+    content.next({searchResult: {searchQuery: {type: SearchQueryTypes.any_text, value: 'Lake'}}} as unknown as ContentWrapperWithError);
+    expect(offered()).toEqual([true, true]);
+    content.next({
+      searchResult: {
+        searchQuery: {type: SearchQueryTypes.directory, matchType: TextSearchQueryMatchTypes.globMatch, value: 'Vacation/Lake/*'}
+      }
+    } as unknown as ContentWrapperWithError);
+    expect(offered()).toEqual([true, true]);
   });
 });

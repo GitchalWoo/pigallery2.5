@@ -17,10 +17,10 @@ import {GroupByTypes, SortByTypes} from '../../../../../common/entities/SortingM
 import {provideHttpClient, withXhr} from '@angular/common/http';
 import {BlogService, GroupedMarkdown} from '../blog/blog.service';
 import {provideIcons} from '@ng-icons/core';
-import {ionChevronExpandOutline, ionPeopleOutline, ionStar, ionStarOutline} from '@ng-icons/ionicons';
+import {ionChevronExpandOutline, ionFolderOutline, ionPeopleOutline, ionStar, ionStarOutline} from '@ng-icons/ionicons';
 import {ThumbnailManagerService} from '../thumbnailManager.service';
 
-const appIcons = {ionChevronExpandOutline, ionPeopleOutline, ionStar, ionStarOutline};
+const appIcons = {ionChevronExpandOutline, ionFolderOutline, ionPeopleOutline, ionStar, ionStarOutline};
 import {ExtensionService} from '../../../model/extension.service';
 import {MediaButtonModalService} from './photo/media-button-modal/media-button-modal.service';
 import {AuthenticationService} from '../../../model/network/authentication.service';
@@ -194,6 +194,55 @@ describe('GalleryGridComponent', () => {
   });
 
   // #1308, CUJ 6: a large folder renders only what is on the screen, but the page is as high as all of it
+  describe('grouped by directory', () => {
+    const inDir = (name: string, directoryPath: string): MediaGroup =>
+      ({name: directoryPath === '.' ? 'Home' : directoryPath, directoryPath, media: [photo(name)]});
+    const links = (): HTMLAnchorElement[] => [...fixture.nativeElement.querySelectorAll('.directory-header a.directory-link')];
+
+    beforeEach(() => {
+      TestBed.inject(GallerySortingService).grouping.next({method: GroupByTypes.Directory, ascending: true});
+    });
+
+    it('should link the headers to their folder, the root to /gallery/ (not /gallery/.)', () => {
+      setUp([inDir('r.jpg', '.'), inDir('1.jpg', '2020/Summer')], 4000);
+      expect(links().map(a => [a.textContent, a.getAttribute('title'), a.getAttribute('href')])).toEqual([
+        ['Home', 'Home', '/gallery/'],
+        ['2020/Summer', '2020/Summer', '/gallery/2020%2FSummer']
+      ]);
+    });
+
+    it('should show the whole cut path on the first tap on a phone, then open the folder', () => {
+      (component as unknown as { touchOnly: boolean }).touchOnly = true;
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      setUp([inDir('1.jpg', '2020/Summer')], 4000);
+      expect(links()[0].getAttribute('href')).toBeNull();
+      Object.defineProperty(links()[0], 'scrollWidth', {value: 500});
+      Object.defineProperty(links()[0], 'clientWidth', {value: 100});
+      links()[0].click();
+      fixture.detectChanges();
+      expect(component.expandedDirectory()).toBe('2020/Summer');
+      expect(links()[0].classList).toContain('expanded');
+      expect(links()[0].getAttribute('href')).toBe('/gallery/2020%2FSummer');
+      expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('should open a folder whose path is not cut on the first tap on a phone', () => {
+      (component as unknown as { touchOnly: boolean }).touchOnly = true;
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      setUp([inDir('r.jpg', '.')], 4000);
+      links()[0].click();
+      expect(navigate).toHaveBeenCalledWith(['/gallery', ''], {queryParams: {}});
+      expect(component.expandedDirectory()).toBeNull();
+    });
+
+    it('should keep the date headers of a grid that sets its header method (Timeline)', () => {
+      fixture.componentRef.setInput('groupHeaderMethod', GroupByTypes.Date);
+      setUp([inDir('1.jpg', '2020/Summer')], 4000);
+      expect(links()).toEqual([]);
+      expect(fixture.nativeElement.querySelector('.group-header h6').textContent.trim()).toBe('2020/Summer');
+    });
+  });
+
   describe('on scroll', () => {
     let photos: PhotoDTO[];
 

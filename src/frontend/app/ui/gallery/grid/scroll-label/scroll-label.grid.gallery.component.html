@@ -1,6 +1,7 @@
 @if (scrollLabel(); as label) {
   <div class="scroll-label shadow" aria-hidden="true"
     [class.handle]="label.handle"
+    [class.directory-label]="label.order === GroupByTypes.Directory"
     [class.dragging]="dragging()"
     [style.--thumb-center.px]="label.thumbCenter"
     [style.top.px]="dragTop()"
@@ -23,6 +24,9 @@
         @case (GroupByTypes.PersonCount) {
           {{ label.text }}
           <ng-icon class="ms-1" name="ionPeopleOutline" />
+        }
+        @case (GroupByTypes.Directory) {
+          <ng-icon class="me-1 flex-shrink-0" name="ionFolderOutline" /><span class="trim-start"><bdi>{{ label.text }}</bdi></span>
         }
         @default {
           {{ label.text }}

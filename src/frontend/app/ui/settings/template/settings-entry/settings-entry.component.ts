@@ -19,7 +19,7 @@ import {JobScheduleConfig, UserConfig} from '../../../../../../common/config/pri
 import {enumToTranslatedArray} from '../../../EnumTranslations';
 import {BsModalService} from 'ngx-bootstrap/modal';
 import {CustomSettingsEntries} from '../CustomSettingsEntries';
-import {GroupByTypes, SortByTypes} from '../../../../../../common/entities/SortingMethods';
+import {DirectoryGroupByTypes, DirectorySortByTypes, GroupByTypes, SortByTypes} from '../../../../../../common/entities/SortingMethods';
 import { ServerExtensionsEntryConfig } from '../../../../../../common/config/private/subconfigs/ServerExtensionsConfig';
 import { NgClass } from '@angular/common';
 import { GallerySearchFieldComponent } from '../../../gallery/search/search-field/search-field.gallery.component';
@@ -113,6 +113,8 @@ export class SettingsEntryComponent
   public readonly ConfigStyle = ConfigStyle;
   protected readonly SortByTypes = SortByTypes;
   protected readonly GroupByTypes = GroupByTypes;
+  protected readonly DirectorySortByTypes = DirectorySortByTypes;
+  protected readonly DirectoryGroupByTypes = DirectoryGroupByTypes;
 
 
   constructor(private searchQueryParserService: SearchQueryParserService,
