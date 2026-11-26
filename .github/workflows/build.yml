@@ -58,18 +58,19 @@ jobs:
           sleep 1
         done
 
-    - name: npm install and build
-      run: |
-        npm ci
-        npm run build
+    - name: Install dependencies and cache the Cypress binary
+      uses: cypress-io/github-action@v7
+      with:
+        runTests: false
+        package-manager-cache: false # setup-node already restores the npm cache
+    - name: Build the backend and English frontend
+      run: npm run build-en
 
     - name: lint
       run: |
         npm run lint
     - name: test
-      run: |
-        npm test
-        npm run coverage
+      run: npm --ignore-scripts test # The build step already ran pretest's backend compile
       env:
         MYSQL_HOST: localhost
         MYSQL_USERNAME: root
@@ -86,6 +87,7 @@ jobs:
       env:
         DEBUG: '@cypress/github-action'
       with:
+        install: false
         start: npm run start-e2e-server
       # after the test run completes store screenshots
     - uses: actions/upload-artifact@v7
@@ -112,9 +114,11 @@ jobs:
       -
         name: Install Deps
         run: npm ci
+        env:
+          CYPRESS_INSTALL_BINARY: '0'
       -
         name: Create Release
-        run: npm run create-release -- --skip-opt-packages=ffmpeg-static,ffprobe-static --force-opt-packages
+        run: npm run create-release -- --skip-opt-packages=ffmpeg-static,ffprobe-static --force-opt-packages --skip-zip
       - uses: actions/upload-artifact@v7
         with:
           name: pigallery2-release

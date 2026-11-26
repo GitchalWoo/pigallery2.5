@@ -238,3 +238,22 @@ Validation:
 - Frontend tests: **25/25 files passed**, **233/233 tests passed** with Vitest.
 - Backend tests: **922/922 tests passing** on SQLite and MariaDB 11.4.
 
+## CI Test Setup Deduplication (2026-11-27)
+
+The `docker-buildx` workflow installs dependencies once in the test job. `setup-node`
+restores the npm cache and the Cypress action restores the browser binary before
+installation. The end-to-end step reuses that install with `install: false`.
+
+`npm run build-en` compiles the backend and builds `dist/en` for the test job.
+The browser tests select English, and the Mocha tests that read built assets use
+the English bundle. CI runs `npm --ignore-scripts test` after the build to skip
+the `pretest` compile. Local `npm test` still compiles the backend. The test
+command writes both the console coverage report and `coverage/lcov.info` in a
+single pass for Coveralls.
+
+The in-memory `SOME_OF` query rewrite check runs once in Mocha. The SQL execution
+test still runs on both SQLite and MariaDB.
+
+The Docker release job builds every locale and uploads `release/`. It sets
+`CYPRESS_INSTALL_BINARY=0` during dependency installation and passes `--skip-zip`
+to `create-release`. A normal `npm run create-release` also writes `pigallery2.zip`.

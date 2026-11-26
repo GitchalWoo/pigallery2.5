@@ -40,6 +40,11 @@ export async function createRelease(options = {}) {
   }
   const source = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
   await writeFile(path.join(releaseDir, 'package.json'), JSON.stringify(releasePackage(source, {...options, ...createBuildInfo()}), null, 2) + '\n');
+  if (options.skipZip) {
+    console.log('Release ready: release/');
+    return;
+  }
+
   const archive = archiver('zip', {zlib: {level: 9}});
   const output = pipeline(archive, createWriteStream(path.join(root, 'pigallery2.zip')));
   archive.glob('**/*', {cwd: releaseDir, dot: true, nodir: true});
@@ -52,6 +57,12 @@ if (process.argv[1] && realpathSync(process.argv[1]) === path.join(root, 'script
     languages: {type: 'string'},
     'skip-opt-packages': {type: 'string'},
     'force-opt-packages': {type: 'boolean'},
+    'skip-zip': {type: 'boolean'},
   }});
-  await createRelease({languages: values.languages, skipOptional: values['skip-opt-packages'], forceOptional: values['force-opt-packages']});
+  await createRelease({
+    languages: values.languages,
+    skipOptional: values['skip-opt-packages'],
+    forceOptional: values['force-opt-packages'],
+    skipZip: values['skip-zip'],
+  });
 }
