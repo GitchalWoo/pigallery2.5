@@ -326,7 +326,7 @@ Branch `port/upstream-p13-indexing-extensions`. Implemented in [PR #62](https://
 
 ### P14 — Test infrastructure, regressions & cache correctness (M)
 
-Branch `port/upstream-p14-tests`. Implemented; the fork PR is recorded in the ledger. Outcome: the commits below are adapted (no schema change, see section 2). Ported from the regression PRs: #1353 (`8048a8a7`, `442ae254`, `b04c442d`), the bestFit seek case of `0630b7f9`, cookie lifetimes and the first bootstrap login of `4428284c`, expired-sharing and removed-folder cases of `cc4ed754`. Skipped: `707346a8`, `2910aae7`, `cb7d99fd`, `b4d48cf8`, `a305d156`, `1e8a78ea`, `965e364b`, `067ad946`; #1352 was covered in P12. Fork fixes in the same PR: the zip download no longer logs a server error after the zip (upstream has the same bug), and the upload spec no longer leaks its media folder into later suites.
+Branch `port/upstream-p14-tests`. Implemented in [PR #63](https://github.com/GitchalWoo/pigallery2.5/pull/63). Outcome: the commits below are adapted (no schema change, see section 2). Ported from the regression PRs: #1353 (`8048a8a7`, `442ae254`, `b04c442d`), the bestFit seek case of `0630b7f9`, cookie lifetimes and the first bootstrap login of `4428284c`, expired-sharing and removed-folder cases of `cc4ed754`. Skipped: `707346a8`, `2910aae7`, `cb7d99fd`, `b4d48cf8`, `a305d156`, `1e8a78ea`, `965e364b`, `067ad946`; #1352 was covered in P12. Fork fixes in the same PR: the zip download no longer logs a server error after the zip (upstream has the same bug), and the upload spec no longer leaks its media folder into later suites.
 
 | Commit | Change | Notes |
 | --- | --- | --- |
