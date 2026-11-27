@@ -22,7 +22,9 @@ describe('UploaderService', () => {
   let service: UploaderService;
   let network: MockNetworkService;
   let notification: { success: ReturnType<typeof vi.fn>, warning: ReturnType<typeof vi.fn>, error: ReturnType<typeof vi.fn> };
-  let contentLoader: { content: BehaviorSubject<unknown>, reloadCurrentContent: ReturnType<typeof vi.fn> };
+  let contentLoader: {
+    content: BehaviorSubject<unknown>, isCurrentAccountContent: boolean, reloadCurrentContent: ReturnType<typeof vi.fn>
+  };
   const uploadConfig = {...Config.Upload};
 
   const file = (name: string, content = 'image'): File => new File([content], name);
@@ -42,7 +44,8 @@ describe('UploaderService', () => {
     network = new MockNetworkService();
     notification = {success: vi.fn(), warning: vi.fn(), error: vi.fn()};
     contentLoader = {
-      content: new BehaviorSubject<unknown>({directory: {path: '/', name: 'album', media: [], metaFile: []}}),
+      content: new BehaviorSubject<unknown>({directory: {path: '/', name: 'album', metaFile: [], contentAvailable: true}}),
+      isCurrentAccountContent: true,
       reloadCurrentContent: vi.fn().mockResolvedValue(undefined)
     };
     const auth = {
@@ -61,6 +64,23 @@ describe('UploaderService', () => {
     vi.useRealTimers();
   });
 
+  it('offers uploads only once the server confirms content access to the whole folder', () => {
+    expect(service.canUpload()).toBe(true);
+    contentLoader.isCurrentAccountContent = false;
+    expect(service.canUpload()).toBe(false);
+    contentLoader.isCurrentAccountContent = true;
+    for (const directory of [{}, {contentAvailable: false}, {contentAvailable: true, isPartial: true}]) {
+      contentLoader.content.next({directory});
+      expect(service.canUpload()).toBe(false);
+    }
+  });
+
+  it('still requires a recognized upload marker when directory configuration is enforced', () => {
+    Config.Upload.enforcedDirectoryConfig = true;
+    expect(service.canUpload()).toBe(false);
+    contentLoader.content.next({directory: {contentAvailable: true, metaFile: [{name: '.uploader.pg2conf'}]}});
+    expect(service.canUpload()).toBe(true);
+  });
   it('should name the unsupported file and not send it', async () => {
     await service.uploadFiles([file('beach.jpg'), file('notes.txt')]);
     expect(sentNames()).toEqual(['beach.jpg']);

@@ -21,6 +21,7 @@ import {NotificationService} from '../../model/notification.service';
 export class ContentLoaderService implements OnDestroy {
   public content: BehaviorSubject<ContentWrapperWithError>;
   public originalContent: Observable<DirectoryContent>;
+  private contentGeneration: number | null = null;
   private ongoingContentRequest: symbol = null;
   private fallbackNavigation: string | null = null;
   private lastContentRequest: { type: 'directory' | 'search', value: string } = null;
@@ -74,14 +75,19 @@ export class ContentLoaderService implements OnDestroy {
     });
   }
 
-  setContent(content: ContentWrapperWithError): void {
+  setContent(content: ContentWrapperWithError, generation = this.galleryCacheService.getMediaCacheGeneration()): void {
     const previous = this.content.value;
-    if (previous?.error === content?.error &&
+    if (this.contentGeneration === generation && previous?.error === content?.error &&
         JSON.stringify(previous?.directory?.availableParents) === JSON.stringify(content?.directory?.availableParents) &&
         ContentWrapperUtils.equals(previous, content)) {
       return;
     }
+    this.contentGeneration = generation;
     this.content.next(content);
+  }
+
+  public get isCurrentAccountContent(): boolean {
+    return this.contentGeneration === this.galleryCacheService.getMediaCacheGeneration();
   }
 
   public async loadDirectory(directoryName: string, forceReload = false): Promise<void> {
@@ -89,12 +95,12 @@ export class ContentLoaderService implements OnDestroy {
     const request = Symbol();
     const cachedCw = this.galleryCacheService.getDirectory(directoryName);
     const alreadyShown = this.content.value;
-    const shown = forceReload && this.lastContentRequest?.type === 'directory' &&
+    const shown = forceReload && this.contentGeneration === generation && this.lastContentRequest?.type === 'directory' &&
       this.lastContentRequest.value === directoryName && alreadyShown?.directory && !alreadyShown.error
       ? alreadyShown : ContentWrapperUtils.unpack(cachedCw);
     this.ongoingContentRequest = request;
     this.lastContentRequest = {type: 'directory', value: directoryName};
-    this.setContent(shown);
+    this.setContent(shown, generation);
 
     // prepare server request
     const params: Record<string, unknown> = {};
@@ -110,6 +116,7 @@ export class ContentLoaderService implements OnDestroy {
       if (
         !forceReload &&
         cachedCw?.directory &&
+        typeof cachedCw.directory.contentAvailable === 'boolean' &&
         cachedCw?.directory.lastModified &&
         cachedCw?.directory.lastScanned &&
         !cachedCw?.directory.isPartial
@@ -146,7 +153,7 @@ export class ContentLoaderService implements OnDestroy {
 
     if (cw?.directory) {
       this.galleryCacheService.setDirectory(cw); // save it before adding references
-      this.setContent(ContentWrapperUtils.unpack(cw));
+      this.setContent(ContentWrapperUtils.unpack(cw), generation);
     } else if (!shown?.directory || shown.directory.isPartial) {
       this.setError($localize`Could not load this folder.`);
     }
@@ -192,13 +199,13 @@ export class ContentLoaderService implements OnDestroy {
     const queryStr = JSON.stringify(query);
     const generation = this.galleryCacheService.getMediaCacheGeneration();
     const request = Symbol();
-    const shown = forceReload && this.lastContentRequest?.type === 'search' &&
+    const shown = forceReload && this.contentGeneration === generation && this.lastContentRequest?.type === 'search' &&
       this.lastContentRequest.value === queryStr && this.content.value?.searchResult && !this.content.value.error;
     this.ongoingContentRequest = request;
     this.lastContentRequest = {type: 'search', value: queryStr};
 
     if (!shown) {
-      this.setContent(ContentWrapperUtils.build(null, null));
+      this.setContent(ContentWrapperUtils.build(), generation);
     }
 
     let cw = this.galleryCacheService.getSearch(query);
@@ -225,7 +232,7 @@ export class ContentLoaderService implements OnDestroy {
       if (fetch) {
         this.galleryCacheService.setSearch(cw);
       }
-      this.setContent(ContentWrapperUtils.unpack(cw));
+      this.setContent(ContentWrapperUtils.unpack(cw), generation);
     } else if (!shown) {
       this.setError($localize`Could not load search results.`);
     }

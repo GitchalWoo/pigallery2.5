@@ -38,6 +38,7 @@ import {type MediaDTO} from '../../../../common/entities/MediaDTO';
 import {LightboxService} from './lightbox/lightbox.service';
 import {EmptyStateComponent} from '../utils/empty-state/empty-state.component';
 import {SpinnerComponent} from '../utils/spinner/spinner.component';
+import {NgIconComponent} from '@ng-icons/core';
 import {SearchQueryParserService} from './search/search-query-parser.service';
 
 @Component({
@@ -60,7 +61,8 @@ import {SearchQueryParserService} from './search/search-query-parser.service';
     MediaButtonModalComponent,
     UploaderComponent,
     EmptyStateComponent,
-    SpinnerComponent
+    SpinnerComponent,
+    NgIconComponent
 ]
 })
 export class GalleryComponent implements OnInit, OnDestroy {
@@ -130,7 +132,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
     return this.contentLoader.content.value;
   }
 
-  get emptyState(): {icon: string; message: string; hint?: string} | null {
+  get emptyState(): {icon: string; message: string; hint?: string; upload?: boolean} | null {
     const content = this.ContentWrapper;
     const result = content?.searchResult || content?.directory;
     if (!result || content.error || content.directory?.isPartial || result.directories?.length || result.media?.length) {
@@ -144,7 +146,23 @@ export class GalleryComponent implements OnInit, OnDestroy {
         hint: $localize`Check the spelling or try a different search.`
       };
     }
-    return result.metaFile?.length ? null : {icon: 'ionFolderOutline', message: $localize`This folder is empty.`};
+    if (result.metaFile?.some(file => !file.name.toLowerCase().endsWith('.pg2conf'))) {
+      return null;
+    }
+    const upload = this.uploaderService.canUpload();
+    return {
+      icon: 'ionFolderOutline',
+      message: $localize`This folder is empty.`,
+      hint: upload ? $localize`Drop photos or videos here, or choose files to upload.` : undefined,
+      upload,
+    };
+  }
+
+  uploadFromEmptyFolder(input: HTMLInputElement): void {
+    if (input.files?.length) {
+      this.uploaderService.uploadFiles(input.files);
+    }
+    input.value = '';
   }
 
   retry(): void {

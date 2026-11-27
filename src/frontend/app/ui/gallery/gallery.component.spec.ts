@@ -125,6 +125,7 @@ class MockMDFilesFilterPipe {
 
 class MockUploaderService{
   public uploadProgress: unknown[] = [];
+  public canUpload = vi.fn().mockReturnValue(false);
 }
 
 
@@ -237,6 +238,18 @@ describe('GalleryComponent', () => {
     mockContentLoader.content.next({searchResult: {media: [], directories: []}} as ContentWrapperWithError);
     expect(component.emptyState?.message).toBe('No search results.');
     mockContentLoader.content.next({error: 'unavailable'} as ContentWrapperWithError);
+    expect(component.emptyState).toBeNull();
+  });
+
+  it('offers an upload in an empty folder containing only configuration files when allowed', () => {
+    const uploader = TestBed.inject(UploaderService) as unknown as MockUploaderService;
+    const directory = {metaFile: [{name: '.uploader.PG2CONF'}]};
+    mockContentLoader.content.next({directory} as ContentWrapperWithError);
+    expect(component.emptyState?.upload).toBe(false);
+
+    uploader.canUpload.mockReturnValue(true);
+    expect(component.emptyState?.upload).toBe(true);
+    mockContentLoader.content.next({directory: {...directory, metaFile: [{name: 'notes.md'}]}} as ContentWrapperWithError);
     expect(component.emptyState).toBeNull();
   });
   it('shows the full-screen empty frame only after a successful empty result', () => {

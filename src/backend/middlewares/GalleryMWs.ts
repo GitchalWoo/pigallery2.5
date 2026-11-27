@@ -126,6 +126,7 @@ export class GalleryMWs {
         return next();
       }
       directory.availableParents = req.session.context.directoryAccess.getAvailableParents(directoryName);
+      directory.contentAvailable = access === DirectoryAccessTypes.available;
       req.resultPipe = ContentWrapperUtils.build(directory, null);
       return next();
     } catch (err) {

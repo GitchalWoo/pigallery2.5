@@ -63,14 +63,14 @@ export class UploaderService {
               private contentLoaderService: ContentLoaderService) {
   }
 
-  // Known gap: a folder the user can only navigate (its content is hidden) still offers the upload,
-  // the server then answers "Directory not found". The client does not know the access of a folder.
   public canUpload(): boolean {
-    const dir = this.contentLoaderService.content.value.directory;
+    const dir = this.contentLoaderService.content.value?.directory;
     if (!Config.Upload.enabled ||
       !this.authService.isAuthenticated() ||
       this.authService.user.value.role < Config.Upload.minimumRole ||
-      !dir) {
+      dir?.contentAvailable !== true ||
+      !this.contentLoaderService.isCurrentAccountContent ||
+      dir.isPartial) {
       return false;
     }
 

@@ -4,6 +4,7 @@ import {ContentLoaderService} from './contentLoader.service';
 import {SearchQueryTypes} from '../../../../common/entities/SearchQueryDTO';
 import {NotificationService} from '../../model/notification.service';
 import {type PackedContentWrapper} from '../../../../common/entities/ContentWrapper';
+import {QueryParams} from '../../../../common/QueryParams';
 
 describe('ContentLoaderService', () => {
   const wrapper: PackedContentWrapper = {
@@ -89,6 +90,38 @@ describe('ContentLoaderService', () => {
     const shown = service.content.value;
     await service.reloadCurrentContent();
     expect(service.content.value).toBe(shown);
+    service.ngOnDestroy();
+  });
+
+  it('drops the displayed folder when a refresh fails after an account change', async () => {
+    const {service, getJson, cache} = setup();
+    getJson.mockResolvedValueOnce(wrapper).mockRejectedValueOnce(new Error('connection lost'));
+    await service.loadDirectory('photos');
+    expect(service.isCurrentAccountContent).toBe(true);
+    cache.getMediaCacheGeneration.mockReturnValue(1);
+    expect(service.isCurrentAccountContent).toBe(false);
+    await service.reloadCurrentContent();
+    expect(service.content.value.directory).toBeNull();
+    expect(service.content.value.error).toBe('Could not load this folder.');
+    service.ngOnDestroy();
+  });
+
+  it('requests full directory data when a cached listing lacks the content-access flag', async () => {
+    const {service, getJson, cache} = setup();
+    cache.getDirectory.mockReturnValue(wrapper);
+    getJson.mockResolvedValue({...wrapper, directory: {...wrapper.directory, contentAvailable: true}});
+    await service.loadDirectory('photos');
+    expect(getJson).toHaveBeenLastCalledWith('/gallery/content/photos', {});
+    expect(service.content.value.directory?.contentAvailable).toBe(true);
+
+    cache.getDirectory.mockReturnValue({...wrapper, directory: {...wrapper.directory, contentAvailable: false}});
+    getJson.mockResolvedValue({notModified: true});
+    await service.loadDirectory('photos');
+    expect(getJson).toHaveBeenLastCalledWith('/gallery/content/photos', {
+      [QueryParams.gallery.knownLastModified]: wrapper.directory.lastModified,
+      [QueryParams.gallery.knownLastScanned]: wrapper.directory.lastScanned,
+    });
+    expect(service.content.value.directory?.contentAvailable).toBe(false);
     service.ngOnDestroy();
   });
 

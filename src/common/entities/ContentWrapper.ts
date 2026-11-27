@@ -62,6 +62,10 @@ export class ContentWrapperUtils {
       return false;
     }
 
+    if (cw1.directory?.contentAvailable !== cw2.directory?.contentAvailable) {
+      return false;
+    }
+
     if (cw1.directory && !ContentWrapperUtils.equalsPartialDirectory(cw1.directory, cw2.directory)) {
       return false;
     }

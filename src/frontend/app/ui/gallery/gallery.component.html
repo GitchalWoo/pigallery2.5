@@ -52,6 +52,15 @@
           @if (empty.hint) {
             <span hint>{{ empty.hint }}</span>
           }
+          @if (empty.upload) {
+            <div action>
+              <button type="button" class="btn btn-primary" (click)="emptyUploadInput.click()">
+                <ng-icon name="ionCloudUploadOutline" class="me-1" aria-hidden="true"></ng-icon>
+                <span i18n>Upload</span>
+              </button>
+              <input #emptyUploadInput type="file" multiple hidden (change)="uploadFromEmptyFolder(emptyUploadInput)">
+            </div>
+          }
         </app-empty-state>
       }
       @if (!ContentWrapper.error && (ContentWrapper.searchResult || ContentWrapper.directory)) {
