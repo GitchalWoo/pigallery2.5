@@ -14,6 +14,8 @@ import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { DuplicatesPhotoComponent } from './photo/photo.duplicates.component';
 import { FileSizePipe } from '../../pipes/FileSizePipe';
+import {EmptyStateComponent} from '../utils/empty-state/empty-state.component';
+import {SpinnerComponent} from '../utils/spinner/spinner.component';
 
 interface GroupedDuplicate {
   name: string;
@@ -31,12 +33,15 @@ interface GroupedDuplicate {
     RouterLink,
     DuplicatesPhotoComponent,
     DatePipe,
-    FileSizePipe
+    FileSizePipe,
+    EmptyStateComponent,
+    SpinnerComponent
 ]
 })
 export class DuplicateComponent implements OnDestroy, OnInit {
   directoryGroups: GroupedDuplicate[] = null;
   renderedDirGroups: GroupedDuplicate[] = null;
+  loadError = false;
   renderedIndex = {
     group: -1,
     pairs: 0,
@@ -53,9 +58,12 @@ export class DuplicateComponent implements OnDestroy, OnInit {
       public queryService: QueryService,
       private piTitleService: PiTitleService
   ) {
-    this.duplicateService.getDuplicates().catch(console.error);
+    this.loadDuplicates();
     this.subscription = this.duplicateService.duplicates.subscribe(
         (duplicates: DuplicatesDTO[]): void => {
+          if (duplicates === null) {
+            return;
+          }
           this.directoryGroups = [];
           this.renderedIndex = {group: -1, pairs: 0};
           this.renderedDirGroups = [];
@@ -63,9 +71,6 @@ export class DuplicateComponent implements OnDestroy, OnInit {
             pairs: 0,
             photos: 0,
           };
-          if (duplicates === null) {
-            return;
-          }
           this.duplicateCount.photos = duplicates.reduce(
               (prev: number, curr): number => prev + curr.media.length,
               0
@@ -131,7 +136,15 @@ export class DuplicateComponent implements OnDestroy, OnInit {
     this.piTitleService.setTitle($localize`Duplicates`);
   }
 
+  loadDuplicates(): void {
+    this.loadError = false;
+    this.duplicateService.getDuplicates().catch(() => {
+      this.loadError = true;
+    });
+  }
+
   ngOnDestroy(): void {
+    clearTimeout(this.renderTimer);
     if (this.subscription) {
       this.subscription.unsubscribe();
       this.subscription = null;
@@ -148,7 +161,7 @@ export class DuplicateComponent implements OnDestroy, OnInit {
       this.renderTimer = null;
     }
 
-    if (this.directoryGroups.length === 0) {
+    if (!this.directoryGroups?.length) {
       return;
     }
 

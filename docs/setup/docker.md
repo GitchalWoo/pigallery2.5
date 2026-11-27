@@ -62,6 +62,8 @@ The `nginx.conf` above does both (see its `limit_req` lines). If you skip nginx 
 
 **Note 4:** API errors carry their HTTP status (e.g. 401 for an ended session, 403 for a missing right, 404 for a missing folder) and a JSON body that the app reads. Do not let the reverse proxy replace these answers with its own error pages (nginx: keep `proxy_intercept_errors` off, which is its default, for the `/pgapi` location).
 
+Unknown app pages also return HTTP 404, with an HTML body that loads the gallery’s 404 page. Keep `proxy_intercept_errors` off for the app location to show that page.
+
 **Note 3:** To log the real client IP of failed logins (e.g. for fail2ban) instead of the IP of the nginx container, set `Server.trustProxy` (Settings, "Under the hood" mode) to `uniquelocal`. See the [Fail2Ban guide](advanced/fail2ban.md).
 
 ### I.1.a Get SSL Certificate with Certbot

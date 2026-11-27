@@ -40,9 +40,28 @@
     <div body class="container-fluid app-gallery-body">
       <app-gallery-uploader [isUploadOver]="isUploadOver"></app-gallery-uploader>
       @if (ContentWrapper.error) {
-        <div class="alert alert-danger" role="alert">
-          {{ ContentWrapper.error }}
-        </div>
+        <app-empty-state class="page-state" icon="ionWarningOutline">
+          <span role="alert">{{ ContentWrapper.error }}</span>
+          @if (contentLoader.canRetry) {
+            <button action type="button" class="btn btn-primary" (click)="retry()" i18n>Retry</button>
+          }
+        </app-empty-state>
+      } @else if (emptyState; as empty) {
+        <app-empty-state class="page-state" [icon]="empty.icon">
+          {{ empty.message }}
+          @if (empty.hint) {
+            <span hint>{{ empty.hint }}</span>
+          }
+          @if (empty.upload) {
+            <div action>
+              <button type="button" class="btn btn-primary" (click)="emptyUploadInput.click()">
+                <ng-icon name="ionCloudUploadOutline" class="me-1" aria-hidden="true"></ng-icon>
+                <span i18n>Upload</span>
+              </button>
+              <input #emptyUploadInput type="file" multiple hidden (change)="uploadFromEmptyFolder(emptyUploadInput)">
+            </div>
+          }
+        </app-empty-state>
       }
       @if (!ContentWrapper.error && (ContentWrapper.searchResult || ContentWrapper.directory)) {
         <!-- Show search result overflow -->
@@ -73,17 +92,10 @@
         <app-gallery-grid [mediaGroups]="$safeNavigationMigration(directoryContent?.mediaGroups)"
           [mediaIdFn]="mediaIdFn"></app-gallery-grid>
       }
-    </div>
-  }
-
-  @if (ContentWrapper && ((!ContentWrapper.directory ||
-    ContentWrapper.directory.isPartial === true)
-    && !ContentWrapper.searchResult
-    && !ContentWrapper.error)) {
-    <div body class="container spinner-container"
-      >
-      <div class="spinner rounded">
-      </div>
+      @if ((!ContentWrapper.directory || ContentWrapper.directory.isPartial)
+          && !ContentWrapper.searchResult && !ContentWrapper.error) {
+        <app-spinner></app-spinner>
+      }
     </div>
   }
 </app-frame>

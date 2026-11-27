@@ -22,21 +22,15 @@ export function galleryMatcherFunction(
   const path = segments[0].path;
 
   const posParams: Record<string, UrlSegment> = {};
-  if (path === 'gallery') {
+  if (path === 'gallery' || path === 'search') {
+    const parameter = path === 'gallery' ? QueryParams.gallery.directory : QueryParams.gallery.search.query;
     if (segments.length > 1) {
-      posParams[QueryParams.gallery.directory] = segments[1];
+      // The public router also serves nested links whose slashes were left unencoded.
+      posParams[parameter] = segments.length === 2 ? segments[1] :
+        new UrlSegment(segments.slice(1).map(segment => segment.path).join('/'), {});
     }
     return {
-      consumed: segments.slice(0, Math.min(segments.length, 2)),
-      posParams,
-    };
-  }
-  if (path === 'search') {
-    if (segments.length > 1) {
-      posParams[QueryParams.gallery.search.query] = segments[1];
-    }
-    return {
-      consumed: segments.slice(0, Math.min(segments.length, 2)),
+      consumed: segments,
       posParams,
     };
   }
@@ -115,7 +109,11 @@ const routes: Routes = [
     runGuardsAndResolvers: 'paramsOrQueryParamsChange',
   },
   { path: '', redirectTo: '/login', pathMatch: 'full' },
-  { path: '**', redirectTo: '/error', pathMatch: 'full' },
+  {
+    path: '**',
+    data: {notFound: true},
+    loadComponent: () => import('./ui/not-found/not-found.component').then(m => m.NotFoundComponent),
+  },
 ];
 
 @NgModule({

@@ -17,6 +17,7 @@
   <link rel="apple-touch-icon" sizes="256x256"  href="icon.png">
 
   <link rel="manifest" crossorigin="use-credentials" href="manifest.json">
+  <script src="browser-compatibility.js"></script>
 
   <script>
     var ServerInject = {user:  <%- JSON.stringify(user); %>, ConfigInject: <%- JSON.stringify(Config); %>, UIExtensionConfigs:<%- JSON.stringify(UIExtensionConfigs); %>}
@@ -43,7 +44,7 @@
          viewBox="<%- Config.Server.svgIcon.viewBox || '0 0 512 512' %>">
      <!-- <%- "-->"+Config.Server.svgIcon.items+"<!--" %> -->
     </svg>
-    <h2 style="margin-top: 1em">Loading...</h2>
+    <h2 id="app-loading-text" style="margin-top: 1em">Loading...</h2>
   </div>
 </app-pi-gallery2>
 

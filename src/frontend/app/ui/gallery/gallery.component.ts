@@ -36,6 +36,10 @@ import {UploaderComponent} from './uploader/uploader.gallery.component';
 import {QueryService} from '../../model/query.service';
 import {type MediaDTO} from '../../../../common/entities/MediaDTO';
 import {LightboxService} from './lightbox/lightbox.service';
+import {EmptyStateComponent} from '../utils/empty-state/empty-state.component';
+import {SpinnerComponent} from '../utils/spinner/spinner.component';
+import {NgIconComponent} from '@ng-icons/core';
+import {SearchQueryParserService} from './search/search-query-parser.service';
 
 @Component({
   selector: 'app-gallery',
@@ -55,7 +59,10 @@ import {LightboxService} from './lightbox/lightbox.service';
     GPXFilesFilterPipe,
     PhotoFilterPipe,
     MediaButtonModalComponent,
-    UploaderComponent
+    UploaderComponent,
+    EmptyStateComponent,
+    SpinnerComponent,
+    NgIconComponent
 ]
 })
 export class GalleryComponent implements OnInit, OnDestroy {
@@ -112,6 +119,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
     public uploaderService: UploaderService,
     private queryService: QueryService,
     private lightboxService: LightboxService,
+    private searchQueryParser: SearchQueryParserService,
   ) {
     this.mapEnabled = Config.Map.enabled;
     PageHelper.showScrollY('gallery');
@@ -122,6 +130,43 @@ export class GalleryComponent implements OnInit, OnDestroy {
 
   get ContentWrapper(): ContentWrapperWithError {
     return this.contentLoader.content.value;
+  }
+
+  get emptyState(): {icon: string; message: string; hint?: string; upload?: boolean} | null {
+    const content = this.ContentWrapper;
+    const result = content?.searchResult || content?.directory;
+    if (!result || content.error || content.directory?.isPartial || result.directories?.length || result.media?.length) {
+      return null;
+    }
+    if (content.searchResult) {
+      const query = this.searchQueryParser.stringify(content.searchResult.searchQuery);
+      return {
+        icon: 'ionSearchOutline',
+        message: query ? $localize`Search for "${query}:QUERY:" matched nothing.` : $localize`No search results.`,
+        hint: $localize`Check the spelling or try a different search.`
+      };
+    }
+    if (result.metaFile?.some(file => !file.name.toLowerCase().endsWith('.pg2conf'))) {
+      return null;
+    }
+    const upload = this.uploaderService.canUpload();
+    return {
+      icon: 'ionFolderOutline',
+      message: $localize`This folder is empty.`,
+      hint: upload ? $localize`Drop photos or videos here, or choose files to upload.` : undefined,
+      upload,
+    };
+  }
+
+  uploadFromEmptyFolder(input: HTMLInputElement): void {
+    if (input.files?.length) {
+      this.uploaderService.uploadFiles(input.files);
+    }
+    input.value = '';
+  }
+
+  retry(): void {
+    this.contentLoader.reloadCurrentContent().catch(console.error);
   }
 
   get isEmptyFrame(): boolean {
@@ -259,8 +304,13 @@ export class GalleryComponent implements OnInit, OnDestroy {
   }
 
   private onRoute = async (params: Params): Promise<void> => {
-    const searchQuery = SearchQueryUtils.parseURLifiedQuery(params[QueryParams.gallery.search.query]);
-    if (searchQuery) {
+    const searchLink = params[QueryParams.gallery.search.query];
+    if (searchLink) {
+      const searchQuery = SearchQueryUtils.parseSearchLink(searchLink);
+      if (!searchQuery) {
+        this.contentLoader.showBrokenSearchLink();
+        return;
+      }
       this.contentLoader.search(searchQuery).catch(console.error);
       this.piTitleService.setSearchTitle(searchQuery);
       return;

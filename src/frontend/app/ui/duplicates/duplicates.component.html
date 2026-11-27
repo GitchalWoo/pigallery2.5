@@ -1,9 +1,18 @@
 <app-frame>
 
   <div body class="container">
-    @if (renderedDirGroups) {
+    @if (renderedDirGroups === null) {
+      @if (loadError) {
+        <app-empty-state class="page-state" icon="ionWarningOutline">
+          <span role="alert" i18n>Could not load duplicates.</span>
+          <button action type="button" class="btn btn-primary" (click)="loadDuplicates()" i18n>Retry</button>
+        </app-empty-state>
+      } @else {
+        <app-spinner></app-spinner>
+      }
+    } @else {
       @if ( duplicateCount.photos >0) {
-        <div class="alert alert-secondary" role="alert">
+        <div class="alert alert-secondary" role="alert" i18n>
           Listing <strong>{{duplicateCount.pairs}}</strong> duplicates ({{duplicateCount.photos}} photos).
         </div>
       }
@@ -41,9 +50,6 @@
           }
         </div>
       }
-    }
-    @if (!renderedDirGroups) {
-      loading
     }
   </div>
 </app-frame>

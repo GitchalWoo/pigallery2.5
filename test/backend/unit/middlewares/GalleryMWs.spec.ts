@@ -322,11 +322,13 @@ describe('GalleryMWs', () => {
       }
     });
 
-    it('lists metafiles only for available directories', async () => {
-      await callListDirectory('public', sessionContext({}), DirectoryAccessTypes.available);
+    it('reports content access and lists metafiles only for available directories', async () => {
+      const available = await callListDirectory('public', sessionContext({}), DirectoryAccessTypes.available);
       expect(listArgs[4].withMetaFiles).to.be.true;
-      await callListDirectory('public', sessionContext({}), DirectoryAccessTypes.parent);
+      expect(available.req.resultPipe.directory.contentAvailable).to.be.true;
+      const parent = await callListDirectory('public', sessionContext({}), DirectoryAccessTypes.parent);
       expect(listArgs[4].withMetaFiles).to.be.false;
+      expect(parent.req.resultPipe.directory.contentAvailable).to.be.false;
     });
 
     it('does not let sharing without directory query trigger indexing', async () => {

@@ -219,6 +219,22 @@ describe('SearchQueryDTOUtils.validateSearchQuery', () => {
 });
 
 
+describe('SearchQueryDTOUtils.parseSearchLink', () => {
+  it('reads a shortened search with a known nested type', () => {
+    const query: ANDSearchQuery = {
+      type: SearchQueryTypes.AND,
+      list: [{type: SearchQueryTypes.any_text, value: 'sunset'} as TextSearch]
+    };
+    expect(SearchQueryUtils.parseSearchLink(SearchQueryUtils.urlify(query))).to.deep.equal(query);
+  });
+
+  it('rejects malformed JSON, unknown types and incomplete lists', () => {
+    for (const link of ['{', 'null', '{"t":"AND"}', '{"t":99999}', '{"t":1}', '{"t":1,"l":[{"t":888}]}']) {
+      expect(SearchQueryUtils.parseSearchLink(link), link).to.equal(null);
+    }
+  });
+});
+
 describe('SearchQueryDTOUtils.urlify', () => {
   const assertValid = (q: SearchQueryDTO) => {
     expect(SearchQueryUtils.urlify(q).length).to.be.lessThan(JSON.stringify(SearchQueryUtils.stripDefault(q)).length);

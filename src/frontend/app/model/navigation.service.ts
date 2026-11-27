@@ -35,6 +35,7 @@ export class NavigationService {
 
   public isErrorPage(): boolean {
     return (
+      this.router.routerState.snapshot.root.firstChild?.data['notFound'] === true ||
       this.router.isActive(NavigationService.shareProblemPath,
         {paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored'} as IsActiveMatchOptions) ||
       this.router.isActive('error',

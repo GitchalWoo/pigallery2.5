@@ -65,12 +65,9 @@ export class GallerySearchComponent implements OnDestroy {
     }));
 
     this.subscription = this.route.params.subscribe((params: Params): void => {
-      if (!params[QueryParams.gallery.search.query]) {
-        return;
-      }
-      const searchQuery: string = params[QueryParams.gallery.search.query];
+      const searchQuery = SearchQueryUtils.parseSearchLink(params[QueryParams.gallery.search.query]);
       if (searchQuery) {
-        this.searchQueryDTO = SearchQueryUtils.parseURLifiedQuery(searchQuery);
+        this.searchQueryDTO = searchQuery;
         this.onQueryChange();
       }
     });

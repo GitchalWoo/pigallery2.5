@@ -12,33 +12,40 @@
   </div>
 
   <div body #container class="container-fluid">
-    @for (album of albumsService.albums | async; track album) {
-      <app-album
-        [album]="album"
-      [size]="size"></app-album>
+    @let albums = albumsService.albums | async;
+    @if (albums === null) {
+      @if (loadError) {
+        <app-empty-state class="page-state" icon="ionWarningOutline">
+          <span role="alert" i18n>Could not load albums.</span>
+          <button action type="button" class="btn btn-primary" (click)="loadAlbums()" i18n>Retry</button>
+        </app-empty-state>
+      } @else {
+        <app-spinner></app-spinner>
+      }
     }
+    <div class="album-tiles">
+      @for (album of albums; track album) {
+        <app-album [album]="album" [size]="size"></app-album>
+      }
 
-    @if (CanCreateAlbum) {
-      <button type="button" class="add-saved-search btn btn-secondary"
-        [style.width.px]="size"
-        [style.height.px]="size"
-        (click)="openModal(modal)">
-        <span class="text d-block">
-          <ng-icon name="ionAddOutline" class="mb-2"></ng-icon>
+      @if (CanCreateAlbum && albums !== null && size > 0) {
+        <button type="button" class="add-saved-search btn btn-secondary"
+          [style.width.px]="size"
+          [style.height.px]="size"
+          (click)="openModal(modal)">
+          <ng-icon name="ionAddOutline" aria-hidden="true"></ng-icon>
           <span i18n>Add saved search</span>
-        </span>
-      </button>
-    }
+        </button>
+      }
+    </div>
 
-    @if ((albumsService.albums | async) && (albumsService.albums | async).length === 0) {
-      <div class="d-flex no-item-msg"
-        >
-        <div class="flex-fill">
-          <h2>:(
-            <ng-container i18n>No albums to show.</ng-container>
-          </h2>
-        </div>
-      </div>
+    @if (albums?.length === 0) {
+      <app-empty-state class="page-state" icon="ionAlbumsOutline">
+        <ng-container i18n>No albums to show.</ng-container>
+        @if (CanCreateAlbum) {
+          <span hint i18n>Save a search as an album to find it here.</span>
+        }
+      </app-empty-state>
     }
   </div>
 </app-frame>
