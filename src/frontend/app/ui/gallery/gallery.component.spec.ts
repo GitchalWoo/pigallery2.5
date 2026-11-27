@@ -344,7 +344,7 @@ describe('GalleryComponent', () => {
       expect(mainContainer).toBeNull();
 
       // Spinner container should also not be visible
-      const spinnerContainer = compiled.querySelector('.spinner-container');
+      const spinnerContainer = compiled.querySelector('app-spinner');
       expect(spinnerContainer).toBeNull();
     });
 
@@ -454,7 +454,7 @@ describe('GalleryComponent', () => {
       fixture.detectChanges();
 
       const compiled = fixture.nativeElement;
-      const spinner = compiled.querySelector('.spinner');
+      const spinner = compiled.querySelector('app-spinner [role="status"]');
       expect(spinner).toBeTruthy();
     });
 
@@ -469,7 +469,7 @@ describe('GalleryComponent', () => {
       fixture.detectChanges();
 
       const compiled = fixture.nativeElement;
-      const spinner = compiled.querySelector('.spinner');
+      const spinner = compiled.querySelector('app-spinner');
       expect(spinner).toBeNull();
     });
 
@@ -480,7 +480,7 @@ describe('GalleryComponent', () => {
       fixture.detectChanges();
 
       const compiled = fixture.nativeElement;
-      const spinner = compiled.querySelector('.spinner');
+      const spinner = compiled.querySelector('app-spinner');
       expect(spinner).toBeNull();
     });
 
@@ -495,7 +495,7 @@ describe('GalleryComponent', () => {
       fixture.detectChanges();
 
       const compiled = fixture.nativeElement;
-      const spinner = compiled.querySelector('.spinner');
+      const spinner = compiled.querySelector('app-spinner');
       expect(spinner).toBeNull();
     });
   });

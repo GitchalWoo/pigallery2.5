@@ -16,6 +16,7 @@ import {ShareService} from '../gallery/share.service';
 import {NavigationService} from '../../model/navigation.service';
 import {SearchQueryParserService} from '../gallery/search/search-query-parser.service';
 import {EmptyStateComponent} from '../utils/empty-state/empty-state.component';
+import {SpinnerComponent} from '../utils/spinner/spinner.component';
 
 @Component({
   selector: 'app-albums',
@@ -30,12 +31,14 @@ import {EmptyStateComponent} from '../utils/empty-state/empty-state.component';
     GallerySearchQueryBuilderComponent,
     SavedSearchPopupComponent,
     AsyncPipe,
-    EmptyStateComponent
+    EmptyStateComponent,
+    SpinnerComponent
 ]
 })
 export class AlbumsComponent implements OnInit {
   @ViewChild('container', {static: true}) container: ElementRef;
   public size: number;
+  loadError = false;
   public savedSearch = {
     name: '',
     searchQuery: {type: SearchQueryTypes.any_text, value: ''} as TextSearch,
@@ -52,7 +55,14 @@ export class AlbumsComponent implements OnInit {
     private navigation: NavigationService,
     private searchQueryParserService: SearchQueryParserService,
   ) {
-    this.albumsService.getAlbums().catch(console.error);
+    this.loadAlbums();
+  }
+
+  loadAlbums(): void {
+    this.loadError = false;
+    this.albumsService.getAlbums().catch(() => {
+      this.loadError = true;
+    });
   }
 
   get CanCreateAlbum(): boolean {

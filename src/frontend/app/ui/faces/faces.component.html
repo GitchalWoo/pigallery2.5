@@ -3,25 +3,34 @@
   <app-faces-navbar navbar-appendix></app-faces-navbar>
 
   <div body #container class="container-fluid">
-    @for (person of favourites | async; track person) {
-      <app-face
-        [person]="person"
-      [size]="size"></app-face>
-    }
-    @if ((favourites | async).length > 0 && (nonFavourites | async).length > 0) {
-      <hr/>
-    }
-    @for (person of nonFavourites | async; track person) {
-      <app-face
-        [person]="person"
-      [size]="size"></app-face>
-    }
+    @if ((facesService.persons | async) === null) {
+      @if (loadError) {
+        <app-empty-state class="page-state" icon="ionWarningOutline">
+          <span role="alert" i18n>Could not load faces.</span>
+          <button action type="button" class="btn btn-primary" (click)="loadFaces()" i18n>Retry</button>
+        </app-empty-state>
+      } @else {
+        <app-spinner></app-spinner>
+      }
+    } @else {
+      @let favouritePeople = favourites | async;
+      @let otherPeople = nonFavourites | async;
+      @for (person of favouritePeople; track person) {
+        <app-face [person]="person" [size]="size"></app-face>
+      }
+      @if (favouritePeople?.length > 0 && otherPeople?.length > 0) {
+        <hr/>
+      }
+      @for (person of otherPeople; track person) {
+        <app-face [person]="person" [size]="size"></app-face>
+      }
 
-    @if ((nonFavourites | async).length === 0 && (favourites | async).length === 0) {
-      <app-empty-state class="page-state" icon="ionPeopleOutline">
-        <ng-container i18n>No faces to show.</ng-container>
-        <span hint i18n>Tag faces in your photo manager, then index the photos again.</span>
-      </app-empty-state>
+      @if (otherPeople?.length === 0 && favouritePeople?.length === 0) {
+        <app-empty-state class="page-state" icon="ionPeopleOutline">
+          <ng-container i18n>No faces to show.</ng-container>
+          <span hint i18n>Tag faces in your photo manager, then index the photos again.</span>
+        </app-empty-state>
+      }
     }
   </div>
 </app-frame>

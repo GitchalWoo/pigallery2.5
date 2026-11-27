@@ -37,6 +37,7 @@ import {QueryService} from '../../model/query.service';
 import {type MediaDTO} from '../../../../common/entities/MediaDTO';
 import {LightboxService} from './lightbox/lightbox.service';
 import {EmptyStateComponent} from '../utils/empty-state/empty-state.component';
+import {SpinnerComponent} from '../utils/spinner/spinner.component';
 import {SearchQueryParserService} from './search/search-query-parser.service';
 
 @Component({
@@ -58,7 +59,8 @@ import {SearchQueryParserService} from './search/search-query-parser.service';
     PhotoFilterPipe,
     MediaButtonModalComponent,
     UploaderComponent,
-    EmptyStateComponent
+    EmptyStateComponent,
+    SpinnerComponent
 ]
 })
 export class GalleryComponent implements OnInit, OnDestroy {

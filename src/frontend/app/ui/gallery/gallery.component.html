@@ -83,17 +83,10 @@
         <app-gallery-grid [mediaGroups]="$safeNavigationMigration(directoryContent?.mediaGroups)"
           [mediaIdFn]="mediaIdFn"></app-gallery-grid>
       }
-    </div>
-  }
-
-  @if (ContentWrapper && ((!ContentWrapper.directory ||
-    ContentWrapper.directory.isPartial === true)
-    && !ContentWrapper.searchResult
-    && !ContentWrapper.error)) {
-    <div body class="container spinner-container"
-      >
-      <div class="spinner rounded">
-      </div>
+      @if ((!ContentWrapper.directory || ContentWrapper.directory.isPartial)
+          && !ContentWrapper.searchResult && !ContentWrapper.error) {
+        <app-spinner></app-spinner>
+      }
     </div>
   }
 </app-frame>

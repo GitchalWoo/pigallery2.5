@@ -11,6 +11,7 @@ import { FaceComponent } from './face/face.component';
 import {SortByDirectionalTypes} from '../../../../common/entities/SortingMethods';
 import { FacesNavigatorComponent } from './navigator/navigator.faces.component';
 import {EmptyStateComponent} from '../utils/empty-state/empty-state.component';
+import {SpinnerComponent} from '../utils/spinner/spinner.component';
 
 @Component({
     selector: 'app-faces',
@@ -23,12 +24,14 @@ import {EmptyStateComponent} from '../utils/empty-state/empty-state.component';
     FaceComponent,
     AsyncPipe,
     FacesNavigatorComponent,
-    EmptyStateComponent
+    EmptyStateComponent,
+    SpinnerComponent
 ]
 })
 export class FacesComponent implements OnInit {
   @ViewChild('container', {static: true}) container: ElementRef;
   public size: number;
+  loadError = false;
   favourites: Observable<PersonDTO[]>;
   nonFavourites: Observable<PersonDTO[]>;
 
@@ -37,11 +40,11 @@ export class FacesComponent implements OnInit {
       public queryService: QueryService,
       private piTitleService: PiTitleService
   ) {
-    this.facesService.getPersons().catch(console.error);
+    this.loadFaces();
 
     const sortedPersons = combineLatest([this.facesService.persons, this.facesService.sorting]).pipe(
       map(([persons, sorting]) => {
-        return persons.sort((p1: PersonDTO, p2: PersonDTO) => {
+        return [...(persons ?? [])].sort((p1: PersonDTO, p2: PersonDTO) => {
           let res = 0;
           if (sorting.method === SortByDirectionalTypes.PersonCount) {
             res = (p1.cache?.count || 0) - (p2.cache?.count || 0);
@@ -59,6 +62,13 @@ export class FacesComponent implements OnInit {
     this.nonFavourites = sortedPersons.pipe(
         map((value) => value.filter((p) => !p.isFavourite))
     );
+  }
+
+  loadFaces(): void {
+    this.loadError = false;
+    this.facesService.getPersons().catch(() => {
+      this.loadError = true;
+    });
   }
 
   ngOnInit(): void {

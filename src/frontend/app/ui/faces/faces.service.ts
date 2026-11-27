@@ -11,7 +11,7 @@ export class FacesService {
   public sorting: BehaviorSubject<SortingMethod>;
 
   constructor(private networkService: NetworkService) {
-    this.persons = new BehaviorSubject<PersonDTO[]>([]);
+    this.persons = new BehaviorSubject<PersonDTO[]>(null);
     this.sorting = new BehaviorSubject<SortingMethod>({
       method: Config.Faces.sorting.method,
       ascending: Config.Faces.sorting.ascending
@@ -32,12 +32,8 @@ export class FacesService {
       {isFavourite}
     );
     const updatesList = this.persons.getValue();
-    for (let i = 0; i < updatesList.length; i++) {
-      if (updatesList[i].id === updated.id) {
-        updatesList[i] = updated;
-        this.persons.next(updatesList);
-        return;
-      }
+    if (updatesList?.some(p => p.id === updated.id)) {
+      this.persons.next(updatesList.map(p => p.id === updated.id ? updated : p));
     }
   }
 

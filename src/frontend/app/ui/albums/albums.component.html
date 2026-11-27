@@ -13,6 +13,16 @@
 
   <div body #container class="container-fluid">
     @let albums = albumsService.albums | async;
+    @if (albums === null) {
+      @if (loadError) {
+        <app-empty-state class="page-state" icon="ionWarningOutline">
+          <span role="alert" i18n>Could not load albums.</span>
+          <button action type="button" class="btn btn-primary" (click)="loadAlbums()" i18n>Retry</button>
+        </app-empty-state>
+      } @else {
+        <app-spinner></app-spinner>
+      }
+    }
     <div class="album-tiles">
       @for (album of albums; track album) {
         <app-album [album]="album" [size]="size"></app-album>
