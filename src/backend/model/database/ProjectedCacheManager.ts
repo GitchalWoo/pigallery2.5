@@ -13,7 +13,7 @@ import {ExtensionDecorator} from '../extension/ExtensionDecorator';
 import {Logger} from '../../Logger';
 import {SessionManager} from './SessionManager';
 import * as path from 'path';
-import {SessionContext} from '../SessionContext';
+import {SessionContext, SessionUser} from '../SessionContext';
 import {MediaEntity} from './enitites/MediaEntity';
 import {Config} from '../../../common/config/private/Config';
 import {DatabaseType} from '../../../common/config/private/PrivateConfig';
@@ -24,8 +24,11 @@ const LOG_TAG = '[ProjectedCacheManager]';
 
 export class ProjectedCacheManager implements IObjectManager {
 
-  async init(): Promise<void> {
-    // Cleanup at startup to avoid stale growth
+  /**
+   * Also runs at startup (ObjectManagers.init), to avoid stale growth.
+   * Projection keys with a relative date change daily, so the old ones go away here.
+   */
+  async onNewDay(): Promise<void> {
     await this.cleanupNonExistingProjections();
   }
 
@@ -42,16 +45,29 @@ export class ProjectedCacheManager implements IObjectManager {
   public async getAllProjections(): Promise<string[]> {
     const connection = await SQLConnection.getConnection();
     const activeKeys = new Set<string>();
+    // Only the keys: building session contexts here would re-enter the day-change cleanup.
+    const sm = ObjectManagers.getInstance().SessionManager;
 
     // Always include default projection key
     activeKeys.add(SessionManager.NO_PROJECTION_KEY);
 
+    // Visitors when authentication is disabled
+    if (Config.Users.authenticationRequired === false) {
+      try {
+        activeKeys.add(sm.getProjectionKeyForUser(ObjectManagers.getInstance().UserManager.getUnAuthenticatedUser() as unknown as SessionUser));
+      } catch (e) {
+        Logger.warn(LOG_TAG, 'Skipping invalid unauthenticated projection: ' + (e as Error)?.message);
+      }
+    }
+
     // Users
     const users = await connection.getRepository(UserEntity).find();
     for (const user of users) {
-      const ctx = await ObjectManagers.getInstance().SessionManager.buildContext(user);
-      if (ctx?.user?.projectionKey) {
-        activeKeys.add(ctx.user.projectionKey);
+      try {
+        activeKeys.add(sm.getProjectionKeyForUser(user as unknown as SessionUser));
+      } catch (e) {
+        // fail closed in buildContext too: such a user can't open the gallery, so it has no projection
+        Logger.warn(LOG_TAG, 'Skipping invalid user projection for user id=' + user.id + ': ' + (e as Error)?.message);
       }
     }
 
@@ -62,9 +78,7 @@ export class ProjectedCacheManager implements IObjectManager {
       .getMany();
     for (const s of shares) {
       try {
-        const q = ObjectManagers.getInstance().SessionManager.buildAllowListForSharing(s);
-        const key = ObjectManagers.getInstance().SessionManager.createProjectionKey(q);
-        activeKeys.add(key);
+        activeKeys.add(sm.createProjectionKey(sm.buildAllowListForSharing(s)));
       } catch (e) {
         // an invalid sharing can't be opened, so it has no projection
         Logger.warn(LOG_TAG, 'Skipping invalid sharing ' + s.sharingKey + ': ' + (e as Error)?.message);

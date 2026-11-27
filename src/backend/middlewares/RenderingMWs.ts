@@ -140,6 +140,10 @@ export class RenderingMWs {
     res: Response,
     next: NextFunction
   ): void {
+    // a handler that already answered (e.g. a streamed zip) and called next() anyway
+    if (res.headersSent) {
+      return;
+    }
     return next(new ErrorDTO(ErrorCodes.PATH_ERROR, 'Unknown API path: ' + req.method + ' ' + req.baseUrl + req.path));
   }
 
@@ -149,6 +153,16 @@ export class RenderingMWs {
     res: Response,
     next: NextFunction
   ): void {
+    // A second response can't be sent. Do not raise an "unknown server error" for the failed attempt.
+    if (res.headersSent) {
+      Logger.warn('[RenderingMWs]', 'Error after the response was sent:', req.method,
+        LoggerRouter.sanitizeUrl(req.originalUrl), (err as Error)?.message ?? String(err));
+      // the client must not take a cut-off response for a complete one
+      if (!res.writableEnded) {
+        res.destroy();
+      }
+      return;
+    }
     if (err instanceof ErrorDTO) {
       if (err.details) {
         const logFn = Logger.logLevelForError(err.code)

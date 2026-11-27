@@ -26,8 +26,9 @@ describe('JobProgressManager', () => {
       mock.timers.tick(4999);
       assert.equal(writeFile.mock.callCount(), 0);
       mock.timers.tick(1);
+      // cleanUp() waits for the save the timer started
+      await manager.cleanUp();
       assert.equal(writeFile.mock.callCount(), 1);
-      await writeFile.mock.calls[0].result;
 
       const saved = JSON.parse(await fs.readFile(join(folder, 'jobs.db'), 'utf8'));
       assert.deepEqual(saved.progresses[job.HashName].progress, progress);
@@ -37,5 +38,84 @@ describe('JobProgressManager', () => {
       ProjectPath.DBFolder = originalDBFolder;
       await fs.rm(folder, {recursive: true, force: true});
     }
+  });
+
+  describe('cleanUp', () => {
+    let originalDBFolder: string;
+    let folder: string;
+
+    beforeEach(async () => {
+      originalDBFolder = ProjectPath.DBFolder;
+      folder = await fs.mkdtemp(join(tmpdir(), 'pg-job-progress-'));
+      ProjectPath.DBFolder = folder;
+    });
+
+    afterEach(async () => {
+      mock.timers.reset();
+      mock.restoreAll();
+      ProjectPath.DBFolder = originalDBFolder;
+      await fs.rm(folder, {recursive: true, force: true});
+    });
+
+    const readSaved = async () => JSON.parse(await fs.readFile(join(folder, 'jobs.db'), 'utf8'));
+
+    it('writes a pending save right away and cancels its timer', async () => {
+      mock.timers.enable({apis: ['setTimeout']});
+      const manager = new JobProgressManager();
+      const job = new JobProgress('Index gallery', 'index', '[Test]');
+      manager.onJobProgressUpdate(job.toDTO());
+
+      await manager.cleanUp();
+      assert.ok((await readSaved()).progresses[job.HashName]);
+
+      const writeFile = mock.method(fs, 'writeFile');
+      mock.timers.tick(5000);
+      await new Promise(setImmediate);
+      assert.equal(writeFile.mock.callCount(), 0);
+    });
+
+    it('waits for a save already in flight', async () => {
+      mock.timers.enable({apis: ['setTimeout']});
+      const manager = new JobProgressManager();
+      const job = new JobProgress('Index gallery', 'index', '[Test]');
+      let finishWrite: () => void;
+      const realWriteFile = fs.writeFile;
+      let written = false;
+      mock.method(fs, 'writeFile', async (...args: Parameters<typeof fs.writeFile>) => {
+        await new Promise<void>((resolve) => finishWrite = resolve);
+        await realWriteFile(...args);
+        written = true;
+      });
+      manager.onJobProgressUpdate(job.toDTO());
+      mock.timers.tick(5000);
+      while (!finishWrite) {
+        await new Promise(setImmediate);
+      }
+
+      let cleanedUp = false;
+      const cleanUp = manager.cleanUp().then(() => cleanedUp = true);
+      await new Promise(setImmediate);
+      assert.equal(cleanedUp, false);
+
+      finishWrite();
+      await cleanUp;
+      assert.equal(written, true);
+      assert.ok((await readSaved()).progresses[job.HashName]);
+    });
+
+    it('recreates a missing DB folder', async () => {
+      const nested = join(folder, 'removed', 'db');
+      ProjectPath.DBFolder = nested;
+      const manager = new JobProgressManager();
+      manager.onJobProgressUpdate(new JobProgress('Index gallery', 'index', '[Test]').toDTO());
+      await manager.cleanUp();
+      await fs.access(join(nested, 'jobs.db'));
+    });
+
+    it('does nothing without pending progress', async () => {
+      const writeFile = mock.method(fs, 'writeFile');
+      await new JobProgressManager().cleanUp();
+      assert.equal(writeFile.mock.callCount(), 0);
+    });
   });
 });

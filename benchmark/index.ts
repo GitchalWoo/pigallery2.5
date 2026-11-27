@@ -1,3 +1,5 @@
+import * as path from 'path';
+import * as fs from 'fs';
 import {Config} from '../src/common/config/private/Config';
 import {ProjectPath} from '../src/backend/ProjectPath';
 import {BenchmarkResult, BenchmarkRunner} from './BenchmarkRunner';
@@ -7,6 +9,14 @@ import {DirectoryDTOUtils} from '../src/common/entities/DirectoryDTO';
 
 
 Config.Media.folder = BMConfig.path;
+// BenchmarkRunner deletes the DB folder between runs, so never point it at the app's own DB.
+// Each run gets its own folder inside tempFolder, so parallel or earlier runs are never touched.
+fs.mkdirSync(BMConfig.tempFolder, {recursive: true});
+const runFolder = fs.mkdtempSync(path.join(BMConfig.tempFolder, 'run-'));
+Config.Database.dbFolder = path.join(runFolder, 'db');
+Config.Media.tempFolder = path.join(runFolder, 'tmp');
+fs.mkdirSync(Config.Media.tempFolder, {recursive: true});
+console.log('Benchmark DB and temp files: ' + runFolder);
 ProjectPath.reset();
 const RUNS = BMConfig.RUNS;
 
@@ -54,12 +64,12 @@ const printExperimentResult = (result: BenchmarkResult, isSubResult = false) => 
   }
   if (result.contentWrapper) {
     if (result.contentWrapper.directory) {
-      details = 'media: ' + result.contentWrapper.directory.media.length +
-        ', directories: ' + result.contentWrapper.directory.directories.length +
+      details = 'media: ' + (result.contentWrapper.directory.media?.length ?? 0) +
+        ', directories: ' + (result.contentWrapper.directory.directories?.length ?? 0) +
         ', size: ' + fileSize(JSON.stringify(DirectoryDTOUtils.removeReferences(result.contentWrapper.directory)).length);
     } else {
-      details = 'media: ' + result.contentWrapper.searchResult.media.length +
-        ', directories: ' + result.contentWrapper.searchResult.directories.length +
+      details = 'media: ' + (result.contentWrapper.searchResult.media?.length ?? 0) +
+        ', directories: ' + (result.contentWrapper.searchResult.directories?.length ?? 0) +
         ', size: ' + fileSize(JSON.stringify(result.contentWrapper.searchResult).length);
 
     }

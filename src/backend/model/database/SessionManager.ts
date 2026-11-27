@@ -3,7 +3,7 @@ import {SessionUser, SessionContext} from '../SessionContext';
 import {DirectoryAccess, DirectoryFilter} from '../DirectoryAccess';
 import {SearchQueryUtils} from '../../../common/SearchQueryUtils';
 import {Config} from '../../../common/config/private/Config';
-import {ANDSearchQuery, DirectorySearch, SearchListQuery, SearchQueryDTO, SearchQueryTypes} from '../../../common/entities/SearchQueryDTO';
+import {ANDSearchQuery, DirectorySearch, SearchQueryDTO, SearchQueryTypes} from '../../../common/entities/SearchQueryDTO';
 import {SharingEntity} from './enitites/SharingEntity';
 import {ObjectManagers} from '../ObjectManagers';
 import {Logger} from '../../Logger';
@@ -132,34 +132,60 @@ export class SessionManager {
     return this.getQueryForUser(this.createSharingUser(sharing));
   }
 
-  public createProjectionKey(q: SearchQueryDTO) {
-    const canonical = SearchQueryUtils.stringifyForComparison(q);
+  /**
+   * Calendar-day stamp combining the UTC and the server-local date. SQLite 'now' is UTC,
+   * MySQL CURDATE() is the DB server's local date and JS uses both, so caches of relative dates
+   * refresh at either midnight without a stale window.
+   */
+  public static getDayKey(): string {
+    const now = new Date();
+    return now.toISOString().slice(0, 10) + '|' + now.toDateString();
+  }
+
+  /**
+   * The only place that builds a projection key: buildContext and the cache cleanup
+   * (ProjectedCacheManager.getAllProjections) must agree on it.
+   * Without a projection query, it is the default key. Fixed queries always get the same key.
+   */
+  public createProjectionKey(q: SearchQueryDTO | null): string {
+    if (!q) {
+      return SessionManager.NO_PROJECTION_KEY;
+    }
+    let canonical = SearchQueryUtils.stringifyForComparison(q);
+    // relative dates resolve differently every day, so the cached results do too
+    if (SearchQueryUtils.hasRelativeDate(q)) {
+      canonical += '|' + SessionManager.getDayKey();
+    }
     return hashProjectionKey(canonical);
   }
 
+  /**
+   * Projection key of a user without building the whole session context (no DB access, no day-change hook).
+   */
+  public getProjectionKeyForUser(user: SessionUser): string {
+    return this.createProjectionKey(this.getQueryForUser(user));
+  }
+
   public static isTimeDependent(q: SearchQueryDTO): boolean {
-    if (!q) {
-      return false;
-    }
-    if (q.type === SearchQueryTypes.date_pattern) {
-      return true;
-    }
-    return ((q as SearchListQuery).list || []).some(SessionManager.isTimeDependent);
+    return SearchQueryUtils.hasRelativeDate(q);
   }
 
   public async buildContext(user: SessionUser): Promise<SessionContext> {
+    if (ObjectManagers.isReady()) {
+      // Daily cleanup of relative-date caches. A string compare unless the day changed.
+      await ObjectManagers.getInstance().onDayChangeIfNeeded();
+    }
     const context = new SessionContext();
     context.user = user;
     delete (context.user as any).password;
-    context.user.projectionKey = SessionManager.NO_PROJECTION_KEY;
     const finalQuery = this.getQueryForUser(user);
+    context.user.projectionKey = this.createProjectionKey(finalQuery);
 
     if (finalQuery) {
       const sm = ObjectManagers.getInstance().SearchManager;
       // Build the Brackets-based query
       context.projectionQuery = await sm.prepareAndBuildWhereQuery(finalQuery);
       context.hasDirectoryProjection = sm.hasDirectoryQuery(finalQuery);
-      context.user.projectionKey = this.createProjectionKey(finalQuery);
       context.hasTimeDependentProjection = SessionManager.isTimeDependent(finalQuery);
       if (SearchQueryUtils.isQueryEmpty(finalQuery)) {
         Logger.silly(LOG_TAG, 'Empty Projection query.');

@@ -108,7 +108,7 @@ export class SQLConnection {
       return connection;
     } catch (err) {
       // Do not cache a connection whose schema upgrade failed.
-      await connection.close();
+      await connection.destroy();
       throw err;
     }
   }
@@ -117,15 +117,18 @@ export class SQLConnection {
     config: ServerDataBaseConfig
   ): Promise<boolean> {
     try {
-      await getConnection('test').close();
+      await getConnection('test').destroy();
       // eslint-disable-next-line no-empty
     } catch {
     }
     const options = this.getDriver(config);
     options.name = 'test';
     const conn = await this.createConnection(options);
-    await conn.query('SELECT 1');
-    await conn.close();
+    try {
+      await conn.query('SELECT 1');
+    } finally {
+      await conn.destroy();
+    }
     return true;
   }
 
@@ -206,8 +209,9 @@ export class SQLConnection {
   public static async close(): Promise<void> {
     try {
       if (this.connection != null) {
-        await this.connection.close();
+        const connection = this.connection;
         this.connection = null;
+        await connection.destroy();
       }
     } catch (err) {
       console.error('Error during closing sql db:');
@@ -259,10 +263,13 @@ export class SQLConnection {
         // @ts-ignore
         delete tmpOption.database;
         const tmpConn = await createConnection(tmpOption);
-        await tmpConn.query(
-          'CREATE DATABASE IF NOT EXISTS ' + options.database
-        );
-        await tmpConn.close();
+        try {
+          await tmpConn.query(
+            'CREATE DATABASE IF NOT EXISTS ' + options.database
+          );
+        } finally {
+          await tmpConn.destroy();
+        }
         return await createConnection(options);
       }
       throw e;

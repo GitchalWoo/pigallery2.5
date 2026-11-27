@@ -1,5 +1,5 @@
 import {expect} from 'chai';
-import {mkdtemp, mkdir, rm, writeFile} from 'node:fs/promises';
+import {mkdtemp, mkdir, readFile, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import * as path from 'node:path';
 import {mock} from 'node:test';
@@ -222,5 +222,16 @@ describe('JobManager progress and schedules', () => {
     mock.timers.tick(24 * hour);
     expect(manager.scheduledCount).to.equal(0);
     expect(runs).to.deep.equal([jobA.Name, jobA.Name]);
+  });
+
+  it('writes pending progress on cleanup instead of after it', async () => {
+    await start();
+    await manager.run(jobA.Name, {}, true, false);
+    manager.stop(jobA.Name);
+    await until(() => !jobA.InProgress);
+    await manager.cleanUp();
+    const saved = JSON.parse(await readFile(path.join(directory, 'jobs.db'), 'utf8'));
+    expect(Object.values(saved.progresses).map((p: {progress: {jobName: string}}) => p.progress.jobName))
+      .to.include(jobA.Name);
   });
 });

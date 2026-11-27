@@ -13,6 +13,7 @@ import {Utils} from '../../../../../src/common/Utils';
 import {SQLConnection} from '../../../../../src/backend/model/database/SQLConnection';
 import {ClientSortingConfig} from '../../../../../src/common/config/public/ClientConfig';
 import {ProjectedDirectoryCacheEntity} from '../../../../../src/backend/model/database/enitites/ProjectedDirectoryCacheEntity';
+import {MediaEntity} from '../../../../../src/backend/model/database/enitites/MediaEntity';
 
 const deepEqualInAnyOrder = require('deep-equal-in-any-order');
 const chai = require('chai');
@@ -195,4 +196,36 @@ describe('CoverManager', (sqlHelper: DBTestHelper) => {
       }))).to.deep.equal(null);
   });
 
+  describe('equally ranked covers', () => {
+    // p and p2 are both rated 4 in subDir: only the tie-breaker decides between them
+    const ratingOnly = () => [new ClientSortingConfig(SortByTypes.Rating, false)];
+    const lowerId = () => (p.id < p2.id ? p : p2).name;
+
+    it('picks the lowest media id for a folder cover', async () => {
+      Config.AlbumCover.Sorting = ratingOnly();
+      const cover = await new CoverManager().getCoverForDirectory(DBTestHelper.defaultSession,
+        {id: subDir.id, name: subDir.name, path: subDir.path});
+      expect(cover.name).to.equal(lowerId());
+    });
+
+    it('picks the lowest media id for a saved search cover', async () => {
+      Config.AlbumCover.Sorting = ratingOnly();
+      const cover = await new CoverManager().getCoverForAlbum(DBTestHelper.defaultSession, {
+        searchQuery: {type: SearchQueryTypes.directory, value: subDir.name} as TextSearch
+      });
+      expect(cover.name).to.equal(lowerId());
+    });
+
+    it('adds the id after the configured sorting, but not to a random one', async () => {
+      const orderBys = async () => {
+        const query = (await SQLConnection.getConnection()).getRepository(MediaEntity).createQueryBuilder('media');
+        CoverManager['setCoverSorting'](query);
+        return Object.keys(query.expressionMap.allOrderBys);
+      };
+      Config.AlbumCover.Sorting = ratingOnly();
+      expect(await orderBys()).to.deep.equal(['media.metadata.rating', 'media.id']);
+      Config.AlbumCover.Sorting = [new ClientSortingConfig(SortByTypes.Random, false)];
+      expect(await orderBys()).to.not.include('media.id');
+    });
+  });
 });

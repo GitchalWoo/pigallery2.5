@@ -41,6 +41,7 @@ describe('UploadRouter', () => {
   // the upload temp folder may not exist yet, it is made by the first upload
   const tempFiles = (): string[] => fs.existsSync(uploadTemp()) ? fs.readdirSync(uploadTemp()) : [];
   let originalTempFolder: string;
+  let originalMediaFolder: string;
 
   const adminUser: UserDTO = {
     id: 1,
@@ -70,6 +71,7 @@ describe('UploadRouter', () => {
     RateLimiter.reset();
     Config.Upload.enabled = true;
     await sqlHelper.initDB();
+    originalMediaFolder = Config.Media.folder;
     Config.Media.folder = testDir;
     originalTempFolder = Config.Media.tempFolder;
     Config.Media.tempFolder = tempDir;
@@ -86,6 +88,8 @@ describe('UploadRouter', () => {
     Config.Upload.maxFileSizeMB = 50;
     Config.Upload.enforcedDirectoryConfig = false;
     Config.Media.tempFolder = originalTempFolder;
+    // the folder is removed after the suite: later suites must not resolve paths in it
+    Config.Media.folder = originalMediaFolder;
     ProjectPath.reset();
     await sqlHelper.clearDB();
   };
@@ -509,6 +513,37 @@ describe('UploadRouter', () => {
       res.should.have.status(404);
       res.body.error.code.should.equal(ErrorCodes.DIRECTORY_NOT_FOUND);
       fs.existsSync(path.join(testDir, 'parent.jpg')).should.be.false;
+      tempFiles().should.deep.equal([]);
+    });
+  });
+
+  describe('minimum upload role', () => {
+    const origMinimumRole = Config.Upload.minimumRole;
+    const uploader = {name: 'uploader', password: 'uploader', role: UserRoles.User} as UserDTO;
+
+    beforeEach(async () => {
+      Config.Upload.minimumRole = UserRoles.Admin; // read when the routes are set up
+      await setUp();
+      await ObjectManagers.getInstance().UserManager.createUser(Utils.clone(uploader));
+    });
+    afterEach(async () => {
+      Config.Upload.minimumRole = origMinimumRole;
+      await tearDown();
+    });
+
+    it('should not let a user below the minimum upload role upload', async () => {
+      const loginRes = await (request.execute(server.Server) as SuperAgentStatic)
+        .post(Config.Server.apiPath + '/user/login')
+        .send({loginCredential: {username: uploader.name, password: uploader.password, rememberMe: false} as LoginCredential});
+      const res = await request.execute(server.Server)
+        .post(Config.Server.apiPath + '/upload/')
+        .set('Cookie', loginRes.headers['set-cookie'] as unknown as string[])
+        .set(CustomHeaders.csrfToken, RouteTestingHelper.getCsrfToken(loginRes))
+        .attach('files', Buffer.from('test image'), 'not_allowed.jpg');
+
+      res.should.have.status(403);
+      res.body.error.code.should.equal(ErrorCodes.NOT_AUTHORISED);
+      fs.existsSync(path.join(testDir, 'not_allowed.jpg')).should.be.false;
       tempFiles().should.deep.equal([]);
     });
   });

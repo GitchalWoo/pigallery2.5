@@ -15,6 +15,8 @@ import {ObjectManagers} from '../../../../src/backend/model/ObjectManagers';
 import {SearchQueryUtils} from '../../../../src/common/SearchQueryUtils';
 import {SearchQueryDTO, SearchQueryTypes, TextSearch, TextSearchQueryMatchTypes} from '../../../../src/common/entities/SearchQueryDTO';
 import * as fs from 'fs';
+import {mock} from 'node:test';
+import {Logger} from '../../../../src/backend/Logger';
 
 process.env.NODE_ENV = 'test';
 chai.should();
@@ -180,6 +182,15 @@ describe('GalleryRouter', (sqlHelper: DBTestHelper) => {
       expect(result.header['accept-ranges']).to.equal('bytes');
       expect(result.header['content-range']).to.equal('bytes 0-99/' + size);
       expect(Number(result.header['content-length'])).to.equal(100);
+    });
+
+    it('should serve a range from the middle of the bestFit video (seeking)', async () => {
+      const result = await (request.execute(server.Server) as SuperAgentStatic)
+        .get(Config.Server.apiPath + '/gallery/content/video.mp4/bestFit')
+        .set('Range', 'bytes=100-');
+
+      expect(result.status).to.equal(206);
+      expect(result.header['content-range']).to.match(/^bytes 100-\d+\/\d+$/);
     });
 
     it('should answer 416 to a range past the end of the video', async () => {
@@ -387,6 +398,26 @@ describe('GalleryRouter', (sqlHelper: DBTestHelper) => {
 
       (res.should as any).have.status(200);
       expect(res.headers['content-disposition']).to.equal('attachment; filename="' + Config.Server.applicationTitle + '.zip"');
+    });
+
+    // the zip is the whole response: nothing may try to answer after it (it logged an unexpected server error per zip)
+    it('should not log a server error after sending the zip', async () => {
+      await ObjectManagers.getInstance().IndexingManager.indexDirectory('.', true);
+      const loggedError = mock.method(Logger, 'error');
+      try {
+        const res = await getZip({
+          type: SearchQueryTypes.file_name,
+          value: 'old_photo'
+        } as TextSearch);
+
+        expect(res.status).to.equal(200);
+        expect(res.headers['content-type']).to.equal('application/zip');
+        // the error came after the response had ended
+        await new Promise(setImmediate);
+        expect(loggedError.mock.calls.map(c => c.arguments.join(' '))).to.deep.equal([]);
+      } finally {
+        loggedError.mock.restore();
+      }
     });
 
     it('should name the zip of a folder after the folder', async () => {

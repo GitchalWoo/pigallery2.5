@@ -19,6 +19,8 @@ import {SessionManager} from '../../src/backend/model/database/SessionManager';
 import {DirectoryEntity} from '../../src/backend/model/database/enitites/DirectoryEntity';
 import {MediaEntity} from '../../src/backend/model/database/enitites/MediaEntity';
 import {ProjectedDirectoryCacheEntity} from '../../src/backend/model/database/enitites/ProjectedDirectoryCacheEntity';
+import {VersionEntity} from '../../src/backend/model/database/enitites/VersionEntity';
+import {DataStructureVersion} from '../../src/common/DataStructureVersion';
 
 declare let describe: any;
 const savedDescribe = describe;
@@ -39,6 +41,12 @@ const LOG_TAG = '[DBTestHelper]';
 
 export class DBTestHelper {
 
+  /**
+   * Columns, indexes and foreign keys of the freshly built MySQL test schema.
+   * Fast resets only empty the tables while the schema still matches it.
+   */
+  private static mysqlSchemaFingerprint: string = null;
+  private static mysqlSchemaJustBuilt = false;
   static enable = {
     sqlite: process.env.TEST_SQLITE !== 'false',
     mysql: process.env.TEST_MYSQL !== 'false'
@@ -111,9 +119,16 @@ export class DBTestHelper {
   }
 
   public static async persistTestDir(directory: DirectoryBaseDTO): Promise<ParentDirectoryDTO> {
-    await ObjectManagers.getInstance().init();
+    // Managers initialised by the caller belong to the caller: keep them running.
+    const ownsManagers = !ObjectManagers.isReady();
+    if (ownsManagers) {
+      await ObjectManagers.getInstance().init();
+    }
     const connection = await SQLConnection.getConnection();
-    ObjectManagers.getInstance().IndexingManager.indexDirectory = () => Promise.resolve(null);
+    const indexingManager = ObjectManagers.getInstance().IndexingManager;
+    const hadOwnIndexDirectory = Object.prototype.hasOwnProperty.call(indexingManager, 'indexDirectory');
+    const indexDirectory = indexingManager.indexDirectory;
+    indexingManager.indexDirectory = () => Promise.resolve(null);
 
 
     await ObjectManagers.getInstance().IndexingManager.saveToDB(directory as ParentDirectoryDTO);
@@ -141,29 +156,40 @@ export class DBTestHelper {
     };
     await populateDir(dir);
 
-    await ObjectManagers.reset();
+    if (ownsManagers) {
+      await ObjectManagers.reset();
+    } else if (hadOwnIndexDirectory) {
+      indexingManager.indexDirectory = indexDirectory;
+    } else {
+      delete indexingManager.indexDirectory;
+    }
     return dir;
   }
 
-  public async initDB(): Promise<void> {
+  // Arrow functions, so the methods can be passed to Mocha hooks directly (e.g. `after(sqlHelper.clearDB)`).
+  public initDB = async (): Promise<void> => {
     await Config.load();
     Config.Extensions.enabled = false; // make all tests clean
     if (this.dbType === DatabaseType.sqlite) {
       await this.initSQLite();
     } else if (this.dbType === DatabaseType.mysql) {
       await this.initMySQL();
+    } else {
+      throw new Error('Unknown test database type: ' + this.dbType);
     }
-  }
+  };
 
-  public async clearDB(): Promise<void> {
+  public clearDB = async (): Promise<void> => {
     if (this.dbType === DatabaseType.sqlite) {
       await this.clearUpSQLite();
     } else if (this.dbType === DatabaseType.mysql) {
       await this.clearUpMysql();
+    } else {
+      throw new Error('Unknown test database type: ' + this.dbType);
     }
-  }
+  };
 
-  public async setUpTestGallery(): Promise<void> {
+  public setUpTestGallery = async (): Promise<void> => {
     const directory: ParentDirectoryDTO = TestHelper.getDirectoryEntry(null, '.');
     this.testGalleyEntities.subDir = TestHelper.getDirectoryEntry(directory, 'The Phantom Menace');
     this.testGalleyEntities.subDir2 = TestHelper.getDirectoryEntry(directory, 'Return of the Jedi');
@@ -186,7 +212,7 @@ export class DBTestHelper {
     this.testGalleyEntities.p3.directory = this.testGalleyEntities.dir.directories[0];
     this.testGalleyEntities.p4 = (this.testGalleyEntities.dir.directories[1].media[0] as any);
     this.testGalleyEntities.p2.directory = this.testGalleyEntities.dir.directories[1];
-  }
+  };
 
   /**
    * Gallery with nested directories, each photo name starts with the given prefix:
@@ -234,21 +260,90 @@ export class DBTestHelper {
   private async resetMySQL(): Promise<void> {
     Logger.debug(LOG_TAG, 'resetting up mysql');
     await this.clearUpMysql();
-    const conn = await SQLConnection.getConnection();
-    await conn.query('CREATE DATABASE IF NOT EXISTS ' + conn.options.database);
-    await SQLConnection.close();
+    // Opening the connection creates the database and builds the schema if it was dropped.
     await ObjectManagers.getInstance().init();
+    if (DBTestHelper.mysqlSchemaJustBuilt) {
+      DBTestHelper.mysqlSchemaFingerprint = await DBTestHelper.getMysqlSchemaFingerprint(await SQLConnection.getConnection());
+      DBTestHelper.mysqlSchemaJustBuilt = false;
+    }
   }
 
   private async clearUpMysql(): Promise<void> {
     Logger.debug(LOG_TAG, 'clearing up mysql');
+    // Reset first: it stops schedules and waits for background saves that would otherwise hit the emptied tables.
     await ObjectManagers.reset();
     Config.Database.type = DatabaseType.mysql;
     Config.Database.mysql.database = 'pigallery2_test';
     await fs.promises.rm(TestHelper.TMP_DIR, {recursive: true, force: true});
-    const conn = await SQLConnection.getConnection();
-    await conn.query('DROP DATABASE IF EXISTS ' + conn.options.database);
+    // Rebuilding the schema is slow on MySQL: empty the tables instead, as long as no test changed the schema.
+    if (!(await DBTestHelper.emptyMysqlTables())) {
+      const conn = await SQLConnection.getConnection();
+      await conn.query('DROP DATABASE IF EXISTS ' + conn.options.database);
+      DBTestHelper.mysqlSchemaFingerprint = null;
+      DBTestHelper.mysqlSchemaJustBuilt = true;
+    }
     await SQLConnection.close();
+  }
+
+  private static async getMysqlSchemaFingerprint(conn: Connection): Promise<string> {
+    const db = conn.options.database;
+    const columns = await conn.query(
+      'SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLLATION_NAME, EXTRA ' +
+      'FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME, COLUMN_NAME', [db]);
+    const indexes = await conn.query(
+      'SELECT TABLE_NAME, INDEX_NAME, NON_UNIQUE, SEQ_IN_INDEX, COLUMN_NAME ' +
+      'FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX', [db]);
+    const foreignKeys = await conn.query(
+      'SELECT TABLE_NAME, CONSTRAINT_NAME, REFERENCED_TABLE_NAME, UPDATE_RULE, DELETE_RULE ' +
+      'FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = ? ORDER BY TABLE_NAME, CONSTRAINT_NAME', [db]);
+    return JSON.stringify({columns, indexes, foreignKeys});
+  }
+
+  /**
+   * Empties every table except the version row and resets the ids, like a fresh DB.
+   * DELETE + resetting AUTO_INCREMENT is several times faster than TRUNCATE on InnoDB.
+   * Returns false (and changes nothing) if the schema differs from the freshly built one,
+   * e.g. a migration test changed columns or the version, or if emptying fails.
+   */
+  private static async emptyMysqlTables(): Promise<boolean> {
+    if (DBTestHelper.mysqlSchemaFingerprint === null) {
+      return false;
+    }
+    let conn: Connection;
+    try {
+      conn = await SQLConnection.getConnection();
+      const versions = await conn.getRepository(VersionEntity).find();
+      if (versions.length !== 1 || versions[0].version !== DataStructureVersion ||
+        (await DBTestHelper.getMysqlSchemaFingerprint(conn)) !== DBTestHelper.mysqlSchemaFingerprint) {
+        return false;
+      }
+    } catch (e) {
+      Logger.debug(LOG_TAG, 'Could not check the mysql schema, dropping the db', e);
+      return false;
+    }
+    const versionTable = conn.getMetadata(VersionEntity).tableName;
+    const tables = (await conn.query(
+      'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?', [conn.options.database]))
+      .map((r: { TABLE_NAME: string }) => r.TABLE_NAME)
+      .filter((t: string) => t !== versionTable);
+    const qr = conn.createQueryRunner();
+    try {
+      await qr.query('SET FOREIGN_KEY_CHECKS = 0');
+      for (const table of tables) {
+        await qr.query('DELETE FROM `' + table + '`');
+        await qr.query('ALTER TABLE `' + table + '` AUTO_INCREMENT = 1');
+      }
+      return true;
+    } catch (e) {
+      Logger.debug(LOG_TAG, 'Could not empty the mysql tables, dropping the db', e);
+      return false;
+    } finally {
+      try {
+        await qr.query('SET FOREIGN_KEY_CHECKS = 1');
+      } finally {
+        await qr.release();
+      }
+    }
   }
 
   private async initSQLite(): Promise<void> {

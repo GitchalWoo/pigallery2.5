@@ -8,6 +8,8 @@ import {SessionContext} from '../SessionContext';
 import {ProjectedAlbumCacheEntity} from './enitites/album/ProjectedAlbumCacheEntity';
 import {ProjectionAwareManager} from './ProjectionAwareManager';
 import {NotificationManager} from '../NotifocationManager';
+import {SearchQueryUtils} from '../../../common/SearchQueryUtils';
+import {SessionManager} from './SessionManager';
 
 const LOG_TAG = '[AlbumManager]';
 
@@ -89,6 +91,32 @@ export class AlbumManager extends ProjectionAwareManager<AlbumBaseEntity> {
     return result;
   }
 
+  /**
+   * Albums whose own query has a relative date change daily, also for projection keys that do not
+   * (e.g. the default projection).
+   */
+  public override async onNewDay(): Promise<void> {
+    const connection = await SQLConnection.getConnection();
+    const albums = await connection.getRepository(SavedSearchEntity).find({select: {id: true, searchQuery: true}});
+    await this.invalidateAlbums(albums
+      .filter(a => SearchQueryUtils.hasRelativeDate(a.searchQuery))
+      .map(a => a.id));
+    await super.onNewDay();
+  }
+
+  private async invalidateAlbums(ids: number[]): Promise<void> {
+    if (ids.length === 0) {
+      return;
+    }
+    const connection = await SQLConnection.getConnection();
+    await connection.getRepository(ProjectedAlbumCacheEntity)
+      .createQueryBuilder()
+      .update()
+      .set({valid: false})
+      .where('albumId IN (:...ids)', {ids})
+      .execute();
+  }
+
   protected async invalidateDBCache(): Promise<void> {
     // Invalidate all album cache entries
     const connection = await SQLConnection.getConnection();
@@ -113,12 +141,18 @@ export class AlbumManager extends ProjectionAwareManager<AlbumBaseEntity> {
         if (a.cache?.valid === true) {
           continue;
         }
+        const day = SessionManager.getDayKey();
         await ObjectManagers.getInstance().ProjectedCacheManager
           .setAndGetCacheForAlbum(connection, session, {
             id: a.id,
             searchQuery: a.searchQuery,
             name: a.name
           });
+        // The count and cover of a relative-date album computed across midnight may be yesterday's,
+        // and the day-change cleanup may already have run: keep it invalid, so the next read recomputes it.
+        if (SearchQueryUtils.hasRelativeDate(a.searchQuery) && SessionManager.getDayKey() !== day) {
+          await this.invalidateAlbums([a.id]);
+        }
         // giving back the control to the main event loop (Macrotask queue)
         // https://blog.insiderattack.net/promises-next-ticks-and-immediates-nodejs-event-loop-part-3-9226cbe7a6aa
         await new Promise(setImmediate);

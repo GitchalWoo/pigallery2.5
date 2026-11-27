@@ -1,6 +1,7 @@
 import {IObjectManager} from './IObjectManager';
 import {SessionContext} from '../SessionContext';
 import {ParentDirectoryDTO} from '../../../common/entities/DirectoryDTO';
+import {SessionManager} from './SessionManager';
 
 /**
  * Base class for managers that handle projection-aware caching.
@@ -20,8 +21,13 @@ export abstract class ProjectionAwareManager<T> implements IObjectManager {
       return cached;
     }
 
+    const day = SessionManager.getDayKey();
     const entities = await this.loadEntities(session);
-    this.setCachedEntities(session, entities);
+    // A load that spans midnight may hold yesterday's relative-date results,
+    // and the day-change cleanup may already have run: do not cache it.
+    if (SessionManager.getDayKey() === day) {
+      this.setCachedEntities(session, entities);
+    }
     return entities;
   }
 
@@ -36,6 +42,13 @@ export abstract class ProjectionAwareManager<T> implements IObjectManager {
    */
   public async onNewDataVersion(changedDir?: ParentDirectoryDTO): Promise<void> {
     await this.invalidateCache(changedDir);
+  }
+
+  /**
+   * Drops the cached lists: the ones of relative-date projection keys changed with the day.
+   */
+  public async onNewDay(): Promise<void> {
+    this.resetMemoryCache();
   }
 
   /**
