@@ -351,7 +351,7 @@ Split by user decision (section 2). Per-commit decisions for every stack PR are 
 
 ### P16 — JPEG XL support (S)
 
-Branch `port/upstream-p16-jpeg-xl`, P16 PR. Run after P15b. Needs the P15a `SupportedFormats` fix so a removed `.jxl` is not indexed.
+Branch `port/upstream-p16-jpeg-xl`, [PR #67](https://github.com/GitchalWoo/pigallery2.5/pull/67). Run after P15b. Needs the P15a `SupportedFormats` fix so a removed `.jxl` is not indexed.
 
 | Commit | Change | Notes |
 | --- | --- | --- |
