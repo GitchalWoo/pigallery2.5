@@ -1,7 +1,7 @@
 import {ComponentFixture, TestBed} from '@angular/core/testing';
 import {ANIMATION_MODULE_TYPE} from '@angular/core';
 import {By} from '@angular/platform-browser';
-import {provideRouter} from '@angular/router';
+import {provideRouter, Router} from '@angular/router';
 import {BsDropdownDirective} from 'ngx-bootstrap/dropdown';
 import {NgIconsModule} from '@ng-icons/core';
 import {
@@ -15,7 +15,9 @@ import {
   ionMenuOutline,
   ionPauseOutline,
   ionPlayOutline,
+  ionReloadOutline,
   ionTimerOutline,
+  ionVolumeMediumOutline,
 } from '@ng-icons/ionicons';
 
 import {ControlsLightboxComponent} from './controls.lightbox.gallery.component';
@@ -24,8 +26,10 @@ import {FullScreenService} from '../../fullscreen.service';
 import {AuthenticationService} from '../../../../model/network/authentication.service';
 import {NotificationService} from '../../../../model/notification.service';
 import {FileSizePipe} from '../../../../pipes/FileSizePipe';
-import {DatePipe} from '@angular/common';
+import {APP_BASE_HREF, DatePipe} from '@angular/common';
 import {Event} from '../../../../../../common/event/Event';
+import type {LightboxItem} from '../lightbox.gallery.component';
+import type {GalleryLightboxMediaComponent} from '../media/media.lightbox.gallery.component';
 
 class MockLightboxService {
   controllersDimmed = false;
@@ -78,7 +82,9 @@ describe('ControlsLightboxComponent - cursor visibility', () => {
           ionChevronForwardOutline,
           ionPlayOutline,
           ionPauseOutline,
+          ionReloadOutline,
           ionTimerOutline,
+          ionVolumeMediumOutline,
         }),
       ],
       providers: [
@@ -88,6 +94,7 @@ describe('ControlsLightboxComponent - cursor visibility', () => {
         {provide: NotificationService, useClass: MockNotificationService},
         {provide: FileSizePipe, useValue: {}},
         {provide: DatePipe, useValue: {}},
+        {provide: APP_BASE_HREF, useValue: '/photos'},
         {provide: ANIMATION_MODULE_TYPE, useValue: 'NoopAnimations'},
         provideRouter([]),
       ],
@@ -154,6 +161,90 @@ describe('ControlsLightboxComponent - cursor visibility', () => {
 
     expect(prevSpy).toHaveBeenCalled();
     expect(stopPropagationSpy).toHaveBeenCalled();
+  });
+
+  it('styles a slideshow restart without changing the next button action', () => {
+    fixture.componentRef.setInput('navigation', {hasNext: true, hasPrev: true, nextLoops: true});
+    fixture.detectChanges();
+    const arrow: HTMLElement = fixture.nativeElement.querySelector('#rightArrow');
+    expect(arrow.querySelector('ng-icon.restart-icon')).not.toBeNull();
+    const next = vi.spyOn(component.nextPhoto, 'emit');
+    arrow.click();
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it('keeps arrow keys on the video slider and exposes independent playback controls', () => {
+    const media = {Paused: false, Muted: false, VideoProgress: 50, VideoVolume: 1, playPause: vi.fn(), mute: vi.fn()};
+    fixture.componentRef.setInput('mediaElement', media as unknown as GalleryLightboxMediaComponent);
+    fixture.componentRef.setInput('activePhoto', {gridMedia: {
+      isVideo: () => true, isPhoto: () => false, media: {name: 'video.mp4', metadata: {size: {width: 2, height: 2}}},
+    }} as unknown as LightboxItem);
+    fixture.detectChanges();
+
+    const next = vi.spyOn(component.nextPhoto, 'emit');
+    const row: HTMLElement = fixture.nativeElement.querySelector('.controls-video');
+    const [play, mute] = row.querySelectorAll('button');
+    play.click();
+    mute.click();
+    expect(media.playPause).toHaveBeenCalledOnce();
+    expect(media.mute).toHaveBeenCalledOnce();
+    const seek = row.querySelector<HTMLInputElement>('input.video-progress');
+    expect(seek.getAttribute('aria-label')).toBe('Video progress');
+    seek.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowRight', bubbles: true}));
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  describe('face links', () => {
+    const name = 'Alvin & friends';
+    let navigate: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      component.searchEnabled = true;
+      const photo = {
+        name: 'photo.jpg',
+        metadata: {size: {width: 10, height: 10}, faces: [{name, box: {top: 1, left: 1, width: 2, height: 2}}]}
+      };
+      fixture.componentRef.setInput('activePhoto', {gridMedia: {
+        media: photo, Photo: photo, isVideo: () => false, isPhoto: () => true,
+      }} as unknown as LightboxItem);
+      navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+      fixture.detectChanges();
+    });
+
+    it('reveals a face on the first tap, then opens the search on the next tap', () => {
+      const face: HTMLAnchorElement = fixture.nativeElement.querySelector('a.face');
+      const tap = {tapCount: 1, pointerType: 'touch', faceLink: face} as const;
+      const click = new PointerEvent('click', {pointerType: 'touch', bubbles: true, cancelable: true});
+      face.dispatchEvent(click);
+      expect(click.defaultPrevented).toBe(true);
+      component.tap(tap);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.faces-shown a.face')).toBe(face);
+      expect(navigate).not.toHaveBeenCalled();
+      component.tap(tap);
+      expect(navigate).toHaveBeenCalledOnce();
+      const searchUrl = TestBed.inject(Router).serializeUrl(navigate.mock.calls[0][0]);
+      expect(face.getAttribute('href')).toBe('/photos' + searchUrl);
+    });
+
+    it('opens face search for keyboard or mouse clicks and preserves modified clicks', () => {
+      const face: HTMLAnchorElement = fixture.nativeElement.querySelector('a.face');
+      const modifier = new MouseEvent('click', {ctrlKey: true, bubbles: true, cancelable: true});
+      face.dispatchEvent(modifier);
+      expect(modifier.defaultPrevented).toBe(false);
+      expect(navigate).not.toHaveBeenCalled();
+      face.click();
+      expect(navigate).toHaveBeenCalledOnce();
+    });
+
+    it('shows face labels without turning them into links when search is restricted', () => {
+      component.searchEnabled = false;
+      component.tap({tapCount: 1, pointerType: 'touch', faceLink: null});
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('a.face')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.faces-shown .face-name').textContent).toBe(name);
+      expect(navigate).not.toHaveBeenCalled();
+    });
   });
 
   // #1311: a file deleted from the disk is still in the DB until the next reindexing
