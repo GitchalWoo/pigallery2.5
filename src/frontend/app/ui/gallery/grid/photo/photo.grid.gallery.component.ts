@@ -16,7 +16,7 @@ import {GalleryPhotoLoadingComponent} from './loading/loading.photo.grid.gallery
 import {NgIconComponent} from '@ng-icons/core';
 import {DurationPipe} from '../../../../pipes/DurationPipe';
 import {SafeHtmlPipe} from '../../../../pipes/SafeHTMLPipe';
-import {type IClientMediaButtonConfig} from '../../../../../../common/entities/extension/IClientUIConfig';
+import {type IClientMediaButtonConfig, type IMetadataFilter} from '../../../../../../common/entities/extension/IClientUIConfig';
 import {Utils} from '../../../../../../common/Utils';
 import {SearchQueryUtils} from '../../../../../../common/SearchQueryUtils';
 import {QueryService} from '../../../../model/query.service';
@@ -159,7 +159,7 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
     this.mediaButtons = [...this.mediaButtons.filter(b => b.alwaysVisible), ...this.mediaButtons.filter(b => !b.alwaysVisible)];
   }
 
-  matchesMetadataFilter(filters: { field: string, comparator: '>=' | '<=' | '==', value: string | number }[]): boolean {
+  matchesMetadataFilter(filters: IMetadataFilter[]): boolean {
     const metadata = this.gridMedia().media.metadata;
 
     // All filters must match (AND logic)
@@ -170,13 +170,13 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
 
       for (const part of fieldParts) {
         if (fieldValue === undefined || fieldValue === null) {
-          return false;
+          break;
         }
         fieldValue = fieldValue[part];
       }
 
       if (fieldValue === undefined || fieldValue === null) {
-        return false;
+        return filter.comparator === '!contains';
       }
 
       // Compare based on comparator
@@ -187,10 +187,21 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
           return fieldValue <= filter.value;
         case '==':
           return fieldValue == filter.value; // Use == for loose equality
+        case 'contains':
+          return GalleryPhotoComponent.contains(fieldValue, filter.value);
+        case '!contains':
+          return !GalleryPhotoComponent.contains(fieldValue, filter.value);
         default:
           return false;
       }
     });
+  }
+
+  private static contains(fieldValue: unknown, value: string | number): boolean {
+    if (Array.isArray(fieldValue)) {
+      return fieldValue.some(item => item == value);
+    }
+    return typeof fieldValue === 'string' && fieldValue.includes(String(value));
   }
 
   ngOnInit(): void {

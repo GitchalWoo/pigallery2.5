@@ -9,6 +9,7 @@ import {Config} from '../../../../../src/common/config/private/Config';
 import {ProjectPath} from '../../../../../src/backend/ProjectPath';
 import {DatabaseType} from '../../../../../src/common/config/private/PrivateConfig';
 import {TestHelper} from '../../../../TestHelper';
+import {Logger} from '../../../../../src/backend/Logger';
 
 declare const before: any;
 
@@ -38,6 +39,54 @@ describe('MetadataLoader', () => {
     Config.Faces.enabled = true;
     Config.Faces.keywordsToPersons = true;
     Config.Extensions.enabled = false;
+  });
+
+  describe('unreadable media warnings', () => {
+    const assets = path.join(__dirname, '/../../../assets');
+    let dir: string;
+    let warnings: string[][];
+    const originalWarn = Logger.warn;
+
+    beforeEach(() => {
+      dir = fs.mkdtempSync(path.join(TestHelper.TMP_DIR, 'pg-unreadable-'));
+      warnings = [];
+      Logger.warn = (...args) => warnings.push(args.map(String));
+    });
+
+    afterEach(() => {
+      Logger.warn = originalWarn;
+      fs.rmSync(dir, {recursive: true, force: true});
+    });
+
+    it('keeps a cut-off video and reports the ffprobe failure', async () => {
+      const file = path.join(dir, 'cut-off.mp4');
+      const video = fs.readFileSync(path.join(assets, 'video.mp4'));
+      const ftypSize = video.readUInt32BE(0);
+      expect(video.toString('ascii', ftypSize + 4, ftypSize + 8)).to.equal('moov');
+      const moovSize = video.readUInt32BE(ftypSize);
+      fs.writeFileSync(file, Buffer.concat([video.subarray(0, ftypSize), video.subarray(ftypSize + moovSize)]));
+      const metadata = await MetadataLoader.loadVideoMetadata(file);
+      expect(metadata.fileSize).to.equal(fs.statSync(file).size);
+      expect(warnings).to.have.length(1);
+      expect(warnings[0][0]).to.equal('[MetadataLoader]');
+      expect(warnings[0][1]).to.contain(file).and.contain('moov atom not found');
+    });
+
+    it('keeps a photo with no readable size and warns about it', async () => {
+      const file = path.join(dir, 'broken.jpg');
+      fs.writeFileSync(file, 'invalid image');
+      const metadata = await MetadataLoader.loadPhotoMetadata(file);
+      expect(metadata.fileSize).to.equal(fs.statSync(file).size);
+      expect(warnings).to.have.length(1);
+      expect(warnings[0][0]).to.equal('[MetadataLoader]');
+      expect(warnings[0][1]).to.contain(file).and.contain('without size');
+    });
+
+    it('does not warn for a readable photo or video', async () => {
+      await MetadataLoader.loadVideoMetadata(path.join(assets, 'video.mp4'));
+      await MetadataLoader.loadPhotoMetadata(path.join(assets, 'test_png.png'));
+      expect(warnings).to.deep.equal([]);
+    });
   });
 
 

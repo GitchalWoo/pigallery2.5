@@ -13,6 +13,7 @@ import {CookieNames} from '../common/CookieNames';
 import {Router} from './routes/Router';
 import {PhotoProcessing} from './model/fileaccess/fileprocessing/PhotoProcessing';
 import {UploadManager} from './model/UploadManager';
+import {ExtensionManager} from './model/extension/ExtensionManager';
 import {Event} from '../common/event/Event';
 import {ConfigClassBuilder} from 'typeconfig/node';
 import {ConfigClassOptions} from 'typeconfig/src/decorators/class/IConfigClass';
@@ -117,6 +118,14 @@ export class Server {
       next();
     });
     await ObjectManagers.getInstance().init();
+    this.app.use(ExtensionManager.EXTENSION_API_PATH, (req, res, next) => {
+      const manager = ObjectManagers.getInstance().ExtensionManager;
+      if (manager) {
+        manager.handleRequest(req, res, next);
+      } else {
+        next();
+      }
+    });
 
     // Set express 'trust proxy' setting to extract Remote Client IP
     // from optional reverse proxies trusted headers

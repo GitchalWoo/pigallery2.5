@@ -193,6 +193,35 @@ describe('GalleryGridComponent', () => {
     expect(after[2]).toBe(tiles[2]);
   });
 
+  it('updates a tile after its last keyword is removed without moving a scrolled grid', () => {
+    const photos = Array.from({length: 100}, (_, index) => photo(index + '.jpg'));
+    setUp([{name: '', media: photos}]);
+    scroll(900);
+    const renderedTiles = (): GalleryPhotoComponent[] => fixture.debugElement
+      .queryAll(By.directive(GalleryPhotoComponent)).map(node => node.componentInstance);
+    const edited = renderedTiles()[1].gridMedia().media as PhotoDTO;
+    const withKeyword = {...edited, metadata: {...edited.metadata, keywords: ['favorite']}};
+    const update = (media: PhotoDTO): void => {
+      fixture.componentRef.setInput('mediaGroups', [{name: '', media: photos.map(p => p === edited ? media : p)}]);
+      fixture.detectChanges();
+    };
+    update(withKeyword);
+    const previous = renderedTiles();
+    const height = layout().totalHeight;
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+
+    update(edited);
+
+    const current = renderedTiles();
+    expect(current[0]).toBe(previous[0]);
+    expect(current[1]).not.toBe(previous[1]);
+    expect(current[1].gridMedia().media).toBe(edited);
+    expect(current[2]).toBe(previous[2]);
+    expect(layout().totalHeight).toBe(height);
+    expect(component.scroller.screenTop()).toBe(900);
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
   // #1308, CUJ 6: a large folder renders only what is on the screen, but the page is as high as all of it
   describe('grouped by directory', () => {
     const inDir = (name: string, directoryPath: string): MediaGroup =>

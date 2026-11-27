@@ -228,9 +228,9 @@ export class DiskManager {
         } catch (err) {
           NotificationManager.warning(
             'Unknown directory reading error, skipping: ' + path.join(relativeDirectoryName, file),
-            err.toString()
+            String(err)
           );
-          console.error(err);
+          Logger.warn(LOG_TAG, 'Directory reading error, skipping: ' + fullFilePath, String(err));
         }
       } else if (DiskManager.excludeFile(file)) {
         continue;
@@ -238,6 +238,9 @@ export class DiskManager {
         try {
           if (settings.noPhoto === true) {
             continue;
+          }
+          if (settings.noMetadata === true) {
+            await fsp.access(fullFilePath);
           }
 
           const photo = {
@@ -266,12 +269,9 @@ export class DiskManager {
             break;
           }
         } catch (err) {
-          NotificationManager.warning('Media loading error, skipping: ' +
-            fullFilePath +
-            ', reason: ' +
-            err.toString()
-          );
-          console.error(err);
+          const message = 'Media loading error, skipping: ' + fullFilePath + ', reason: ' + String(err);
+          NotificationManager.warning(message);
+          Logger.warn(LOG_TAG, message);
         }
       } else if (VideoProcessing.isVideo(fullFilePath)) {
         try {
@@ -282,6 +282,9 @@ export class DiskManager {
           ) {
             continue;
           }
+          if (settings.noMetadata === true) {
+            await fsp.access(fullFilePath);
+          }
           directory.media.push({
             name: file,
             directory: null,
@@ -291,11 +294,11 @@ export class DiskManager {
                 : await MetadataLoader.loadVideoMetadata(fullFilePath),
           } as VideoDTO);
         } catch (e) {
-          Logger.warn(
+          Logger.warn(LOG_TAG,
             'Media loading error, skipping: ' +
             fullFilePath +
             ', reason: ' +
-            e.toString()
+            String(e)
           );
         }
       } else if (GPXProcessing.isMetaFile(fullFilePath)) {
@@ -309,16 +312,17 @@ export class DiskManager {
             continue;
           }
 
+          await fsp.access(fullFilePath);
           directory.metaFile.push({
             name: file,
             directory: null,
           } as FileDTO);
         } catch (e) {
-          Logger.warn(
+          Logger.warn(LOG_TAG,
             'Metafile loading error, skipping: ' +
             fullFilePath +
             ', reason: ' +
-            e.toString()
+            String(e)
           );
         }
       }

@@ -6,8 +6,7 @@ import {pipeline} from 'stream/promises';
 import {Readable} from 'stream';
 import {IObjectManager} from '../database/IObjectManager';
 import {Logger} from '../../Logger';
-import {IExtensionEvents, IExtensionObject} from './IExtension';
-import {Server} from '../../server';
+import {IExtensionEvents, IServerExtension} from './IExtension';
 import {ExtensionEvent} from './ExtensionEvent';
 import * as express from 'express';
 import {SQLConnection} from '../database/SQLConnection';
@@ -34,7 +33,8 @@ export class ExtensionManager implements IObjectManager {
 
   events: IExtensionEvents;
   extObjects: Record<string, ExtensionObject<unknown>> = {};
-  router: express.Router;
+  private readonly serverModules = new WeakMap<ExtensionObject<unknown>, Partial<IServerExtension<unknown>>>();
+  private readonly reloads = new Map<string, Promise<void>>();
 
   constructor() {
     this.initEvents();
@@ -47,9 +47,26 @@ export class ExtensionManager implements IObjectManager {
     if (!Config.Extensions.enabled) {
       return;
     }
-    this.router = express.Router();
-    Server.instance?.app.use(ExtensionManager.EXTENSION_API_PATH, this.router);
     await this.initExtensions();
+  }
+
+  public handleRequest(req: express.Request, res: express.Response, next: express.NextFunction): void {
+    if (!Config.Extensions.enabled) {
+      return next();
+    }
+    const routers = Object.values(this.extObjects).map(ext => ext.router);
+    const dispatch = (err?: unknown): void => {
+      if (err && err !== 'router') {
+        return next(err);
+      }
+      const router = routers.shift();
+      if (router) {
+        router(req, res, dispatch);
+      } else {
+        next();
+      }
+    };
+    dispatch();
   }
 
   public async getExtensionListWithInstallStatus(): Promise<ExtensionListItem[]> {
@@ -70,13 +87,7 @@ export class ExtensionManager implements IObjectManager {
   }
 
   public async cleanUp() {
-    if (!Config.Extensions.enabled) {
-      return;
-    }
-    this.initEvents(); // reset events
     await this.cleanUpExtensions();
-    Server.instance?.app.use(ExtensionManager.EXTENSION_API_PATH, this.router);
-    this.extObjects = {};
   }
 
   /**
@@ -179,29 +190,33 @@ export class ExtensionManager implements IObjectManager {
       throw new Error('Extensions are disabled');
     }
 
-    ExtensionPath.folder(configKey);
-    Logger.debug(LOG_TAG, `Reloading extension with config key: ${configKey}`);
-
-    // Find the unique extension ID by matching the folder name
-    let uniqueExtensionId: string = null;
-    for (const id of Object.keys(this.extObjects)) {
-      if (this.extObjects[id].folder === configKey) {
-        uniqueExtensionId = id;
-        break;
-      }
-    }
-
-    if (!uniqueExtensionId) {
+    ExtensionPath.validateName(configKey);
+    const extConf = Config.Extensions.extensions[configKey] as ServerExtensionsEntryConfig;
+    if (!Config.Extensions.extensions.keys().includes(configKey) || !extConf) {
       throw new Error(`Extension with config key ${configKey} not found in configuration`);
     }
+    ExtensionPath.folder(extConf.path);
+    const pending = this.reloads.get(configKey);
+    if (pending) {
+      return pending;
+    }
+    const reload = this.reloadConfiguredExtension(configKey, extConf.path);
+    this.reloads.set(configKey, reload);
+    try {
+      await reload;
+    } finally {
+      this.reloads.delete(configKey);
+    }
+  }
 
-    // Clean up the extension
-    await this.cleanUpSingleExtension(uniqueExtensionId);
-
-    // Re-initialize the extension
+  private async reloadConfiguredExtension(configKey: string, folder: string): Promise<void> {
+    Logger.debug(LOG_TAG, `Reloading extension with config key: ${configKey}`);
+    const existing = Object.values(this.extObjects).find(ext => ext.folder === folder);
+    if (existing) {
+      await this.cleanUpSingleExtension(existing.extensionId);
+    }
     await this.initSingleExtension(configKey);
-
-    Logger.debug(LOG_TAG, `Extension ${uniqueExtensionId} reloaded successfully`);
+    Logger.debug(LOG_TAG, `Extension ${configKey} reloaded successfully`);
   }
 
   /**
@@ -287,7 +302,7 @@ export class ExtensionManager implements IObjectManager {
     ExtensionDecoratorObject.init(this.events);
   }
 
-  private createUniqueExtensionObject(extensionName: string, folderName: string): IExtensionObject<unknown> {
+  private createUniqueExtensionObject(extensionName: string, folderName: string): ExtensionObject<unknown> {
     let uniqueExtensionId = extensionName;
     if (this.extObjects[uniqueExtensionId]) {
       let i = 0;
@@ -296,7 +311,7 @@ export class ExtensionManager implements IObjectManager {
       uniqueExtensionId = `${extensionName}_${++i}`;
     }
     if (!this.extObjects[uniqueExtensionId]) {
-      this.extObjects[uniqueExtensionId] = new ExtensionObject(uniqueExtensionId, extensionName, folderName, this.router, this.events);
+      this.extObjects[uniqueExtensionId] = new ExtensionObject(uniqueExtensionId, extensionName, folderName, this.events);
     }
     return this.extObjects[uniqueExtensionId];
   }
@@ -329,6 +344,14 @@ export class ExtensionManager implements IObjectManager {
       return;
     }
 
+    // Native addons remain loaded. Reload only modules owned by this folder.
+    const modulePrefix = fs.realpathSync(extPath) + path.sep;
+    for (const filename of Object.keys(require.cache)) {
+      if (filename.startsWith(modulePrefix) && !filename.endsWith('.node')) {
+        delete require.cache[filename];
+      }
+    }
+
     if (packageJsonPath) {
       if (ExtensionPath.optionalEntry(extPath, 'node_modules', true)) {
         Logger.debug(LOG_TAG, `node_modules folder exists. Skipping "npm install".`);
@@ -344,10 +367,21 @@ export class ExtensionManager implements IObjectManager {
       }
     }
 
-    const ext = require(serverExtPath);
+    const ext = require(serverExtPath) as Partial<IServerExtension<unknown>>;
     if (typeof ext?.init === 'function') {
       Logger.debug(LOG_TAG, 'Running init on extension: ' + folderName);
-      await ext?.init(this.createUniqueExtensionObject(extName, folderName));
+      const extObj = this.createUniqueExtensionObject(extName, folderName);
+      this.serverModules.set(extObj, ext);
+      try {
+        await ext.init(extObj);
+      } catch (err) {
+        try {
+          await this.cleanUpSingleExtension(extObj.extensionId);
+        } catch (cleanupError) {
+          Logger.warn(LOG_TAG, 'Failed extension initialization cleanup', String(cleanupError));
+        }
+        throw err;
+      }
     }
   }
 
@@ -372,18 +406,17 @@ export class ExtensionManager implements IObjectManager {
       return;
     }
 
-    const serverExt = ExtensionPath.optionalEntry(ExtensionPath.folder(extObj.folder), 'server.js');
-    if (serverExt) {
-      const ext = require(serverExt);
+    const ext = this.serverModules.get(extObj);
+    try {
       if (typeof ext?.cleanUp === 'function') {
         Logger.debug(LOG_TAG, 'Running cleanUp on extension: ' + extObj.extensionName);
-        await ext?.cleanUp(extObj);
+        await ext.cleanUp(extObj);
       }
+    } finally {
+      this.serverModules.delete(extObj);
+      delete this.extObjects[uniqueExtensionId];
+      extObj.clearRegistrations();
     }
-    extObj.messengers.cleanUp();
-
-    // Remove from extObjects
-    delete this.extObjects[uniqueExtensionId];
   }
 
   private async cleanUpExtensions() {

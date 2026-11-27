@@ -105,13 +105,8 @@ export class ContentWrapperUtils {
       return false;
     }
 
-    if (!Utils.equalsFilter(pm1, pm2)) {
-      return false;
-    }
-
-    return true;
-
-
+    // Check both directions so an addition or removal of a metadata field is detected.
+    return Utils.equalsFilter(pm1, pm2) && Utils.equalsFilter(pm2, pm1);
   }
 
   static equalsPartialDirectory(d1: DirectoryBaseDTO, d2: DirectoryBaseDTO): boolean {

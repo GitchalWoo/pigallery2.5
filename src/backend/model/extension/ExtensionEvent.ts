@@ -1,4 +1,4 @@
-import {IExtensionAfterEventHandler, IExtensionBeforeEventHandler, IExtensionEvent} from './IExtension';
+import {IExtensionAfterEventHandler, IExtensionBeforeEventHandler, IExtensionEvent, IExtensionEvents} from './IExtension';
 
 export class ExtensionEvent<I extends unknown[], O> implements IExtensionEvent<I, O> {
   protected beforeHandlers: IExtensionBeforeEventHandler<I, O>[] = [];
@@ -51,6 +51,46 @@ export class ExtensionEvent<I extends unknown[], O> implements IExtensionEvent<I
     return output;
   }
 
+}
+
+export class ExtensionEventsTracker {
+  public readonly events: IExtensionEvents;
+  private readonly removers: (() => void)[] = [];
+  private stopped = false;
+
+  constructor(events: IExtensionEvents) {
+    this.events = this.wrap(events) as IExtensionEvents;
+  }
+
+  public removeHandlers(): void {
+    this.stopped = true;
+    this.removers.splice(0).forEach(remove => remove());
+  }
+
+  private wrap(node: unknown): unknown {
+    if (node instanceof ExtensionEvent) {
+      const event = node as ExtensionEvent<unknown[], unknown>;
+      const tracked: IExtensionEvent<unknown[], unknown> = {
+        before: handler => {
+          if (!this.stopped) {
+            // Register a distinct function even when extensions share a callback.
+            const registered = handler.bind(undefined);
+            event.before(registered);
+            this.removers.push(() => event.offBefore(registered));
+          }
+        },
+        after: handler => {
+          if (!this.stopped) {
+            const registered = handler.bind(undefined);
+            event.after(registered);
+            this.removers.push(() => event.offAfter(registered));
+          }
+        }
+      };
+      return tracked;
+    }
+    return Object.fromEntries(Object.entries(node as Record<string, unknown>).map(([key, value]) => [key, this.wrap(value)]));
+  }
 }
 
 

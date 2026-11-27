@@ -13,6 +13,7 @@ Run `node scripts/upstream-status.mjs --fetch` to list new upstream commits. Bef
 
 | Upstream PR / Commit | Summary | Fork PR | Notes |
 | --- | --- | --- | --- |
+| `eebd645f`, [#1200](https://github.com/bpatrik/pigallery2/pull/1200) (`80ca4628`, `c705dcb6`), `36caf087`, [#1386](https://github.com/bpatrik/pigallery2/pull/1386) (`ecec0216`), [#1428](https://github.com/bpatrik/pigallery2/pull/1428) (`c3e257e7`) | P13 indexing settings, extension media-button filters and refresh, extension reload, and indexing diagnostics. | [#62](https://github.com/GitchalWoo/pigallery2.5/pull/62) | Preserves basename exclusion behavior, virtual-grid tile reconciliation, `ExtensionPath`, the startup-mounted extension API, `SafePath`, and admin photo-load warnings. |
 | `8ba350db`, `36fc6635`, `9b6911b1`, `5c161414` (#1274), `bcad49e0`, `d5fd716b`, `c4f66156`, [#1390](https://github.com/bpatrik/pigallery2/pull/1390) (`0a1e9664`), [#1393](https://github.com/bpatrik/pigallery2/pull/1393) (`fa95545a`), [#1352](https://github.com/bpatrik/pigallery2/pull/1352) (`3458b621`, `aafe9f1b`, `83ba28a7`, `70a972fd`), [#1430](https://github.com/bpatrik/pigallery2/pull/1430) (`64d7d6b5`) | P12 Shell, admin and PWA polish. Navbar dismissal and accessibility, lightbox link affordances and looping by default, frontend build identity and commit links, settings job progress, phone install metadata, and login autofill. | [#61](https://github.com/GitchalWoo/pigallery2.5/pull/61) | Adapted to Classic and Prism, the fork's build scripts, and its existing gallery and job code. The manifest uses the installation origin and `urlBase`. Explicit slideshow settings still take precedence. PR #45 already underlines photo-grid links on hover. |
 | [#1373](https://github.com/bpatrik/pigallery2/pull/1373) (`182f0912`, `3aec0c9e`, `7dab232d`, `990af75e`), `68ca3a26`, `7eafcd1e`, `be5da765`, `f01bf7e5` (#1371), `94e26454`, [#1421](https://github.com/bpatrik/pigallery2/pull/1421) (`222d67b6`), `2a9d28f4` | P11 Loading, empty and error states for Classic and Prism, appropriate HTTP 404 responses, scrollable toasts and reactive notification badges, empty-folder upload, and a first-run empty gallery. | [#60](https://github.com/GitchalWoo/pigallery2.5/pull/60) | Preserved P03’s folder fallback and account-scoped cache, P06’s API 404 responses, and mount-loss protection for indexed media and metadata. The directory listing confirms whether the session can see the folder’s own content. Adapted older-browser feedback and left the optional `BROWSERSLIST` Docker argument out of P11. |
 | [#1376](https://github.com/bpatrik/pigallery2/pull/1376) (`aa1a5fea`, `420bdbe4`, `2379cd7f`, `74d8ce3c`), `a41d5577`, `947f95d7` ([#1410](https://github.com/bpatrik/pigallery2/pull/1410)), `d6585159` ([#1391](https://github.com/bpatrik/pigallery2/pull/1391)), `2cb691c4`, `1d17b220`, `5f0bd5e8` | P10 Grid and lightbox parity. Early scroll restoration, touch face reveal and zoom, selective thumbnail fades, line breaks for date groups more than 30 days apart, bottom-aligned tile info, slideshow restart styling, mobile video controls and rounded badges. | [#59](https://github.com/GitchalWoo/pigallery2.5/pull/59) | Adapted to the fork's virtual grid, pointer gestures, and Classic and Prism styles. Verified the existing keyboard, scroll and lightbox behaviors from PR #45. |
@@ -51,7 +52,6 @@ Every remaining upstream change is grouped into 15 packs. Each pack is one branc
 
 | Order | Upstream PR / Commits | Pack | Effort | Notes for This Fork |
 | --- | --- | --- | --- | --- |
-| 13 | #1168, `de4c72a4`, `33b99240`, `eebd645f`, #1200, `36caf087`, #1386, `bf6b8bc9` (#1394), #1428 (`c3e257e7`) | P13 Indexing, extensions & config | M | Independent of the other packs. Old configurations must keep loading. |
 | 14 | `a82bec8b`, `3a43889a`, `c7564ca8`, `1084031d`, `10165e9c`, `8d8a22c2`, #1353 | P14 Test infrastructure | M | `c7564ca8` changes runtime cover selection and collation. |
 | 15 | #1220, #1221, #1255, #1259, #1262, #1265, #1296, #1301 (runtime hunks only) | P15 Stack-PR sweep | S–M | Framework migrations stay skipped. |
 
@@ -69,6 +69,9 @@ Items reviewed and intentionally **not** ported (so future sweeps do not re-eval
 
 | Upstream PR / Commits | Reason Skipped / Obsolete |
 | --- | --- |
+| [#1168](https://github.com/bpatrik/pigallery2/pull/1168) (`0e1ae75f`) | Basename glob support and its tests were already in the fork via PR #10 (`ad7120cf`). |
+| `de4c72a4`, `33b99240` | Keep case-insensitive folder and file basename matching so existing exclusions continue to apply. P13 documents the matching rules and tests legacy entries. |
+| `bf6b8bc9` (#1394) | Keep `Gallery.enableOnScrollRendering` because Duplicates uses it to bypass the scroll threshold when disabled. |
 | `bcad49e0` (photo-grid hunk) | Already in fork via PR #45 (`38a16cd8`). P12 adds the lightbox directory link styling. |
 | `f6f41186` (#1430) | Upstream release-note update. |
 | `e4476463`, `15eacc82` (#1376), `2a83005f`, `1ade9d14` (#1394), `c214d5c5`, `8b5b6419` (#1410), [#1416](https://github.com/bpatrik/pigallery2/pull/1416) (`42224f20`), `9ae9151b`, `bdc57a25` | Already in the fork via PR #45. The Web Animations API lightbox cancels animations and releases its scroll lock. The P10 PR adapts the remaining first-load history and restart styling changes. |
@@ -95,15 +98,11 @@ Every candidate below is assigned to a pack in [Upstream-Port-Packs.md](Upstream
 
 | Upstream | Behavior to compare | Related fork work |
 | --- | --- | --- |
-| #1168, `de4c72a4`, `eebd645f`, `33b99240` | Folder exclusion globs, case-sensitive folder/file matching and setting descriptions | Check existing configurations. |
-| #1200, `36caf087` | Extension metadata filters and in-place refresh after metadata edits | Compare both search entry points (P13). #1214 was ported in P08. |
-| #1386 | Extension reload cleanup | Review reload independently (P13). #1387 and #1388 are skipped (see below). |
 | `68ca3a26`, `94e26454` | Long toasts and unsupported-browser feedback | Review with P11. |
 | #1220, #1221, #1255, #1259, #1262, #1265, #1296, #1301 (behavioral hunks) | Changes mixed into tooling PRs include blog rendering, stable list keys, job defaults, notifications, share navigation, diagnostics and search input checks | Compare runtime changes when reviewing the affected feature. The stack migrations remain skipped. |
 | `a82bec8b`, `3a43889a`, `c7564ca8`, `1084031d`, `10165e9c`, `8d8a22c2` | DB test races, cache cleanup, deterministic covers, collation, teardown, MySQL reset and benchmark runner | Compare with the fork’s database test isolation and benchmark scripts. |
 | #1353 | Backend regression scenarios for users and gallery changes | Reuse applicable cases in P14. Preserve the fork’s upload-limit coverage. #1348 was ported in P06, and #1352 job and settings cases were ported in P12. |
 | `2a9d28f4` | Empty gallery for a new install with an empty photo folder | Surveyed 2026-11-22 (`b46e2b47..2a9d28f4`). Ported in P11 with coverage for media and metadata-only indexes when the mount disappears. |
-| [#1428](https://github.com/bpatrik/pigallery2/pull/1428) (`c3e257e7`) | Warn when indexing finds an unreadable video (ffprobe fails, e.g. no moov atom) or a photo without a readable size; both are still indexed. Every skipped file is logged with the `DiskManager` tag; a file gone between listing and reading is skipped instead of failing the folder | Surveyed 2026-11-26 (`2a9d28f4..3b61ddc9`); P13. The fork already reads `Dirent` types and checks symbolic links with `SafePath`, so the stat-skip hunk only needs comparing. Upstream replaces the admin notification for photo loading errors with a log warning: decide in the P13 impact report. |
 | #1421 (`222d67b6`), #1417, `03a6f7c7` | Empty-folder upload hint (#1421), daily relative-date projection cache refresh (#1417) and JPEG XL support (`03a6f7c7`) | Surveyed 2026-11-22 (`c36b1fdc..b46e2b47`). #1423 (`8b5f2bae`) was deferred in P05 and ported in P06. #1421 was ported in P11 with the #1373 empty state. |
 
 ### Commit decisions within selective PRs
@@ -128,7 +127,7 @@ Where this table says **Deferred**, the pack assignment in [Upstream-Port-Packs.
 | #1381 | **Ported** (P01): folder zip naming `13b54a9b`, deleted-file download feedback `01790a52` | — |
 | #1380 | **Ported** (P08): accent folding, search performance and autocomplete behavior (`e0d265c6`, `38fc861f`, `74473bc5`, `3a8428de`, `3f7f68ff`) and geocoding error handling `7177c0e1` | **Skipped** upstream config documentation convention `e8dd72cb`. |
 | #1385 | **Ported** upload fixes from `db893d56` (PR #41) and its route check (P03a) | **Skipped** upstream old-browser e2e fixture adjustment `b4dc9f46`. |
-| #1394 | **Already in the fork via PR #45**: full-height grid and scroll handle `2a83005f`, relayout when the page above the grid changes `1ade9d14`. | **Planned** (P13): config removal `bf6b8bc9`. **Skipped** upstream e2e adjustments `003790d4`, `46d443f8` and sponsor markup `d1fea9a6`. |
+| #1394 | **Already in the fork via PR #45**: full-height grid and scroll handle `2a83005f`, relayout when the page above the grid changes `1ade9d14`. | **Skipped** config removal `bf6b8bc9` (P13), upstream e2e adjustments `003790d4`, `46d443f8` and sponsor markup `d1fea9a6`. |
 | #1400 | **Ported on the port branch**: role and album-read checks (`cc4e220e`, `a5b99924`), including the fail-closed guard from `31fe743d` | **Skipped** optional album creation/write roles (`1191b11a`, `f08aec3d`, `6952395f`, `676a2a2d` and corresponding hunks in later commits). |
 | #1259 | **Ported** (C1): GitHub Actions versions `824b9f32`, HEALTHCHECK exec form `cfe33e6e` | **P15** runtime-hunk sweep: `23a88567`, `b431f784`, `eedeba49`, `37f293b7`, `13270618`, `4e75dcf4`, `c8c1ea84`, `1a4f0bdb`, `5ad837c9`, `b625c8a4`, `df5e7e6f`, `5d86ad47`, `824203f8`, `48ee91e2`, `4d883217`, `6cf5bf20` (framework migration stays skipped). **Skipped**: Coveralls frontend coverage `5a91bb72` (upstream CI reporting). |
 

@@ -96,6 +96,12 @@ export interface IMediaRequestBodyData {
 }
 
 
+export interface IMetadataFilter {
+  field: string;
+  comparator: '>=' | '<=' | '==' | 'contains' | '!contains';
+  value: string | number;
+}
+
 export interface IClientMediaButtonConfig {
   /**
    * Name of the button. This is also used as id.
@@ -119,10 +125,13 @@ export interface IClientMediaButtonConfig {
    * example values:
    * [
    *   {field: 'rating', comparator: '==', value: 4}, // matches if rating is 4
-   *   {field: 'size.width', comparator: '>=', value: 400} // matches if width is >= 400px
+   *   {field: 'size.width', comparator: '>=', value: 400},
+   *   {field: 'keywords', comparator: 'contains', value: 'favorite'}
    * ]
+   * 'contains' checks for a whole item in an array or a substring in a string.
+   * Text matching is case-sensitive. Missing values and other field types satisfy '!contains'.
    */
-  metadataFilter?: { field: string, comparator: '>=' | '<=' | '==', value: string | number }[];
+  metadataFilter?: IMetadataFilter[];
   /**
    * If true, the button will always be visible, not only on hover.
    */
