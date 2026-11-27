@@ -1338,7 +1338,7 @@ export class SearchManager {
    * See SearchQueryUtils.matchDirectorySearch for the same logic without DB.
    */
   protected expandDirectoryGlobs(query: SearchQueryDTO): SearchQueryDTO {
-    if ((query as SearchListQuery).list) {
+    if (Array.isArray((query as SearchListQuery).list)) {
       (query as SearchListQuery).list = (query as SearchListQuery).list.map(q => this.expandDirectoryGlobs(q));
       return query;
     }
@@ -1371,16 +1371,11 @@ export class SearchManager {
   }
 
   protected convertMatchTypeToGlob(query: SearchQueryDTO): SearchQueryDTO {
-    if ((query as ANDSearchQuery | ORSearchQuery).list) {
-      for (
-        let i = 0;
-        i < (query as ANDSearchQuery | ORSearchQuery).list.length;
-        ++i
-      ) {
-        (query as ANDSearchQuery | ORSearchQuery).list[i] =
-          this.convertMatchTypeToGlob(
-            (query as ANDSearchQuery | ORSearchQuery).list[i]
-          );
+    // only loop over a real array: the list comes from the user's search query
+    const list: unknown = (query as ANDSearchQuery | ORSearchQuery).list;
+    if (Array.isArray(list)) {
+      for (let i = 0; i < list.length; ++i) {
+        list[i] = this.convertMatchTypeToGlob(list[i] as SearchQueryDTO);
       }
     }
     if (
@@ -1419,7 +1414,7 @@ export class SearchManager {
         this.queryIdBase = 0;
       }
     }
-    if ((queryIN as SearchListQuery).list) {
+    if (Array.isArray((queryIN as SearchListQuery).list)) {
       (queryIN as SearchListQuery).list.forEach((q) =>
         this.assignQueryIDs(q, id)
       );
@@ -1473,16 +1468,11 @@ export class SearchManager {
   }
 
   private async getGPSData(query: SearchQueryDTO): Promise<SearchQueryDTO> {
-    if ((query as ANDSearchQuery | ORSearchQuery).list) {
-      for (
-        let i = 0;
-        i < (query as ANDSearchQuery | ORSearchQuery).list.length;
-        ++i
-      ) {
-        (query as ANDSearchQuery | ORSearchQuery).list[i] =
-          await this.getGPSData(
-            (query as ANDSearchQuery | ORSearchQuery).list[i]
-          );
+    // only loop over a real array: the list comes from the user's search query
+    const list: unknown = (query as ANDSearchQuery | ORSearchQuery).list;
+    if (Array.isArray(list)) {
+      for (let i = 0; i < list.length; ++i) {
+        list[i] = await this.getGPSData(list[i] as SearchQueryDTO);
       }
     }
     if (
