@@ -81,12 +81,7 @@ import {Utils} from '../../../../../common/Utils';
       u.searchParams.delete(QueryParams.gallery.autoPollInterval);
     }
 
-    // Loop slideshow toggle
-    if (this.loopSlideshow) {
-      u.searchParams.set(QueryParams.gallery.lightbox.loopSlideshow, 'true');
-    } else {
-      u.searchParams.delete(QueryParams.gallery.lightbox.loopSlideshow);
-    }
+    u.searchParams.set(QueryParams.gallery.lightbox.loopSlideshow, String(this.loopSlideshow));
 
     // Captions always on
     if (this.captionAlwaysOn) {
