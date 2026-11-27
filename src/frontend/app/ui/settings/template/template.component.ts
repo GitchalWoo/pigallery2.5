@@ -23,6 +23,7 @@ import {SettingsEntryComponent} from './settings-entry/settings-entry.component'
 import {JobButtonComponent} from '../workflow/button/job-button.settings.component';
 import {JobProgressComponent} from '../workflow/progress/job-progress.settings.component';
 import {ExtensionInstallerService} from '../extension-installer/extension-installer.service';
+import {errorMessage} from '../../../../../common/entities/Error';
 
 
 interface ConfigState {
@@ -375,7 +376,7 @@ export class TemplateComponent implements OnInit, OnChanges, OnDestroy, ISetting
       );
     } catch (err) {
       console.error(err);
-      this.notification.error($localize`Failed to delete extension`, err);
+      this.notification.error($localize`Failed to delete extension`, errorMessage(err));
     } finally {
       this.inProgress = false;
     }
@@ -394,7 +395,7 @@ export class TemplateComponent implements OnInit, OnChanges, OnDestroy, ISetting
       );
     } catch (err) {
       console.error(err);
-      this.notification.error($localize`Failed to reload extension`, err);
+      this.notification.error($localize`Failed to reload extension`, errorMessage(err));
     } finally {
       this.inProgress = false;
     }

@@ -57,6 +57,20 @@ export class NotificationService {
     this.notificationCount.next(notifications.length);
   }
 
+  /**
+   * Makes notification details readable:
+   * strings are shown without JSON quoting/escaping, one sentence per line,
+   * objects are pretty-printed.
+   */
+  static formatDetails(details: unknown): string {
+    if (typeof details !== 'string') {
+      return JSON.stringify(details, null, 2);
+    }
+    return details
+      .replace(/^Error: /, '')
+      .replace(/([.!?])\s+(?=[A-Z])/g, '$1\n');
+  }
+
   async getServerNotifications(): Promise<void> {
     try {
       this.groupNotifications(
@@ -64,20 +78,19 @@ export class NotificationService {
               '/notifications'
           )) || []
       );
+      // The message is the title, the details go below it, like on the admin page
       this.countedNotifications.forEach((noti) => {
-        let msg = '(' + noti.count + ') ' + noti.message;
-        if (noti.details) {
-          msg += ' Details: ' + JSON.stringify(noti.details);
-        }
+        const title = '(' + noti.count + ') ' + noti.message;
+        const details = noti.details ? NotificationService.formatDetails(noti.details) : null;
         switch (noti.type) {
           case NotificationType.error:
-            this.error(msg, $localize`Server error`);
+            this.error(details, title);
             break;
           case NotificationType.warning:
-            this.warning(msg, $localize`Server error`);
+            this.warning(details, title);
             break;
           case NotificationType.info:
-            this.info(msg, $localize`Server info`);
+            this.info(details, title);
             break;
         }
       });

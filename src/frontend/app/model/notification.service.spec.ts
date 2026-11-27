@@ -44,4 +44,24 @@ describe('NotificationService', () => {
     expect(info).toHaveBeenCalledOnce();
     subscription.unsubscribe();
   });
+
+  it('titles a server notification with its message and shows its details one sentence per line', async () => {
+    const getJson = vi.fn().mockResolvedValue([
+      {type: NotificationType.warning, message: 'Images folder error', details: 'Error: Folder missing. Check the settings.'},
+    ]);
+    const user = new BehaviorSubject<UserDTO>(null);
+    const warning = vi.fn();
+    const service = new NotificationService(
+      {warning} as unknown as ToastrService,
+      {getJson} as unknown as NetworkService,
+      {user, isAuthenticated: () => user.value !== null} as unknown as AuthenticationService
+    );
+    await service.getServerNotifications();
+    expect(warning).toHaveBeenCalledExactlyOnceWith('Folder missing.\nCheck the settings.', '(1) Images folder error',
+      expect.anything());
+  });
+
+  it('formats object details as indented JSON', () => {
+    expect(NotificationService.formatDetails({code: 1})).toBe('{\n  "code": 1\n}');
+  });
 });

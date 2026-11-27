@@ -2,7 +2,8 @@ import {ANIMATION_MODULE_TYPE, enableProdMode, importProvidersFrom, inject, prov
 import {environment} from './environments/environment';
 import {HTTP_INTERCEPTORS, HttpClient, provideHttpClient, withInterceptorsFromDi, withXhr} from '@angular/common/http';
 import {ErrorInterceptor} from './app/model/network/helper/error.interceptor';
-import {DefaultUrlSerializer, UrlSerializer, UrlTree} from '@angular/router';
+import {DefaultUrlSerializer, Router, UrlSerializer, UrlTree} from '@angular/router';
+import {reloadOnStaleChunks} from './app/model/lazy-loading';
 import {bootstrapApplication, BrowserModule} from '@angular/platform-browser';
 import {StringifySortingMethod} from './app/pipes/StringifySortingMethod';
 import {NetworkService} from './app/model/network/network.service';
@@ -53,6 +54,8 @@ import {
   ionCaretDown,
   ionCaretForward,
   ionChatboxOutline,
+  ionAlertCircle,
+  ionCheckmarkCircle,
   ionCheckmarkOutline,
   ionChevronBackOutline,
   ionChevronDownOutline,
@@ -86,6 +89,7 @@ import {
   ionList,
   ionLocationOutline,
   ionLockClosedOutline,
+  ionLogInOutline,
   ionLogOutOutline,
   ionMenuOutline,
   ionMoonOutline,
@@ -173,6 +177,10 @@ bootstrapApplication(AppComponent, {
     provideAppInitializer(() => {
       inject(ScrollRestorationService);
     }),
+    // after an upgrade, an open tab reloads when a lazy page's file is gone
+    provideAppInitializer(() => {
+      reloadOnStaleChunks(inject(Router));
+    }),
     importProvidersFrom(BrowserModule, FormsModule, AppRoutingModule, NgIconsModule.withIcons({
         ionDownloadOutline, ionFunnelOutline,
         ionGitBranchOutline, ionArrowDownOutline, ionArrowUpOutline,
@@ -197,7 +205,8 @@ bootstrapApplication(AppComponent, {
         ionBrowsersOutline, ionUnlinkOutline, ionSquareOutline, ionGridOutline,
         ionAppsOutline, ionOpenOutline, ionRefresh, ionExtensionPuzzleOutline, ionList, ionPencil, ionReload,
         ionCaretForward, ionCaretDown,
-        ionFingerPrint, ionCloudUploadOutline
+        ionFingerPrint, ionCloudUploadOutline,
+        ionLogInOutline, ionCheckmarkCircle, ionAlertCircle
       }), TooltipModule, ToastrModule.forRoot(),
       ModalModule, CollapseModule, PopoverModule,
       BsDropdownModule, BsDatepickerModule, TimepickerModule),

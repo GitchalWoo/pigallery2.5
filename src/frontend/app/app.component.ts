@@ -23,9 +23,9 @@ export class AppComponent implements OnInit, OnDestroy {
     private shareService: ShareService,
     private navigation: NavigationService,
     private title: Title,
+    // injected so the theme is applied on start (its constructor initializes it)
     private themeService: ThemeService
   ) {
-    themeService.init();
   }
 
   async ngOnInit(): Promise<void> {

@@ -139,7 +139,19 @@ export const SearchQueryUtils = {
     }
     return val;
   },
+  /**
+   * Reads the query of a /search/<query> page link.
+   * A hand-typed text (e.g. /search/cat) searches for that text; a query object that can't be read
+   * (e.g. a cut off copy of a link) gives null.
+   */
   parseSearchLink: (value: string): SearchQueryDTO | null => {
+    const text = (value ?? '').trim();
+    if (!text) {
+      return null;
+    }
+    if (!text.startsWith('{') && !text.startsWith('[')) {
+      return {type: SearchQueryTypes.any_text, value: text} as TextSearch;
+    }
     try {
       const query = SearchQueryUtils.parseURLifiedQuery(value);
       return SearchQueryUtils.isKnownQuery(query) ? query : null;

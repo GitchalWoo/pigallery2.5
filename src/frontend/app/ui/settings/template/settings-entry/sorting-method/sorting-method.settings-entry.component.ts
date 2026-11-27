@@ -10,6 +10,7 @@ import {NgIconComponent} from '@ng-icons/core';
 import {SortingMethodIconComponent} from '../../../../utils/sorting-method-icon/sorting-method-icon.component';
 import {StringifySortingMethod} from '../../../../../pipes/StringifySortingMethod';
 import {NotificationService} from '../../../../../model/notification.service';
+import {errorMessage} from '../../../../../../../common/entities/Error';
 
 @Component({
   selector: 'app-settings-entry-sorting-method',
@@ -90,7 +91,7 @@ export class SortingMethodSettingsEntryComponent
       }
       this.onChange();
     } catch (e) {
-      this.notificationService.error('Can\t set soritng:' + e.message);
+      this.notificationService.error('Can\'t set sorting: ' + errorMessage(e));
     }
   }
 

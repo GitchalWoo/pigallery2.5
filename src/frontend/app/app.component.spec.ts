@@ -20,11 +20,17 @@ describe('AppComponent', () => {
       toAfterLogin: vi.fn().mockResolvedValue(true),
     };
     const shareService = {wait: () => Promise.resolve(), isSharing: () => false};
+    const themeService = {init: vi.fn()};
     const component = new AppComponent(authenticationService as any, shareService as any, navigation as any,
-      {setTitle: vi.fn()} as any, {init: vi.fn()} as any);
+      {setTitle: vi.fn()} as any, themeService as any);
     await component.ngOnInit();
-    return {component, user, authenticationService, navigation};
+    return {component, user, authenticationService, navigation, themeService};
   };
+
+  it('leaves the theme setup to the theme service, so its mode listener is not added twice', async () => {
+    const {themeService} = await setUp();
+    expect(themeService.init).not.toHaveBeenCalled();
+  });
 
   it('opens the page the login was opened for once logged in', async () => {
     const {navigation} = await setUp({loginPage: true});

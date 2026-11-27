@@ -18,6 +18,7 @@ import {PiTitleService} from '../../model/pi-title.service';
 import {GPXFilesFilterPipe} from '../../pipes/GPXFilesFilterPipe';
 import {MDFilesFilterPipe} from '../../pipes/MDFilesFilterPipe';
 import {Config} from '../../../../common/config/public/Config';
+import {SearchQueryTypes} from '../../../../common/entities/SearchQueryDTO';
 import {LeafletMarkerClusterModule} from '@bluehalo/ngx-leaflet-markercluster';
 import {GalleryCacheService} from './cache.gallery.service';
 import {ContentWrapperWithError} from '../../../../common/entities/ContentWrapper';
@@ -221,7 +222,13 @@ describe('GalleryComponent', () => {
     expect(mockShareService.getDefaultRoute).toHaveBeenCalledWith({sharingKey: 'test-key'});
   });
 
-  it.each(['broken JSON', '{"type":99999}', '{"type":1,"list":[{"type":812}]}'])(
+  it('searches for the text of a hand-typed /search/<text> link', async () => {
+    await component['onRoute']({[QueryParams.gallery.search.query]: 'cat'});
+    expect(mockContentLoader.search).toHaveBeenCalledWith({type: SearchQueryTypes.any_text, value: 'cat'});
+    expect(mockContentLoader.showBrokenSearchLink).not.toHaveBeenCalled();
+  });
+
+  it.each(['{"broken JSON', '{"type":99999}', '{"type":1,"list":[{"type":812}]}'])(
     'shows a broken link without loading %s', async query => {
       await component['onRoute']({[QueryParams.gallery.search.query]: query});
       expect(mockContentLoader.showBrokenSearchLink).toHaveBeenCalledOnce();
