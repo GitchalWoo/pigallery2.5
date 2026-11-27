@@ -15,12 +15,15 @@ import {ReIndexingSensitivity} from '../../../../../src/common/config/private/Pr
 import {SearchQueryTypes, TextSearch, TextSearchQueryMatchTypes} from '../../../../../src/common/entities/SearchQueryDTO';
 import {ProjectPath} from '../../../../../src/backend/ProjectPath';
 import * as path from 'path';
+import {tmpdir} from 'os';
 import {AlbumManager} from '../../../../../src/backend/model/database/AlbumManager';
 import {SortByTypes} from '../../../../../src/common/entities/SortingMethods';
 import {ClientSortingConfig} from '../../../../../src/common/config/public/ClientConfig';
 import {DiskManager} from '../../../../../src/backend/model/fileaccess/DiskManager';
 import {SessionContext} from '../../../../../src/backend/model/SessionContext';
 import {PhotoEntity} from '../../../../../src/backend/model/database/enitites/PhotoEntity';
+import {MediaEntity} from '../../../../../src/backend/model/database/enitites/MediaEntity';
+import {FileEntity} from '../../../../../src/backend/model/database/enitites/FileEntity';
 
 const deepEqualInAnyOrder = require('deep-equal-in-any-order');
 const chai = require('chai');
@@ -168,45 +171,76 @@ describe('IndexingManager', (sqlHelper: DBTestHelper) => {
   });
 
 
-  it('should stop indexing on empty folder', async () => {
-    const gm = new GalleryManagerTest();
-    const session = DBTestHelper.defaultSession;
+  DBTestHelper.savedDescribe('empty media root', () => {
+    let fixture: string;
+    let root: string;
+    let markdownEnabled: boolean;
 
-    ProjectPath.reset();
-    ProjectPath.ImageFolder = path.join(__dirname, '/../../../assets');
+    beforeEach(() => {
+      fixture = fs.mkdtempSync(path.join(tmpdir(), 'pigallery-empty-root-'));
+      root = path.join(fixture, 'media');
+      fs.mkdirSync(root);
+      ProjectPath.ImageFolder = root;
+      markdownEnabled = Config.MetaFile.markdown;
+      Config.MetaFile.markdown = true;
+    });
 
-    await ObjectManagers.getInstance().IndexingManager.indexDirectory('.');
-    if (ObjectManagers.getInstance().IndexingManager.IsSavingInProgress) {
-      await ObjectManagers.getInstance().IndexingManager.SavingReady;
+    afterEach(() => {
+      ProjectPath.reset();
+      Config.MetaFile.markdown = markdownEnabled;
+      fs.rmSync(fixture, {recursive: true, force: true});
+    });
+
+    it('lets a fresh gallery list an empty root', async () => {
+      const managers = ObjectManagers.getInstance();
+      const folder = await managers.GalleryManager.listDirectory(DBTestHelper.defaultSession, '.');
+      expect(folder.directories).to.deep.equal([]);
+      expect(folder.media).to.deep.equal([]);
+      expect(folder.metaFile).to.deep.equal([]);
+      await managers.IndexingManager.SavingReady;
+    });
+
+    it('still rejects an absent root on a fresh install', async () => {
+      fs.rmdirSync(root);
+      let failure: Error;
+      try {
+        await ObjectManagers.getInstance().IndexingManager.indexDirectory('.', true);
+      } catch (error) {
+        failure = error;
+      }
+      expect(failure).to.have.property('code', 'ENOENT');
+    });
+
+    for (const name of ['photo.jpg', 'notes.md']) {
+      it(`protects an index containing only ${name} when the mount disappears`, async () => {
+        if (name.endsWith('.jpg')) {
+          fs.copyFileSync(path.join(__dirname, '../../../assets/exiftool.jpg'), path.join(root, name));
+        } else {
+          fs.writeFileSync(path.join(root, name), '# Gallery notes');
+        }
+
+        const indexing = ObjectManagers.getInstance().IndexingManager;
+        await indexing.indexDirectory('.', true);
+        const db = await SQLConnection.getConnection();
+        const media = db.getRepository(MediaEntity);
+        const metadata = db.getRepository(FileEntity);
+        const indexedMedia = await media.find({select: ['id', 'name']});
+        const indexedMetadata = await metadata.find({select: ['id', 'name']});
+        expect([...indexedMedia, ...indexedMetadata].map(file => file.name)).to.deep.equal([name]);
+
+        fs.renameSync(root, path.join(fixture, 'detached'));
+        fs.mkdirSync(root);
+        let failure: Error;
+        try {
+          await indexing.indexDirectory('.', true);
+        } catch (error) {
+          failure = error;
+        }
+        expect(failure?.message).to.match(/Root directory is empty/);
+        expect(await media.find({select: ['id', 'name']})).to.deep.equal(indexedMedia);
+        expect(await metadata.find({select: ['id', 'name']})).to.deep.equal(indexedMetadata);
+      });
     }
-
-    const directoryPath = GalleryManager.parseRelativeDirPath(
-      '.'
-    );
-    const conn = await SQLConnection.getConnection();
-    const selected = await gm.getParentDirFromId(conn, session,
-      (await gm.getDirIdAndTime(conn, directoryPath.name, directoryPath.parent)).id);
-
-
-    expect(selected?.media?.length)
-      .to.be.greaterThan(0);
-    if (!fs.existsSync(TestHelper.TMP_DIR)) {
-      fs.mkdirSync(TestHelper.TMP_DIR);
-    }
-    const tmpDir = path.join(TestHelper.TMP_DIR, '/rnd5sdf_emptyDir');
-    fs.mkdirSync(tmpDir);
-    ProjectPath.ImageFolder = tmpDir;
-    let notFailed = false;
-    try {
-      await ObjectManagers.getInstance().IndexingManager.indexDirectory('.');
-      notFailed = true;
-    } catch {
-      // it expected to fail
-    }
-    if (notFailed) {
-      expect(true).to.equal(false, 'indexDirectory is expected to fail');
-    }
-
   });
 
 
