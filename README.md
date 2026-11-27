@@ -36,7 +36,8 @@ open security findings.
 - **⚡ Fast**: Optimized for low-end hardware.
 - **✔️ Simple**: Point to your photos and you are ready.
 - **📁 Directory-first**: Shows your folder structure as it is.
-- **Read-only**: Your photo folder is never modified.
+- **Read-only**: Your photos are never modified.
+  - Optional uploads (off by default) only add new files, never overwrite.
 
 [Full documentation here](http://bpatrik.github.io/pigallery2/).
 
