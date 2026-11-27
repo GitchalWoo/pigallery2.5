@@ -3,6 +3,7 @@ import express from 'express';
 import {request} from 'chai-http';
 import {SuperAgentStatic} from 'superagent';
 import {ErrorRouter} from '../../../../src/backend/routes/ErrorRouter';
+import {PublicRouter} from '../../../../src/backend/routes/PublicRouter';
 import {ExtensionManager} from '../../../../src/backend/model/extension/ExtensionManager';
 import {Config} from '../../../../src/common/config/private/Config';
 import {ErrorCodes} from '../../../../src/common/entities/Error';
@@ -14,6 +15,11 @@ describe('ErrorRouter', () => {
     // ExtensionManager.init mounts its router at startup, before the routes and the ErrorRouter
     const extensionRouter = express.Router();
     app.use(ExtensionManager.EXTENSION_API_PATH, extensionRouter);
+    app.use((req, _res, next) => {
+      req.session = {expires: 0};
+      next();
+    });
+    PublicRouter.route(app);
     ErrorRouter.route(app);
     // a reloaded or newly installed extension adds its routes to the same router
     extensionRouter.get('/sample/hello', (req, res) => {

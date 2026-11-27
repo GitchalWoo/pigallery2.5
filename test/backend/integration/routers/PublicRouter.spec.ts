@@ -16,6 +16,7 @@ import {ProjectPath} from '../../../../src/backend/ProjectPath';
 import * as chai from "chai";
 import {default as chaiHttp, request} from "chai-http";
 import {DBTestHelper} from '../../DBTestHelper';
+import {ErrorCodes} from '../../../../src/common/entities/Error';
 
 process.env.NODE_ENV = 'test';
 chai.should();
@@ -131,6 +132,55 @@ describe('PublicRouter', () => {
       expect((await app().get('/manifest.json')).body.start_url).to.equal('/photos/family/');
       Config.Server.publicUrl = 'https://gallery.example/photos/family/';
       expect((await app().get('/manifest.json')).body.start_url).to.equal('https://gallery.example/photos/family/');
+    });
+
+    it('returns the app 404 with the configured base href', async () => {
+      Config.Server.urlBase = 'photos/family/';
+      const html = await request.execute(server.Server).get('/unknown/page').set('Accept-Language', 'en');
+      expect(html.status).to.equal(404);
+      expect(html.type).to.equal('text/html');
+      expect(html.text).to.include('<base href="/photos/family/"');
+    });
+  });
+
+  describe('Page, asset and API routing', () => {
+    beforeEach(setUp);
+    afterEach(tearDown);
+
+    it('renders the app at valid deep links', async () => {
+      for (const url of ['/gallery/', '/gallery/Family%2F2026.10', '/gallery/Family/2026.10',
+        '/search/%7B%22t%22%3A1%7D', '/timeline', '/invalidSharing?retry=1']) {
+        const res = await request.execute(server.Server).get(url).set('Accept-Language', 'en');
+        expect(res.status, url).to.equal(200);
+        expect(res.text, url).to.include('ServerInject');
+      }
+    });
+
+    it('renders the app with HTTP 404 at unknown page URLs', async () => {
+      for (const url of ['/unknown-page', '/unknown/nested?preview=photo.jpg', '/%C5%9Bcie%C5%BCka']) {
+        const res = await request.execute(server.Server).get(url).set('Accept-Language', 'en');
+        expect(res.status, url).to.equal(404);
+        expect(res.type, url).to.equal('text/html');
+        expect(res.text, url).to.include('ServerInject');
+      }
+    });
+
+    it('returns a plain 404 for missing assets', async () => {
+      for (const url of ['/assets', '/assets/removed', '/assets/missing/icon.png', '/old%2Ejs', '/old/image.png']) {
+        const res = await request.execute(server.Server).get(url);
+        expect(res.status, url).to.equal(404);
+        expect(res.type, url).to.equal('text/plain');
+        expect(res.text, url).to.equal('Not Found');
+      }
+    });
+
+    it('leaves unknown API paths to ErrorRouter', async () => {
+      const api = Config.Server.apiPath;
+      for (const url of [api, api + '/', api + '/missing/deep.js', api.toUpperCase() + '/missing']) {
+        const res = await request.execute(server.Server).get(url);
+        expect(res.status, url).to.equal(404);
+        expect(res.body.error.code, url).to.equal(ErrorCodes.PATH_ERROR);
+      }
     });
   });
 

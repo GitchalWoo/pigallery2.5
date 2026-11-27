@@ -289,7 +289,7 @@ export class PublicRouter {
       [
         '/',
         '/login',
-        new RegExp('^/gallery(?:/.*)?$'),
+        /^\/gallery(?:\/.*)?$/,
         '/share/:' + QueryParams.gallery.sharingKey_params,
         '/shareLogin',
         '/admin',
@@ -297,7 +297,8 @@ export class PublicRouter {
         '/faces',
         '/albums',
         '/timeline',
-        new RegExp('^/search(?:/.*)?$'),
+        '/invalidSharing',
+        /^\/search(?:\/.*)?$/,
       ],
       AuthenticationMWs.tryAuthenticate,
       addTPl, // add template after authentication was successful
@@ -320,14 +321,25 @@ export class PublicRouter {
       );
     });
 
+    const isApiPath = (requestPath: string): boolean => {
+      const apiPath = Config.Server.apiPath.toLowerCase();
+      const lowerPath = requestPath.toLowerCase();
+      return lowerPath === apiPath || lowerPath.startsWith(apiPath + '/');
+    };
+
     const renderFile = (subDir = '') => {
-      return async (req: Request, res: Response) => {
+      return async (req: Request, res: Response, next: NextFunction) => {
+        if (!subDir && isApiPath(req.path)) {
+          return next();
+        }
         let file: string;
         try {
           const base = path.join(ProjectPath.FrontendFolder, req.localePath, subDir);
           file = await SafePath.resolveExisting(base, req.params.file as string);
         } catch (err) {
-          if (err.code === 'ENOENT') return res.sendStatus(404);
+          if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+            return subDir ? res.sendStatus(404) : next();
+          }
           return res.sendStatus(403);
         }
         res.sendFile(file, {
@@ -337,6 +349,7 @@ export class PublicRouter {
       };
     };
 
+    app.get('/assets', (_req, res) => res.sendStatus(404));
     app.get(
       new RegExp('^/assets/(?<file>.+)$'),
       setLocale,
@@ -348,6 +361,25 @@ export class PublicRouter {
       setLocale,
       AuthenticationMWs.normalizePathParam('file'),
       renderFile()
+    );
+    app.get(
+      '/{*rest}',
+      (req: Request, res: Response, next: NextFunction) => {
+        if (isApiPath(req.path)) {
+          return next('route');
+        }
+        const rest = req.params.rest;
+        const page = Array.isArray(rest) ? rest.join('/') : rest || '';
+        if (/^assets(?:\/|$)/i.test(page) || path.posix.extname(page)) {
+          return res.sendStatus(404);
+        }
+        res.status(404);
+        next();
+      },
+      AuthenticationMWs.tryAuthenticate,
+      addTPl,
+      setLocale,
+      renderIndex
     );
   }
 }
