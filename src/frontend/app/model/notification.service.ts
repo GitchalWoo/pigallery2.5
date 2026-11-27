@@ -78,10 +78,12 @@ export class NotificationService {
               '/notifications'
           )) || []
       );
-      // The message is the title, the details go below it, like on the admin page
+      // With details, the message is the title and the details go below it, like on the admin page.
+      // Without details, the message stays in the toast body, which scrolls when it is long.
       this.countedNotifications.forEach((noti) => {
-        const title = '(' + noti.count + ') ' + noti.message;
-        const details = noti.details ? NotificationService.formatDetails(noti.details) : null;
+        const message = '(' + noti.count + ') ' + noti.message;
+        const title = noti.details ? message : null;
+        const details = noti.details ? NotificationService.formatDetails(noti.details) : message;
         switch (noti.type) {
           case NotificationType.error:
             this.error(details, title);
