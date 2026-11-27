@@ -11,6 +11,16 @@ import {PhotoDTO} from '../../../src/common/entities/PhotoDTO';
 
 
 describe('ContentWrapper', () => {
+  it('detects metadata fields added or removed from the same media', () => {
+    const parent = TestHelper.getDirectoryEntry();
+    const photo = TestHelper.getPhotoEntry(parent);
+    const withKeywords = {...photo, metadata: {...photo.metadata, keywords: ['favorite']}};
+    const withoutKeywords = {...photo, metadata: {...photo.metadata}};
+    delete withoutKeywords.metadata.keywords;
+
+    expect(ContentWrapperUtils.equalsMedia(withKeywords, withoutKeywords)).to.be.false;
+    expect(ContentWrapperUtils.equalsMedia(withoutKeywords, withKeywords)).to.be.false;
+  });
 
   const cleanUpCW = (cw: ContentWrapper): ContentWrapper => {
     if (typeof cw.notModified === 'undefined') {

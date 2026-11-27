@@ -3,7 +3,8 @@ import {ErrorCodes} from '../../../../common/entities/Error';
 import {ContentLoaderService} from './contentLoader.service';
 import {SearchQueryTypes} from '../../../../common/entities/SearchQueryDTO';
 import {NotificationService} from '../../model/notification.service';
-import {type PackedContentWrapper} from '../../../../common/entities/ContentWrapper';
+import {ContentWrapperUtils, type PackedContentWrapper} from '../../../../common/entities/ContentWrapper';
+import {type PhotoDTO} from '../../../../common/entities/PhotoDTO';
 import {QueryParams} from '../../../../common/QueryParams';
 
 describe('ContentLoaderService', () => {
@@ -90,6 +91,35 @@ describe('ContentLoaderService', () => {
     const shown = service.content.value;
     await service.reloadCurrentContent();
     expect(service.content.value).toBe(shown);
+    service.ngOnDestroy();
+  });
+
+  it.each(['directory', 'search'] as const)('publishes a removed keyword on a %s refresh', async kind => {
+    const {service, getJson} = setup();
+    const query = {type: SearchQueryTypes.any_text};
+    const response = (keywords?: string[]): PackedContentWrapper => {
+      const directory = {...wrapper.directory, cache: {mediaCount: 1}};
+      const media: PhotoDTO = {
+        id: 7, name: 'one.jpg', directory,
+        metadata: {size: {width: 10, height: 10}, fileSize: 7, creationDate: 1, ...(keywords && {keywords})},
+      };
+      return ContentWrapperUtils.pack(kind === 'directory'
+        ? {directory: {...directory, media: [media]}, searchResult: null}
+        : {directory: null, searchResult: {searchQuery: query, resultOverflow: false, media: [media], directories: [], metaFile: []}});
+    };
+    const currentPhoto = (): PhotoDTO => {
+      const content = service.content.value;
+      return (content.directory ?? content.searchResult).media[0] as PhotoDTO;
+    };
+    getJson.mockResolvedValueOnce(response(['favorite'])).mockResolvedValueOnce(response());
+    if (kind === 'directory') {
+      await service.loadDirectory('photos');
+    } else {
+      await service.search(query);
+    }
+    expect(currentPhoto().metadata.keywords).toEqual(['favorite']);
+    await service.reloadCurrentContent();
+    expect(currentPhoto().metadata.keywords).toBeUndefined();
     service.ngOnDestroy();
   });
 
