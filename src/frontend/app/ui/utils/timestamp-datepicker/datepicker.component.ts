@@ -25,7 +25,8 @@ export class TimeStampDatePickerComponent {
   }
 
   public set timestamp(val: number) {
-    this.date.setTime(val);
+    // a new Date: ngModel only shows a value whose reference changed
+    this.date = new Date(val);
     if (this.timestampValue === val) {
       return;
     }
