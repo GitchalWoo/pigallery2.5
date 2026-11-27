@@ -11,7 +11,7 @@
         <app-icon class="d-inline-block align-top me-1" [width]="30" [height]="30"></app-icon>
         <strong class="d-none d-lg-inline-block">{{ title }}</strong>
       </a>
-      <div class="collapse navbar-collapse text-center" id="navbarCollapse" [collapse]="collapsed">
+      <div class="collapse navbar-collapse text-center" id="navbarCollapse">
         <ul class="navbar-nav mb-0 me-2 text-lg-start d-none d-md-flex">
           @for (link of navbarLinks; track link) {
             @if (link.type === NavigationLinkTypes.albums && isAlbumsAvailable()) {
@@ -86,9 +86,10 @@
             </li>
             <li class="nav-item dropdown">
               <div class="btn-group" dropdown #dropdown="bs-dropdown" placement="bottom right"
-                [autoClose]="false" container="body">
-                <button id="button-frame-menu" dropdownToggle
+                [autoClose]="false" (onHidden)="toolsOpen = false" container="body">
+                <button id="button-frame-menu" #menuToggle dropdownToggle
                   type="button" class="btn btn-tertiary dropdown-toggle"
+                  (keydown.enter)="$event.preventDefault(); dropdown.toggle(true)"
                   aria-controls="dropdown-frame-menu" aria-label="Menu" i18n-aria-label>
                   <ng-icon class="align-text-top" size="1.2em" name="ionMenuOutline"></ng-icon>
                   @if (isAdmin() && notificationCount > 0) {
@@ -97,7 +98,6 @@
                   }
                 </button>
                 <ul id="dropdown-frame-menu" *dropdownMenu
-                  #dropdownMenu
                   class="dropdown-menu dropdown-menu-right"
                   role="menu" aria-labelledby="button-frame-menu">
 
@@ -196,15 +196,14 @@
                   }
                   <hr class="d-md-none"/>
 
-                  <li role="button" dropdown [autoClose]="false"
-                    placement="bottom left" container="body">
-                    <a dropdownToggle class="dropdown-item cursor-pointer">
+                  <li role="menuitem" class="position-relative">
+                    <button type="button" class="dropdown-item" aria-controls="dropdown-frame-tools"
+                      [attr.aria-expanded]="toolsOpen" (click)="toolsOpen = !toolsOpen"
+                      (keydown.enter)="$event.preventDefault(); toolsOpen = !toolsOpen">
                       <ng-icon name="ionHammerOutline"></ng-icon>
                       <ng-container i18n>Tools</ng-container>
-                    </a>
-                    <ul class="dropdown-menu"
-                      [style.right.px]="-dropdownMenu.clientWidth"
-                      *dropdownMenu role="menu">
+                    </button>
+                    <ul id="dropdown-frame-tools" class="dropdown-menu frame-tools-menu" [class.show]="toolsOpen" role="menu">
                       <ng-content select="[navbar-menu]"></ng-content>
                       @if (isAdmin()) {
                         <li role="menuitem">

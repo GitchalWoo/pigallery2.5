@@ -17,7 +17,6 @@ import {ThemeService} from '../../model/theme.service';
 import {DeviceService} from '../../model/device.service';
 import {LoadingBarService} from '../../model/loading-bar.service';
 import {IconComponent} from '../../icon.component';
-import {CollapseDirective} from 'ngx-bootstrap/collapse';
 
 import {GallerySearchComponent} from '../gallery/search/search.gallery.component';
 import {GalleryShareComponent} from '../gallery/share/share.gallery.component';
@@ -38,7 +37,6 @@ import {TopLoadingBarComponent} from '../top-loading-bar/top-loading-bar.compone
     RouterLink,
     AsyncPipe,
     IconComponent,
-    CollapseDirective,
     GallerySearchComponent,
     GalleryShareComponent,
     NgIconComponent,
@@ -56,19 +54,19 @@ export class FrameComponent {
   public readonly user: BehaviorSubject<UserDTO>;
   public readonly authenticationRequired = Config.Users.authenticationRequired;
   public readonly title = Config.Server.applicationTitle;
-  public collapsed = true;
   public readonly navbarLinks = Config.Gallery.NavBar.links;
   public readonly NavigationLinkTypes = NavigationLinkTypes;
   public readonly stringify = JSON.stringify;
   public readonly themesEnabled = Config.Gallery.Themes.enabled;
   public readonly svgIcon = Config.Server.svgIcon;
+  toolsOpen = false;
   public shouldHideNavbar = false;
   public navbarKeepTop = true;
   public animateNavbar = false;
   public fixNavbarOnTop = false;
-  @ViewChild('dropdownMenu', {static: true}) dropdownMenu: ElementRef;
   @ViewChild('navContainer', {static: true}) navContainer: ElementRef;
   @ViewChild('dropdown', {static: true}) dropdown: BsDropdownDirective;
+  @ViewChild('menuToggle', {static: true}) private menuToggle: ElementRef<HTMLButtonElement>;
   @ViewChild('languageSelector', {static: true}) languageSelector: LanguageComponent;
   ThemeModes = ThemeModes;
   public readonly enableScrollUpButton: boolean;
@@ -203,6 +201,27 @@ export class FrameComponent {
 
   scrollUp(): void {
     PageHelper.ScrollY = 0;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (this.dropdown?.isOpen && !this.isMenuEvent(event)) {
+      this.dropdown.hide();
+    }
+  }
+
+  @HostListener('document:keydown.escape', ['$event'])
+  onMenuEscape(event: Event): void {
+    if (this.dropdown?.isOpen && this.isMenuEvent(event)) {
+      this.dropdown.hide();
+      this.menuToggle.nativeElement.focus();
+    }
+  }
+
+  private isMenuEvent(event: Event): boolean {
+    // The dropdown renders in the body, and a control may rerender during the click.
+    return event.composedPath().some(element => element instanceof Element &&
+      element.matches('#button-frame-menu, #dropdown-frame-menu'));
   }
 
   getSearchParams(q: SearchQueryDTO): string {
