@@ -13,7 +13,8 @@ export interface CountedNotificationDTO extends NotificationDTO {
 export class NotificationService {
   options = {
     positionClass: 'toast-top-center',
-    animate: 'flyLeft',
+    closeButton: true,
+    tapToDismiss: false,
   };
   countedNotifications: CountedNotificationDTO[] = [];
   numberOfNotifications = 0;

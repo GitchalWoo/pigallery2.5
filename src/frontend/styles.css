@@ -19,6 +19,17 @@ a {
   opacity: 1;
 }
 
+#toast-container.toast-top-center {
+  overflow-x: clip;
+}
+
+.toast-container .ngx-toastr .toast-message {
+  max-height: min(16rem, 45vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
+}
+
 bs-dropdown-container {
   z-index: 1;
 }
