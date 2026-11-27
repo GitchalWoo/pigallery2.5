@@ -285,12 +285,13 @@ Branch `port/upstream-p11-states`.
 
 | Commit | Change | Notes |
 | --- | --- | --- |
-| `990af75e`, `7dab232d`, `3aec0c9e`, `182f0912` (#1373) | Spinners, empty states, folder load errors, "Page not found" | Restyle to Prism. `182f0912` touches `PublicRouter`/`ErrorRouter`; run `PublicRouter` tests. Folder errors use `DIRECTORY_NOT_FOUND` from P03. |
-| `68ca3a26` | Long toasts scroll inside their card | |
-| `7eafcd1e` (#1371) | Notification badge appears once notifications arrive | |
-| `be5da765`, `f01bf7e5` (#1371) | Duplicates page loading state; translated summary | |
-| `94e26454` | Old browsers told they are unsupported | Verify; may already be in the fork. |
-| `222d67b6` (#1421) | Empty folder that accepts uploads offers an Upload button; `*.pg2conf` files no longer count as content | Builds on the #1373 empty state above. Reviewed in P02 and moved here. Vitest spec. |
+| `990af75e`, `7dab232d`, `3aec0c9e`, `182f0912` (#1373) | Spinners, empty states, folder load errors, and a dedicated 404 page | Shared states for Classic and Prism. Folder errors use P03’s `DIRECTORY_NOT_FOUND` and share-aware fallback. The app shell serves unknown pages with HTTP 404. P06’s `ErrorRouter` already handles API 404s. |
+| `68ca3a26` | Long toasts scroll inside their card | Uses the fork’s `ngx-toastr` set-up. |
+| `7eafcd1e` (#1371) | Notification badge appears once notifications arrive | Both badges observe the same RxJS count. |
+| `be5da765`, `f01bf7e5` (#1371) | Duplicates page loading state and translated summary | Ported one translation entry per locale. |
+| `94e26454` | Show feedback when an older browser cannot parse the app | Startup message only. |
+| `222d67b6` (#1421) | Offer upload in eligible empty folders and ignore `*.pg2conf` files when checking visible content | The directory response confirms access to the folder’s content. Navigation-only folders offer no upload. |
+| `2a9d28f4` | A fresh gallery can list an existing empty media root | The indexing guard still protects media and metadata-only indexes if the drive is unmounted. |
 
 ### P12 — Prism shell, admin & PWA polish (M)
 
