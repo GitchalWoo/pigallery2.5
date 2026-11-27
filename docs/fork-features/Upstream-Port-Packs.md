@@ -49,7 +49,7 @@ The workflow for every pack — presence check, impact report and approval, port
 | P15 split | **P15a** backend, **P15b** frontend, then **P16**: three stacked PRs merged in order. | User decision before P15: the sweep found about 13 backend and 8 frontend fixes, mixing backend and UI review (rule 5). |
 | Frontend file caching (`df5e7e6f`) | **Every frontend file `no-cache`** (ETag revalidation); no 365-day `immutable`. | User decision before P15: the fork's lazy chunks have the same names in every language and keep their hashes in a translation-only release. Tracked as Techdebt T9. |
 | `/search/<text>` links (`13270618`) | **Frontend links only** fall back to a text search; the API keeps answering `INPUT_ERROR` to a query that is not JSON. | User decision before P15. |
-| P15 optional items | **Port** the toast layout (`78ed0401`), the timestamp pickers (`b025d5bc`) and the backend hardening of #1301. **Skip** preloading Albums and Faces (`b625c8a4`, performance only). | User decision before P15. |
+| P15 optional items | **Port** the toast layout (`78ed0401`), the timestamp pickers (`b025d5bc`, reverted in P16: it made the date picker loop) and the backend hardening of #1301. **Skip** preloading Albums and Faces (`b625c8a4`, performance only). | User decision before P15. |
 | Upstream Playwright, e2e fixtures, translations, release tooling | **Skip** (unchanged). | See the ledger. Behavior is covered by Vitest, Mocha and Cypress instead. |
 
 ---
@@ -347,7 +347,7 @@ Split by user decision (section 2). Per-commit decisions for every stack PR are 
 
 **P15a** (branch `port/upstream-p15a-stack-sweep-backend`, [PR #64](https://github.com/GitchalWoo/pigallery2.5/pull/64)): formats removed at startup (`23a88567`, `37f293b7`), image folder and ffmpeg checks (`c001fc8f`, `7979a267`), cache headers (`df5e7e6f`, `5d86ad47`, `4d883217`), language redirects (`c8c1ea84`, `5ad837c9`), search lists (`c7f84192`, `78e19a83`) with a fork `INPUT_ERROR` check, crash fixes (`7f795348`, `a73b9657`, `7ab2c443`), hardening (`026570c6`, `4b463730`, `c0a5dd1f`, `a464166c`), date-pattern tests (`6cf5bf20`, `a546d5c4`, `e3d46dd4`).
 
-**P15b** (branch `port/upstream-p15b-stack-sweep-frontend`, [PR #65](https://github.com/GitchalWoo/pigallery2.5/pull/65)): blog comments (`bb951471`), stable list keys (`30a6b417`, `6bb877a2`, `2b34e430`, `38d4f884`), unregistered icons (`04ccd74d`), double theme init (`aacf95cb`), timestamp pickers (`b025d5bc`), `/search/<text>` links (`13270618`), language menu link (`c8c1ea84`), stale chunk reload (`b625c8a4`, `5d86ad47`), guest share 404 (`5c09394f`), toast layout (`78ed0401`), error toasts (`e8b0138f`).
+**P15b** (branch `port/upstream-p15b-stack-sweep-frontend`, [PR #65](https://github.com/GitchalWoo/pigallery2.5/pull/65)): blog comments (`bb951471`), stable list keys (`30a6b417`, `6bb877a2`, `2b34e430`, `38d4f884`), unregistered icons (`04ccd74d`), double theme init (`aacf95cb`), timestamp pickers (`b025d5bc`, reverted in P16), `/search/<text>` links (`13270618`), language menu link (`c8c1ea84`), stale chunk reload (`b625c8a4`, `5d86ad47`), guest share 404 (`5c09394f`), toast layout (`78ed0401`), error toasts (`e8b0138f`).
 
 ### P16 — JPEG XL support (S)
 
