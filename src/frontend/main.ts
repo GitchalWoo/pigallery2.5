@@ -1,4 +1,4 @@
-import {ANIMATION_MODULE_TYPE, enableProdMode, importProvidersFrom, provideZoneChangeDetection} from '@angular/core';
+import {ANIMATION_MODULE_TYPE, enableProdMode, importProvidersFrom, inject, provideAppInitializer, provideZoneChangeDetection} from '@angular/core';
 import {environment} from './environments/environment';
 import {HTTP_INTERCEPTORS, HttpClient, provideHttpClient, withInterceptorsFromDi, withXhr} from '@angular/common/http';
 import {ErrorInterceptor} from './app/model/network/helper/error.interceptor';
@@ -6,6 +6,7 @@ import {DefaultUrlSerializer, UrlSerializer, UrlTree} from '@angular/router';
 import {bootstrapApplication, BrowserModule} from '@angular/platform-browser';
 import {StringifySortingMethod} from './app/pipes/StringifySortingMethod';
 import {NetworkService} from './app/model/network/network.service';
+import {ScrollRestorationService} from './app/model/scroll-restoration.service';
 import {ShareService} from './app/ui/gallery/share.service';
 import {UserService} from './app/model/network/user.service';
 import {AlbumsService} from './app/ui/albums/albums.service';
@@ -163,6 +164,10 @@ export class CustomUrlSerializer implements UrlSerializer {
 bootstrapApplication(AppComponent, {
   providers: [
     provideZoneChangeDetection(),
+    // The first history entry can be created while the gallery is still fetching its content.
+    provideAppInitializer(() => {
+      inject(ScrollRestorationService);
+    }),
     importProvidersFrom(BrowserModule, FormsModule, AppRoutingModule, NgIconsModule.withIcons({
         ionDownloadOutline, ionFunnelOutline,
         ionGitBranchOutline, ionArrowDownOutline, ionArrowUpOutline,

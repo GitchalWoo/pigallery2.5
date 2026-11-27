@@ -1,6 +1,7 @@
 :host {
   position: relative;
   overflow: hidden;
+  border-radius: var(--bs-border-radius);
   transition: scale .3s ease-out;
 }
 
@@ -13,26 +14,30 @@ img {
   height: inherit;
   vertical-align: unset;
   opacity: 0;
-  transition: opacity 0.2s ease-in-out;
   display: block;
+}
+
+img.fade-in {
+  transition: opacity 0.2s ease-in-out;
 }
 
 img.loaded {
   opacity: 1;
 }
 
-.photo-container:hover .info {
+.photo-container:hover .info,
+.photo-container:focus-within .info {
   animation: show-info .3s forwards;
 }
 
 @keyframes show-info {
   0% {
-    transform: translateY(0);
+    transform: translateY(100%);
     background-color: transparent;
   }
 
   100% {
-    transform: translateY(-100%);
+    transform: none;
     background: rgba(0, 0, 0, 0.8);
   }
 }
@@ -40,18 +45,20 @@ img.loaded {
 @keyframes hide-info {
 
   0% {
-    transform: translateY(-100%);
+    transform: none;
     background: rgba(0, 0, 0, 0.8);
   }
   100% {
-    transform: translateY(0);
+    transform: translateY(100%);
     background-color: transparent;
   }
 }
 
 .info {
   animation: hide-info .3s forwards;
-  transform: translateY(0);
+  transform: translateY(100%);
+  bottom: 0;
+  left: 0;
   background-color: transparent;
   color: white;
   font-size: medium;

@@ -375,8 +375,12 @@ export class GallerySortingService {
 
                 if (grouping.method === GroupByTypes.Date) {
                   // We do not need the youngest as we group by day. All photos are from the same day
-                  c.mediaGroups.forEach(g => {
+                  c.mediaGroups.forEach((g, i) => {
                     g.date = Utils.makeUTCMidnight(new Date(g.media?.[0]?.metadata?.creationDate), g.media?.[0]?.metadata?.creationDateOffset);
+                    const previousDate = c.mediaGroups[i - 1]?.date;
+                    if (previousDate && Math.abs(g.date.getTime() - previousDate.getTime()) > MAX_SHARED_LINE_DATE_GAP_MS) {
+                      g.startsNewLine = true;
+                    }
                   });
                 }
 
@@ -394,6 +398,8 @@ export class GallerySortingService {
     );
   }
 }
+
+const MAX_SHARED_LINE_DATE_GAP_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface ScrollLabelFn {
   order: SortByDirectionalTypes;
