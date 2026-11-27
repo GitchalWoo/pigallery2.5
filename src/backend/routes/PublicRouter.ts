@@ -116,8 +116,10 @@ export class PublicRouter {
       res.sendStatus(200);
     });
 
+    const manifestIconSizes = [192, 512];
     app.get('/manifest.json', (req: Request, res: Response) => {
-      res.send({
+      const appUrl = Config.Server.getAppUrl();
+      res.type('application/manifest+json').send({
         name: Config.Server.applicationTitle,
         icons: [
           {
@@ -132,22 +134,26 @@ export class PublicRouter {
             type: 'image/svg+xml',
             purpose: 'maskable'
           },
-          {
-            src: 'icon_white.png',
-            sizes: '48x48 72x72 96x96 128x128 256x256',
-          },
+          ...manifestIconSizes.map(size => ({
+            src: `icon_${size}.png`,
+            sizes: `${size}x${size}`,
+            type: 'image/png',
+            purpose: 'any',
+          })),
         ],
         display: 'standalone',
         categories: [
           'photo'
         ],
-        start_url: Config.Server.getPublicUrl(),
+        id: appUrl,
+        scope: appUrl,
+        start_url: appUrl,
         background_color: '#000000',
         theme_color: '#000000',
       });
     });
 
-    const getIcon = (theme: 'auto' | string | null = null, paddingPercent = 0): string => {
+    const getIcon = (theme: 'auto' | string | null = null, paddingPercent = 0, size?: number): string => {
       const vBs = (Config.Server.svgIcon.viewBox || '').split(' ').slice(0, 4).map(s => parseFloat(s));
       vBs[0] = vBs[0] || 0;
       vBs[1] = vBs[1] || 0;
@@ -187,6 +193,7 @@ export class PublicRouter {
       };
       return '<svg ' +
         ' xmlns="http://www.w3.org/2000/svg"' +
+        (size ? ` width="${size}" height="${size}"` : '') +
         ' viewBox="' + vBs.join(' ') + '">' +
         (theme === 'auto' ? ('<style>' +
             '    path, circle {' +
@@ -218,7 +225,7 @@ export class PublicRouter {
             '    fill: white;' +
             '   }' +
             '  </style>')) +
-        `<rect class="bg" x="${canvasStart.x}" y="${canvasStart.y}" width="${canvasSize}" height="${canvasSize}" rx="15" />` +
+        `<rect class="bg" x="${canvasStart.x}" y="${canvasStart.y}" width="${canvasSize}" height="${canvasSize}" rx="${size ? 0 : 15}" />` +
         Config.Server.svgIcon.items + '</svg>';
     };
 
@@ -275,6 +282,21 @@ export class PublicRouter {
         return next(e);
       }
     });
+
+    for (const size of [180, ...manifestIconSizes]) {
+      const filename = `icon_${size}.png`;
+      app.get('/' + filename, async (req: Request, res: Response, next: NextFunction) => {
+        try {
+          const outPath = await PhotoProcessing.renderSVGString(
+            getIcon(null, 0, size), size, path.join(ProjectPath.TempFolder, filename)
+          );
+          res.set('Cache-Control', 'no-cache');
+          res.sendFile(outPath, {cacheControl: false, dotfiles: 'allow'});
+        } catch (error) {
+          next(error);
+        }
+      });
+    }
 
     app.get(
       [
