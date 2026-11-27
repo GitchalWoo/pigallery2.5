@@ -312,15 +312,15 @@ Branch `port/upstream-p12-shell-polish`. Adapted for the fork's Classic and Pris
 
 ### P13 — Indexing, extensions & config (M)
 
-Branch `port/upstream-p13-indexing-extensions`. Independent; can run any time.
+Branch `port/upstream-p13-indexing-extensions`. Implemented on the port branch.
 
-| Commit | Change | Notes |
+| Commit | Decision | Notes |
 | --- | --- | --- |
-| #1168, `de4c72a4`, `33b99240`, `eebd645f` | Glob wildcards in `excludeFolderList`; case-sensitive matching; clearer names | Existing configurations must keep working; add a `DiskManagerWorker` test with an old-style entry. |
-| #1200, `36caf087` | `contains` / `!contains` in extension media-button `metadataFilter` | |
-| #1386 | Extension reload runs changed code and drops old routes | Check that dropped routes really stop serving. |
-| `bf6b8bc9` (#1394) | Remove `enableOnScrollRendering` | Fork still has the setting (`ClientConfig.ts`). Remove only if the PR #45 grid ignores it; keep old configs loading. |
-| #1428 (`c3e257e7`) | Warn about unreadable videos and photos without a size while indexing; log skipped files with the `DiskManager` tag | The fork lists folders with `Dirent` types and checks symbolic links with `SafePath`; compare the stat-skip hunk instead of copying it. Upstream drops the admin notification for photo loading errors (log only): decide in the impact report. Port the `DiskManagerWorker` and `MetaDataLoader` Mocha tests. |
+| #1168 (`0e1ae75f`), `de4c72a4`, `33b99240`, `eebd645f` | Basename globs were already in the fork. Adapted the setting labels and descriptions. | Keep case-insensitive basename matching and exact path matching. `DiskManagerWorker` covers existing literal and path entries. |
+| #1200 (`80ca4628`, `c705dcb6`), `36caf087` | Adapted `contains` and `!contains` and metadata refresh. | Folder and search refreshes detect removed metadata and use the existing virtual grid to update changed tiles. |
+| #1386 (`ecec0216`) | Adapted extension reload. | Validated extension paths, a single startup mount, and per-extension route and event cleanup. |
+| `bf6b8bc9` (#1394) | Skipped config removal. | Duplicates still uses `enableOnScrollRendering` to decide when to display more groups. |
+| #1428 (`c3e257e7`) | Adapted indexing diagnostics and vanished-file handling. | Unreadable media retains fallback metadata. Vanished files are skipped and logged. Existing admin notifications for failed photo loads remain available. |
 
 ### P14 — Test infrastructure & regression scenarios (M)
 
