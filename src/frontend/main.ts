@@ -53,6 +53,8 @@ import {
   ionCaretDown,
   ionCaretForward,
   ionChatboxOutline,
+  ionAlertCircle,
+  ionCheckmarkCircle,
   ionCheckmarkOutline,
   ionChevronBackOutline,
   ionChevronDownOutline,
@@ -86,6 +88,7 @@ import {
   ionList,
   ionLocationOutline,
   ionLockClosedOutline,
+  ionLogInOutline,
   ionLogOutOutline,
   ionMenuOutline,
   ionMoonOutline,
@@ -197,7 +200,8 @@ bootstrapApplication(AppComponent, {
         ionBrowsersOutline, ionUnlinkOutline, ionSquareOutline, ionGridOutline,
         ionAppsOutline, ionOpenOutline, ionRefresh, ionExtensionPuzzleOutline, ionList, ionPencil, ionReload,
         ionCaretForward, ionCaretDown,
-        ionFingerPrint, ionCloudUploadOutline
+        ionFingerPrint, ionCloudUploadOutline,
+        ionLogInOutline, ionCheckmarkCircle, ionAlertCircle
       }), TooltipModule, ToastrModule.forRoot(),
       ModalModule, CollapseModule, PopoverModule,
       BsDropdownModule, BsDatepickerModule, TimepickerModule),
