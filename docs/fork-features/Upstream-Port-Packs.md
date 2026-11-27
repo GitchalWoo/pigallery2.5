@@ -312,7 +312,7 @@ Branch `port/upstream-p12-shell-polish`. Adapted for the fork's Classic and Pris
 
 ### P13 — Indexing, extensions & config (M)
 
-Branch `port/upstream-p13-indexing-extensions`. Implemented on the port branch.
+Branch `port/upstream-p13-indexing-extensions`. Implemented in [PR #62](https://github.com/GitchalWoo/pigallery2.5/pull/62).
 
 | Commit | Decision | Notes |
 | --- | --- | --- |
