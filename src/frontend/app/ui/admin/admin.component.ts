@@ -115,12 +115,7 @@ export class AdminComponent implements OnInit, AfterViewInit {
    * objects are pretty-printed.
    */
   public formatDetails(details: unknown): string {
-    if (typeof details !== 'string') {
-      return JSON.stringify(details, null, 2);
-    }
-    return details
-      .replace(/^Error: /, '')
-      .replace(/([.!?])\s+(?=[A-Z])/g, '$1\n');
+    return NotificationService.formatDetails(details);
   }
 }
 

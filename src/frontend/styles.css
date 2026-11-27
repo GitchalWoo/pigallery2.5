@@ -24,6 +24,8 @@ a {
 }
 
 .toast-container .ngx-toastr .toast-message {
+  /* notification details come one sentence per line */
+  white-space: pre-line;
   max-height: min(16rem, 45vh);
   overflow-y: auto;
   overscroll-behavior: contain;
