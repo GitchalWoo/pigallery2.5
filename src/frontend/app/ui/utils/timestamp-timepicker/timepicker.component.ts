@@ -28,11 +28,8 @@ export class TimeStampTimePickerComponent {
   public set timestamp(val: number) {
     const h = Math.min(23, Math.floor(val / 60));
     const m = val % 60;
-    // a new Date: ngModel only shows a value whose reference changed
-    const date = new Date(this.date);
-    date.setUTCHours(h);
-    date.setUTCMinutes(m);
-    this.date = date;
+    this.date.setUTCHours(h);
+    this.date.setUTCMinutes(m);
 
     if (this.timestampValue === val) {
       return;
