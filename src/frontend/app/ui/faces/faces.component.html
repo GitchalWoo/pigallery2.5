@@ -15,13 +15,13 @@
     } @else {
       @let favouritePeople = favourites | async;
       @let otherPeople = nonFavourites | async;
-      @for (person of favouritePeople; track person) {
+      @for (person of favouritePeople; track person.id) {
         <app-face [person]="person" [size]="size"></app-face>
       }
       @if (favouritePeople?.length > 0 && otherPeople?.length > 0) {
         <hr/>
       }
-      @for (person of otherPeople; track person) {
+      @for (person of otherPeople; track person.id) {
         <app-face [person]="person" [size]="size"></app-face>
       }
 

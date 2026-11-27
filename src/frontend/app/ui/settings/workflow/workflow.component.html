@@ -206,7 +206,7 @@
 
       @if (jobsService.getConfigTemplate(schedule.jobName)) {
         <hr/>
-        @for (configEntry of  jobsService.getConfigTemplate(schedule.jobName); track configEntry) {
+        @for (configEntry of jobsService.getConfigTemplate(schedule.jobName); track configEntry.id) {
           <div>
             @if (!configEntry.validIf || schedule.config[configEntry.validIf.configFiled] === configEntry.validIf.equalsValue) {
               <div class="mb-1 row"
@@ -308,7 +308,7 @@
                             [for]="configEntry.id+'_'+i" i18n>Sort by</label>
                             <div class="col-md-10">
                               <div class="input-group">
-                                @for (_ of mp.sortBy; track _; let k = $index) {
+                                @for (_ of mp.sortBy; track $index; let k = $index) {
                                   <div
                                     class="row col-12 mt-1 m-0 p-0">
                                     <div class="col p-0">
@@ -447,7 +447,7 @@
             (change)="jobTypeChanged(newSchedule)"
             [(ngModel)]="newSchedule.jobName"
             name="newJobName" required>
-            @for (availableJob of jobsService.availableJobs | async; track availableJob) {
+            @for (availableJob of jobsService.availableJobs | async; track availableJob.Name) {
               <option
                 [ngValue]="availableJob.Name">{{ backendTextService.getJobName(availableJob.Name) }}
               </option>

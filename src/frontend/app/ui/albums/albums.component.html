@@ -24,7 +24,7 @@
       }
     }
     <div class="album-tiles">
-      @for (album of albums; track album) {
+      @for (album of albums; track album.id) {
         <app-album [album]="album" [size]="size"></app-album>
       }
 

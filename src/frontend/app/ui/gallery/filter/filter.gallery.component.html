@@ -111,7 +111,7 @@
           <div class="filter-column">
             @if (filter.options.length > 0) {
               <ul class="list-group">
-                @for (option of filter.options; track option) {
+                @for (option of filter.options; track option.name) {
                   <li
                     [class.unselected]="!option.selected"
                     role="checkbox" tabindex="0"
