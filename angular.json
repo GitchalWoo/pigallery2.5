@@ -117,6 +117,7 @@
             ],
             "assets": [
               "src/frontend/robots.txt",
+              "src/frontend/browser-compatibility.js",
               {
                 "glob": "**/*",
                 "input": "node_modules/leaflet/dist/images/",
