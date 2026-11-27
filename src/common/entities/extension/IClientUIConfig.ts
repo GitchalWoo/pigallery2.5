@@ -129,6 +129,7 @@ export interface IClientMediaButtonConfig {
    *   {field: 'keywords', comparator: 'contains', value: 'favorite'}
    * ]
    * 'contains' checks for a whole item in an array or a substring in a string.
+   * Text matching is case-sensitive. Missing values and other field types satisfy '!contains'.
    */
   metadataFilter?: IMetadataFilter[];
   /**
