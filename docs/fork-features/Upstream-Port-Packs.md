@@ -345,7 +345,7 @@ Branch `port/upstream-p14-tests`. Implemented in [PR #63](https://github.com/Git
 
 Split by user decision (section 2). Per-commit decisions for every stack PR are in the ledger's selective PR table.
 
-**P15a** (branch `port/upstream-p15a-stack-sweep-backend`): formats removed at startup (`23a88567`, `37f293b7`), image folder and ffmpeg checks (`c001fc8f`, `7979a267`), cache headers (`df5e7e6f`, `5d86ad47`, `4d883217`), language redirects (`c8c1ea84`, `5ad837c9`), search lists (`c7f84192`, `78e19a83`) with a fork `INPUT_ERROR` check, crash fixes (`7f795348`, `a73b9657`, `7ab2c443`), hardening (`026570c6`, `4b463730`, `c0a5dd1f`, `a464166c`), date-pattern tests (`6cf5bf20`, `a546d5c4`, `e3d46dd4`).
+**P15a** (branch `port/upstream-p15a-stack-sweep-backend`, [PR #64](https://github.com/GitchalWoo/pigallery2.5/pull/64)): formats removed at startup (`23a88567`, `37f293b7`), image folder and ffmpeg checks (`c001fc8f`, `7979a267`), cache headers (`df5e7e6f`, `5d86ad47`, `4d883217`), language redirects (`c8c1ea84`, `5ad837c9`), search lists (`c7f84192`, `78e19a83`) with a fork `INPUT_ERROR` check, crash fixes (`7f795348`, `a73b9657`, `7ab2c443`), hardening (`026570c6`, `4b463730`, `c0a5dd1f`, `a464166c`), date-pattern tests (`6cf5bf20`, `a546d5c4`, `e3d46dd4`).
 
 **P15b** (branch `port/upstream-p15b-stack-sweep-frontend`): blog comments (`bb951471`), stable list keys (`30a6b417`, `6bb877a2`, `2b34e430`, `38d4f884`), unregistered icons (`04ccd74d`), double theme init (`aacf95cb`), timestamp pickers (`b025d5bc`), `/search/<text>` links (`13270618`), language menu link (`c8c1ea84`), stale chunk reload (`b625c8a4`, `5d86ad47`), guest share 404 (`5c09394f`), toast layout (`78ed0401`), error toasts (`e8b0138f`).
 
