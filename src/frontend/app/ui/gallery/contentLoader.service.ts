@@ -3,6 +3,7 @@ import {Router} from '@angular/router';
 import {NetworkService} from '../../model/network/network.service';
 import {ContentWrapperUtils, type ContentWrapperWithError, type PackedContentWrapperWithError} from '../../../../common/entities/ContentWrapper';
 import {type SubDirectoryDTO,} from '../../../../common/entities/DirectoryDTO';
+import {type ResponseSharingDTO} from '../../../../common/entities/SharingDTO';
 import {GalleryCacheService} from './cache.gallery.service';
 import {BehaviorSubject, EMPTY, from, Observable, Subject, Subscription, timer} from 'rxjs';
 import {Config} from '../../../../common/config/public/Config';
@@ -168,12 +169,30 @@ export class ContentLoaderService implements OnDestroy {
     return generation === this.galleryCacheService.getMediaCacheGeneration();
   }
 
+  /**
+   * The sharing loads in parallel with the folder content, so the folder's 404 can arrive first.
+   */
+  private async loadedSharing(key: string): Promise<ResponseSharingDTO | null> {
+    const sharing = this.shareService.sharingSubject.value;
+    if (sharing?.sharingKey === key) {
+      return sharing;
+    }
+    try {
+      return await this.shareService.getCurrentSharing();
+    } catch {
+      return null;
+    }
+  }
+
   private async onDirectoryNotFound(directoryName: string, generation: number): Promise<void> {
     const failedRequest = this.lastContentRequest;
     const key = this.shareService.getSharingKey();
     const route = key
-      ? this.shareService.getDefaultRoute(this.shareService.sharingSubject.value)
+      ? this.shareService.getDefaultRoute(await this.loadedSharing(key))
       : ['/gallery', ''];
+    if (this.lastContentRequest !== failedRequest || generation !== this.galleryCacheService.getMediaCacheGeneration()) {
+      return; // another folder was opened while the sharing loaded
+    }
     const normalize = SearchQueryUtils.normalizeDirectoryPath;
     const target = route && JSON.stringify([key, ...route]);
     if (target && target !== this.fallbackNavigation &&

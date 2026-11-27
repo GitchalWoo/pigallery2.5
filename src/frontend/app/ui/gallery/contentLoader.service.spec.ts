@@ -23,7 +23,7 @@ describe('ContentLoaderService', () => {
     return {promise, resolve, reject};
   };
 
-  const setup = (shareKey: string | null = null) => {
+  const setup = (shareKey: string | null = null, sharing: unknown = null) => {
     const getJson = vi.fn().mockRejectedValue({code: ErrorCodes.DIRECTORY_NOT_FOUND});
     const navigate = vi.fn().mockResolvedValue(true);
     const cache = {
@@ -34,7 +34,8 @@ describe('ContentLoaderService', () => {
     const service = new ContentLoaderService(
       {getJson} as any, cache as any,
       {getSharingKey: () => shareKey, isSharing: () => !!shareKey,
-        sharingSubject: new BehaviorSubject(null), getDefaultRoute: () => ['/gallery', 'shared']} as any,
+        sharingSubject: new BehaviorSubject(sharing), getCurrentSharing: () => Promise.resolve(sharing),
+        getDefaultRoute: (s: {directory?: string} | null) => s ? ['/gallery', s.directory ?? 'shared'] : null} as any,
       {autoPollIntervalS: new BehaviorSubject(0)} as any, {navigate} as any,
       {warning} as unknown as NotificationService
     );
@@ -54,9 +55,26 @@ describe('ContentLoaderService', () => {
   });
 
   it('keeps the sharing key when returning to the share default', async () => {
-    const {service, navigate} = setup('the-key');
+    const {service, navigate} = setup('the-key', {sharingKey: 'the-key'});
     await service.loadDirectory('restricted');
     expect(navigate).toHaveBeenCalledWith(['/gallery', 'shared'], {queryParams: {sk: 'the-key'}, replaceUrl: true});
+    service.ngOnDestroy();
+  });
+
+  it('waits for the sharing if the 404 of the folder arrives first (upstream 5c09394f)', async () => {
+    const sharing = deferred();
+    const {service, navigate} = setup('the-key');
+    (service as unknown as {shareService: {getCurrentSharing: () => Promise<unknown>}})
+      .shareService.getCurrentSharing = () => sharing.promise;
+    const loading = service.loadDirectory('timestamps');
+    await Promise.resolve();
+    expect(navigate).not.toHaveBeenCalled();
+
+    sharing.resolve({sharingKey: 'the-key', directory: 'Balaton nyár'});
+    await loading;
+
+    expect(navigate).toHaveBeenCalledWith(['/gallery', 'Balaton nyár'], {queryParams: {sk: 'the-key'}, replaceUrl: true});
+    expect(service.content.value.error).toBeUndefined();
     service.ngOnDestroy();
   });
 
