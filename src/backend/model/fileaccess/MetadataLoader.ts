@@ -227,8 +227,9 @@ export class MetadataLoader {
       }
 
     } catch (err) {
-      Logger.silly(LOG_TAG, 'Error loading metadata for : ' + fullPath);
-      Logger.silly(err);
+      // Distinguish probe failures from a source removed during the read.
+      await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, fullPath));
+      Logger.warn(LOG_TAG, 'Cannot read video, indexing it without metadata: ' + fullPath + ', reason: ' + String(err));
     }
 
     return metadata;
@@ -257,6 +258,7 @@ export class MetadataLoader {
       translateValues: false, //don't translate orientation from numbers to strings etc.
       mergeOutput: false //don't merge output, because things like Microsoft Rating (percent) and xmp.rating will be merged
     };
+    let hasReadableSize = false;
     try {
       try {
         const stat = fs.statSync(fullPath);
@@ -280,6 +282,7 @@ export class MetadataLoader {
           metadata.size.height = 0;
         }
       }
+      hasReadableSize = metadata.size.width > 0 && metadata.size.height > 0;
 
       try {
         try {
@@ -295,7 +298,7 @@ export class MetadataLoader {
               throw new Error('exifr could not parse ' + fullPath);
             }
           }
-          MetadataLoader.mapMetadata(metadata, exif, true);
+          hasReadableSize = MetadataLoader.mapMetadata(metadata, exif, true);
           if (exif?.makerNote) {
             const contentId = MetadataLoader.parseAppleMakerNoteContentId(exif.makerNote);
             if (contentId) {
@@ -305,7 +308,7 @@ export class MetadataLoader {
         } catch {
           try {
             const m = await sharp(fullPath, {failOn: 'none'}).metadata();
-            MetadataLoader.mapMetadata(metadata, this.mapExifReader(exifReader(m.exif)), true);
+            hasReadableSize = MetadataLoader.mapMetadata(metadata, this.mapExifReader(exifReader(m.exif)), true);
           } catch {
             // ignoring errors
           }
@@ -350,19 +353,21 @@ export class MetadataLoader {
       console.error(err);
       return MetadataLoader.EMPTY_METADATA;
     }
+    if (!hasReadableSize) {
+      await SafePath.resolveExisting(ProjectPath.ImageFolder, path.relative(ProjectPath.ImageFolder, fullPath));
+      Logger.warn(LOG_TAG, 'Cannot read photo, indexing it without size: ' + fullPath);
+    }
     return metadata;
   }
 
-  private static mapMetadata(metadata: PhotoMetadata | VideoMetadata, exif: any, mapDimension = true) {
+  private static mapMetadata(metadata: PhotoMetadata | VideoMetadata, exif: any, mapDimension = true): boolean {
     //replace adobe xap-section with xmp to reuse parsing
     if (Object.hasOwn(exif, 'xap')) {
       exif['xmp'] = exif['xap'];
       delete exif['xap'];
     }
     const orientation = MetadataLoader.getOrientation(exif);
-    if (mapDimension) {
-      MetadataLoader.mapImageDimensions(metadata, exif, orientation);
-    }
+    const hasReadableSize = mapDimension && MetadataLoader.mapImageDimensions(metadata, exif, orientation);
     MetadataLoader.mapKeywords(metadata, exif);
     MetadataLoader.mapTitle(metadata, exif);
     MetadataLoader.mapCaption(metadata, exif);
@@ -374,6 +379,7 @@ export class MetadataLoader {
     if (Config.Faces.enabled) {
       MetadataLoader.mapFaces(metadata, exif, orientation);
     }
+    return hasReadableSize;
   }
 
   private static getOrientation(exif: any): number {
@@ -387,13 +393,14 @@ export class MetadataLoader {
     return orientation;
   }
 
-  private static mapImageDimensions(metadata: PhotoMetadata, exif: any, orientation: number) {
+  private static mapImageDimensions(metadata: PhotoMetadata, exif: any, orientation: number): boolean {
     if (metadata.size.width <= 0) {
       metadata.size.width = exif.ifd0?.ImageWidth || exif.exif?.ExifImageWidth || metadata.size.width;
     }
     if (metadata.size.height <= 0) {
       metadata.size.height = exif.ifd0?.ImageHeight || exif.exif?.ExifImageHeight || metadata.size.height;
     }
+    const hasReadableSize = metadata.size.width > 0 && metadata.size.height > 0;
     metadata.size.height = Math.max(metadata.size.height, 1); //ensure height dimension is positive
     metadata.size.width = Math.max(metadata.size.width, 1); //ensure the width dimension is positive
 
@@ -405,6 +412,7 @@ export class MetadataLoader {
       metadata.size.width = metadata.size.height;
       metadata.size.height = height;
     }
+    return hasReadableSize;
   }
 
   private static mapKeywords(metadata: PhotoMetadata, exif: any) {

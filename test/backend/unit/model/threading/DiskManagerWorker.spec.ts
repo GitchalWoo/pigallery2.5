@@ -1,10 +1,14 @@
 import {expect} from 'chai';
 import * as path from 'path';
+import os from 'node:os';
+import {promises as fs} from 'node:fs';
 import {Config} from '../../../../../src/common/config/private/Config';
 import {ProjectPath} from '../../../../../src/backend/ProjectPath';
 import {Utils} from '../../../../../src/common/Utils';
 import {DatabaseType} from '../../../../../src/common/config/private/PrivateConfig';
 import {DiskManager} from '../../../../../src/backend/model/fileaccess/DiskManager';
+import {Logger} from '../../../../../src/backend/Logger';
+import {NotificationManager} from '../../../../../src/backend/model/NotifocationManager';
 
 declare const before: any;
 declare const afterEach: any;
@@ -69,6 +73,7 @@ describe('DiskMangerWorker', () => {
     it('excludeFile should support "?" wildcard for single character', () => {
       Config.Indexing.excludeFilenameList = ['photo?.jpg'];
       expect(DiskManager.excludeFile('photo1.jpg')).to.be.true;
+      expect(DiskManager.excludeFile('Photo1.JPG')).to.be.true;
       expect(DiskManager.excludeFile('photoA.jpg')).to.be.true;
       expect(DiskManager.excludeFile('photo.jpg')).to.be.false;
       expect(DiskManager.excludeFile('photo12.jpg')).to.be.false;
@@ -102,23 +107,35 @@ describe('DiskMangerWorker', () => {
       Config.Indexing.excludeFolderList = savedExcludeFolderList;
     });
 
-    const callExcludeDir = (name: string): Promise<boolean> =>
+    const root = path.join(__dirname, '/../../../assets');
+    const callExcludeDir = (name: string, parent = '.'): Promise<boolean> =>
       DiskManager.excludeDir({
         name,
-        parentDirRelativeName: '.',
-        parentDirAbsoluteName: path.join(__dirname, '/../../../assets')
+        parentDirRelativeName: parent,
+        parentDirAbsoluteName: path.join(root, parent)
       });
 
-    it('excludeDir should still match plain folder names exactly', async () => {
-      Config.Indexing.excludeFolderList = ['.dtrash'];
-      expect(await callExcludeDir('.dtrash')).to.be.true;
+    it('excludes old-style literal basenames anywhere, including case variants', async () => {
+      Config.Indexing.excludeFolderList = ['.dtrash', '$RECYCLE.BIN'];
+      expect(await callExcludeDir('.dtrash', 'parent')).to.be.true;
+      expect(await callExcludeDir('.DTRASH')).to.be.true;
+      expect(await callExcludeDir('$Recycle.Bin')).to.be.true;
       expect(await callExcludeDir('photos')).to.be.false;
+    });
+
+    it('matches old-style absolute and gallery-relative folder paths with exact case', async () => {
+      Config.Indexing.excludeFolderList = ['parent/relative', path.join(root, 'parent', 'absolute')];
+      expect(await callExcludeDir('relative', 'parent')).to.be.true;
+      expect(await callExcludeDir('absolute', 'parent')).to.be.true;
+      expect(await callExcludeDir('Relative', 'parent')).to.be.false;
+      expect(await callExcludeDir('Absolute', 'parent')).to.be.false;
+      expect(await callExcludeDir('relative', 'other')).to.be.false;
     });
 
     it('excludeDir should exclude folders using glob pattern "*"', async () => {
       Config.Indexing.excludeFolderList = ['temp*'];
       expect(await callExcludeDir('temp')).to.be.true;
-      expect(await callExcludeDir('temp2024')).to.be.true;
+      expect(await callExcludeDir('Temp2024')).to.be.true;
       expect(await callExcludeDir('photos')).to.be.false;
     });
 
@@ -129,4 +146,45 @@ describe('DiskMangerWorker', () => {
       expect(await callExcludeDir('20200')).to.be.false;
     });
   });
+
+  for (const noMetadata of [false, true]) {
+    it(`skips a file removed after listing (noMetadata: ${noMetadata})`, async () => {
+      const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pg-scan-'));
+      const originalRoot = ProjectPath.ImageFolder;
+      const originalWarn = Logger.warn;
+      const originalNotifications = NotificationManager.notifications;
+      const readdir = fs.readdir;
+      const warnings: string[][] = [];
+      try {
+        ProjectPath.ImageFolder = root;
+        NotificationManager.notifications = [];
+        Logger.warn = (...args) => warnings.push(args.map(String));
+        const retained = path.join(root, 'photo.png');
+        const removed = path.join(root, 'gone.png');
+        await fs.copyFile(path.join(__dirname, '/../../../assets/test_png.png'), retained);
+        await fs.copyFile(retained, removed);
+        fs.readdir = (async (...args: Parameters<typeof readdir>) => {
+          const entries = await readdir(...args);
+          if (args[0] === root) {
+            await fs.unlink(removed);
+          }
+          return entries;
+        }) as typeof readdir;
+
+        const result = await DiskManager.scanDirectory('/', {noMetadata});
+        expect(result.media.map(media => media.name)).to.deep.equal(['photo.png']);
+        expect(result.cache.cover.name).to.equal('photo.png');
+        expect(warnings).to.have.length(1);
+        expect(warnings[0][0]).to.equal('[DiskManager]');
+        expect(warnings[0][1]).to.contain('gone.png');
+        expect(NotificationManager.notifications[0].message).to.contain('gone.png');
+      } finally {
+        fs.readdir = readdir;
+        Logger.warn = originalWarn;
+        NotificationManager.notifications = originalNotifications;
+        ProjectPath.ImageFolder = originalRoot;
+        await fs.rm(root, {recursive: true, force: true});
+      }
+    });
+  }
 });
