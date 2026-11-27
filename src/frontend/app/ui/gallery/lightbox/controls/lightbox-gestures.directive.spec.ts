@@ -1,13 +1,15 @@
 import {Component} from '@angular/core';
 import {ComponentFixture, TestBed} from '@angular/core/testing';
-import {LightboxGesturesDirective} from './lightbox-gestures.directive';
+import {By} from '@angular/platform-browser';
+import {LightboxGesturesDirective, type LightboxTap} from './lightbox-gestures.directive';
 
 @Component({
   imports: [LightboxGesturesDirective],
   template: `<div appLightboxGestures
     (swipeleft)="swipes.push('left')" (swiperight)="swipes.push('right')" (swipeup)="swipes.push('up')"
     (pan)="pans.push($event)" (pinch)="scales.push($event.scale)" (pinchend)="ends.push($event.scale)"
-    (tap)="taps.push($event.tapCount)"><a href="#">Link</a><div class="navigation-arrow">Arrow</div></div>`
+    (tap)="tap($event)"><a href="#">Link</a><a class="face" href="/search/person">Face</a>
+    <div class="navigation-arrow">Arrow</div></div>`
 })
 class GestureHost {
   swipes: string[] = [];
@@ -15,6 +17,12 @@ class GestureHost {
   scales: number[] = [];
   ends: number[] = [];
   taps: number[] = [];
+  faceLinks: HTMLAnchorElement[] = [];
+
+  tap(event: LightboxTap): void {
+    this.taps.push(event.tapCount);
+    this.faceLinks.push(event.faceLink);
+  }
 }
 
 describe('Lightbox pointer gestures', () => {
@@ -121,5 +129,44 @@ describe('Lightbox pointer gestures', () => {
     pointer('pointerup', 200, 200, 1, arrow);
     expect(host.taps).toEqual([]);
     expect(host.pans).toEqual([]);
+  });
+
+  describe('touch taps on photos', () => {
+    let face: HTMLAnchorElement;
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      fixture.debugElement.query(By.directive(LightboxGesturesDirective)).injector.get(LightboxGesturesDirective).deferTouchTap = true;
+      face = element.querySelector('a.face');
+    });
+
+    afterEach(() => vi.useRealTimers());
+
+    it('emits a single tap with the original face link after the double tap window', () => {
+      pointer('pointerdown', 200, 200, 1, face);
+      pointer('pointerup', 200, 200);
+      expect(host.pans).toEqual([{deltaX: 0, deltaY: 0, isFinal: true}]);
+      expect(host.taps).toEqual([]);
+      vi.advanceTimersByTime(300);
+      expect(host.taps).toEqual([1]);
+      expect(host.faceLinks).toEqual([face]);
+    });
+
+    it('zooms over a face without emitting the first tap on a double tap', () => {
+      pointer('pointerdown', 200, 200, 1, face);
+      pointer('pointerup', 200, 200);
+      pointer('pointerdown', 201, 201, 1, face);
+      pointer('pointerup', 201, 201);
+      vi.advanceTimersByTime(300);
+      expect(host.taps).toEqual([2]);
+    });
+
+    it('cancels the deferred tap when the gesture surface is destroyed', () => {
+      pointer('pointerdown', 200, 200, 1, face);
+      pointer('pointerup', 200, 200);
+      fixture.destroy();
+      vi.advanceTimersByTime(300);
+      expect(host.taps).toEqual([]);
+    });
   });
 });

@@ -110,4 +110,15 @@ describe('GallerySortingService', () => {
     expect(groups.map(g => g.media.map(m => m.name))).toEqual([['a.jpg'], ['b.jpg', 'c.jpg']]);
     expect(groups.every(g => g.directoryPath === undefined && !!g.date)).toBe(true);
   });
+
+  it.each([true, false])('breaks lines between date groups more than 30 days apart (ascending: %s)', async ascending => {
+    const media = ['2024-05-01', '2024-05-31', '2024-07-01'].map(day => ({
+      name: day + '.jpg',
+      metadata: {creationDate: Date.parse(day), size: {width: 1, height: 1}}
+    }) as MediaDTO);
+    const content = {directories: [], metaFile: [], media} as DirectoryContent;
+    const {mediaGroups} = await apply(content, {method: SortByTypes.Name, ascending: true}, {method: GroupByTypes.Date, ascending});
+    expect(mediaGroups.filter(group => group.startsNewLine).map(group => group.media[0].name))
+      .toEqual([ascending ? '2024-07-01.jpg' : '2024-05-31.jpg']);
+  });
 });

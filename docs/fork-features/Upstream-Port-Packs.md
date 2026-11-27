@@ -265,18 +265,19 @@ Verification: the PR verifies the cold native run (and confirms PRs do not write
 
 ### P10 — Grid & lightbox parity (M)
 
-Branch `port/upstream-p10-grid-lightbox`. Step 0 matters most here: PR #45 hand-ported much of the virtual grid. Several of these are probably already in.
+Implemented on `port/upstream-p10-grid-lightbox` in PR [#59](https://github.com/GitchalWoo/pigallery2.5/pull/59). The presence check found most of the virtual-grid work in PR #45. P10 adapts the remaining behavior to the fork's grid, lightbox and themes.
 
 | Commit | Change | Notes |
 | --- | --- | --- |
-| `aa1a5fea`, `e4476463`, `420bdbe4`, `15eacc82`, `2379cd7f`, `74d8ce3c` (#1376) | Back/forward scroll restore, keyboard open, face tap, fade only new photos | Likely partly in PR #45. Keep `LightboxGesturesDirective` (no Hammer). |
-| `2a83005f`, `1ade9d14` (#1394) | Full-height grid, touch scroll handle, render lines that scroll in | Ledger marks them Planned under #1394. |
-| `c214d5c5`, `a41d5577` | Grouped rows with equal heights; distant date groups do not share a line | |
-| `8b5b6419`, `947f95d7` (#1410) | Open a partially visible photo; info bar anchored to photo bottom | Behavior only, not the modern theme. |
-| #1416 | Day group with inline blog gets its own line | |
-| #1391 | Smaller restart icon, hidden for a single photo | Ledger says PR #45 included the loop icon; verify. `9ae9151b` likewise. |
-| `bdc57a25` | Stop lightbox animations on destroy | Compare with the fork's #1210 adaptation (Web Animations API). |
-| `1d17b220`, `2cb691c4` | Video control icons vs sliders on phones; reload button style | Check against Prism. |
+| `aa1a5fea`, `e4476463`, `420bdbe4`, `15eacc82`, `2379cd7f`, `74d8ce3c` (#1376) | Back/Forward scroll restoration, keyboard opening, face taps and thumbnail fades | PR #45 supplied scroll restoration, keyboard opening and face-search teardown. P10 initializes history tracking before the first load, adapts face taps in `LightboxGesturesDirective`, and applies the existing fade state to the opacity transition. |
+| `2a83005f`, `1ade9d14` (#1394) | Full-height grid, touch scroll handle and relayout when content above the grid moves | Already in PR #45. |
+| `c214d5c5`, `a41d5577` | Equal-height grouped rows and line breaks between distant date groups | PR #45 supplied the row layout. P10 adds the missing date-group flag when the gap exceeds 30 days. |
+| `8b5b6419`, `947f95d7` (#1410) | Open partially visible photos and anchor the info bar to the photo bottom | PR #45 supplied partially visible tile opening. P10 gives Classic and Prism the same bottom anchor on hover and keyboard focus. |
+| #1416 (`42224f20`) | Full-width row for a day with an inline blog | Already in PR #45. |
+| #1391 (`d6585159`), `9ae9151b`, `2cb691c4` | Smaller, centered slideshow restart icon | PR #45 supplied the icon and single-photo guard. P10 applies the sizing inside the progress ring. |
+| `bdc57a25` | Stop lightbox animations on destroy | Already in PR #45 with the Web Animations API. |
+| `1d17b220` | Give video buttons and sliders room on phones | P10 adapts the layout with native buttons, labeled sliders and safe-area spacing. |
+| `5f0bd5e8` | Round the video and Live Photo badge corners | P10 clips the badges to the existing theme radius. |
 
 ### P11 — Loading, empty & error states (M)
 

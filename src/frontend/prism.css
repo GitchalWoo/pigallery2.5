@@ -207,24 +207,11 @@ html[data-gallery-design="prism"] app-gallery-grid-photo:hover {
   box-shadow: 0 0 0 2px var(--pg-accent);
 }
 
-@keyframes prism-show-info {
-  0% {
-    transform: translateY(0);
-    background-color: transparent;
-  }
-
-  100% {
-    transform: translateY(-100%);
-    background: rgba(0, 0, 0, 0.8);
-  }
-}
-
 html[data-gallery-design="prism"] app-gallery-grid-photo .media-button {
   transition: background-color .3s ease-out;
 }
 
 html[data-gallery-design="prism"] app-gallery-grid-photo .info { padding: .75rem; font-size: .85rem; }
-html[data-gallery-design="prism"] app-gallery-grid-photo .photo-container:focus-within .info { animation: prism-show-info .3s forwards; }
 html[data-gallery-design="prism"] app-gallery-grid-photo .photo-container:focus-within .media-button { opacity: 1; }
 @media (hover: none) { html[data-gallery-design="prism"] app-gallery-grid-photo .media-button { opacity: 1; } }
 

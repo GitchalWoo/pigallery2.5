@@ -1,4 +1,4 @@
-import {Component, ElementRef, EventEmitter, HostListener, Input, type OnChanges, type OnDestroy, Output, ViewChild, ChangeDetectionStrategy} from '@angular/core';
+import {Component, ElementRef, EventEmitter, HostListener, Input, type OnChanges, type OnDestroy, Output, type SimpleChanges, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import {MediaDTOUtils} from '../../../../../../common/entities/MediaDTO';
 import {FullScreenService} from '../../fullscreen.service';
 import {type LightboxItem} from '../lightbox.gallery.component';
@@ -12,14 +12,14 @@ import {AuthenticationService} from '../../../../model/network/authentication.se
 import {LightboxService} from '../lightbox.service';
 import {Utils} from '../../../../../../common/Utils';
 import {FileSizePipe} from '../../../../pipes/FileSizePipe';
-import { DatePipe } from '@angular/common';
+import {DatePipe, Location} from '@angular/common';
 import {LightBoxTitleTexts} from '../../../../../../common/config/public/ClientConfig';
 import {NgIconComponent} from '@ng-icons/core';
 import {BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective} from 'ngx-bootstrap/dropdown';
 import {FormsModule} from '@angular/forms';
-import {RouterLink} from '@angular/router';
+import {Router} from '@angular/router';
 import {SearchQueryUtils} from '../../../../../../common/SearchQueryUtils';
-import {LightboxGesturesDirective} from './lightbox-gestures.directive';
+import {LightboxGesturesDirective, type LightboxTap} from './lightbox-gestures.directive';
 import {NotificationService} from '../../../../model/notification.service';
 
 
@@ -34,8 +34,7 @@ import {NotificationService} from '../../../../model/notification.service';
     BsDropdownDirective,
     BsDropdownToggleDirective,
     BsDropdownMenuDirective,
-    FormsModule,
-    RouterLink
+    FormsModule
 ]
 })
 export class ControlsLightboxComponent implements OnDestroy, OnChanges {
@@ -43,6 +42,7 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
   @ViewChild('canvas')
   canvas: ElementRef<HTMLCanvasElement>;
   @ViewChild('root', {static: false}) root: ElementRef;
+  @ViewChild(LightboxGesturesDirective) private gestures?: LightboxGesturesDirective;
   @Output() closed = new EventEmitter();
   @Output() toggleInfoPanel = new EventEmitter();
   @Output() toggleFullScreen = new EventEmitter();
@@ -59,6 +59,7 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
   public zoom = 1;
   public playBackDurations = [1, 2, 5, 10, 15, 20, 30, 60];
   public controllersDimmed = false;
+  public facesShown = false;
   public drag = {x: 0, y: 0};
   public SearchQueryTypes = SearchQueryTypes;
   public faceContainerDim = {width: 0, height: 0};
@@ -75,7 +76,9 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
     private authService: AuthenticationService,
     private fileSizePipe: FileSizePipe,
     private datePipe: DatePipe,
-    private notification: NotificationService
+    private notification: NotificationService,
+    private router: Router,
+    private location: Location
   ) {
     this.controllersDimmed = this.lightboxService.controllersDimmed;
     this.searchEnabled = this.authService.canSearch();
@@ -103,6 +106,8 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
     if (this.zoom === zoom) {
       return;
     }
+    this.facesShown = false;
+    this.gestures?.resetTap();
     this.stopSlideShow();
     this.drag.x = (this.drag.x / this.zoom) * zoom;
     this.drag.y = (this.drag.y / this.zoom) * zoom;
@@ -142,7 +147,11 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
     }
   }
 
-  ngOnChanges(): void {
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes.activePhoto) {
+      this.facesShown = false;
+      this.gestures?.resetTap();
+    }
     this.updateFaceContainerDim();
     if (this.slideShowRunning) {
       this.runSlideShow();
@@ -212,7 +221,7 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
     this.prevZoom = this.zoom;
   }
 
-  tap($event: {tapCount: number}): void {
+  tap(event: LightboxTap): void {
     if (!this.activePhoto) {
       return;
     }
@@ -220,20 +229,22 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
       this.mediaElement.playPause();
       return;
     }
-    if ($event.tapCount < 2) {
+    if (event.tapCount === 1) {
+      if (event.pointerType === 'touch') {
+        const face = event.faceLink?.dataset.face;
+        if (this.searchEnabled && face !== undefined && (this.facesShown || this.lightboxService.facesAlwaysOn)) {
+          this.openFaceSearch(face);
+        } else {
+          this.showControls();
+          this.facesShown = true;
+        }
+      }
       return;
     }
 
     this.showControls();
-    if (this.zoom > 1) {
-      this.Zoom = 1;
-      this.prevZoom = this.zoom;
-      return;
-    } else {
-      this.Zoom = 5;
-      this.prevZoom = this.zoom;
-      return;
-    }
+    this.Zoom = this.zoom > 1 ? 1 : 5;
+    this.prevZoom = this.zoom;
   }
 
   zoomIn(): void {
@@ -248,6 +259,10 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
 
   @HostListener('window:keydown', ['$event'])
   onKeyPress(event: KeyboardEvent): void {
+    if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') &&
+      event.target instanceof HTMLInputElement && event.target.type === 'range') {
+      return;
+    }
     switch (event.key) {
       case 'ArrowLeft':
         if (this.navigation.hasPrev) {
@@ -380,16 +395,36 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
   }
 
   public closeLightbox(): void {
+    this.gestures?.resetTap();
     this.hideControls();
     this.closed.emit();
   }
 
-  getPersonSearchQuery(name: string): string {
-    return SearchQueryUtils.urlify({
+  faceSearchHref(name: string): string {
+    return this.location.prepareExternalUrl(this.router.serializeUrl(this.faceSearchUrl(name)));
+  }
+
+  onFaceClick(event: MouseEvent, name: string): void {
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+      return;
+    }
+    event.preventDefault();
+    if ((event as PointerEvent).pointerType !== 'touch') {
+      this.openFaceSearch(name);
+    }
+  }
+
+  private openFaceSearch(name: string): void {
+    this.router.navigateByUrl(this.faceSearchUrl(name)).catch(console.error);
+  }
+
+  private faceSearchUrl(name: string) {
+    const query = SearchQueryUtils.urlify({
       type: SearchQueryTypes.person,
       matchType: TextSearchQueryMatchTypes.exact_match,
       value: name,
     } as TextSearch);
+    return this.router.createUrlTree(['/search', query]);
   }
 
   nextMediaManuallyTriggered(event?: MouseEvent): void {
@@ -619,6 +654,7 @@ export class ControlsLightboxComponent implements OnDestroy, OnChanges {
 
   private hideControls = () => {
     this.controllersDimmed = true;
+    this.facesShown = false;
   };
 
   private updateFaceContainerDim(): void {
