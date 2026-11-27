@@ -770,39 +770,39 @@ export class ServerIndexingConfig {
     arrayType: 'string',
     tags:
       {
-        name: $localize`Exclude Folder List`,
+        name: $localize`Exclude folders`,
         priority: ConfigPriority.advanced,
         uiResetNeeded: {server: true, db: true},
         uiOptional: true,
         uiAllowSpaces: true
       } as TAGS,
-    description: $localize`Folders to exclude from indexing. If an entry starts with '/' it is treated as an absolute path. If it doesn't start with '/' but contains a '/', the path is relative to the image directory. If it doesn't contain a '/', any folder whose name matches will be excluded; this supports '*' (any characters) and '?' (single character) wildcards.`,
+    description: $localize`Skip folders by name or path. Names match anywhere, ignore case, and support '*' and '?'. Paths are case-sensitive: 'a/b' is relative to the gallery root and '/a/b' is absolute.`,
   })
   excludeFolderList: string[] = ['.Trash-1000', '.dtrash', '$RECYCLE.BIN'];
   @ConfigProperty({
     arrayType: 'string',
     tags:
       {
-        name: $localize`Exclude File List`,
+        name: $localize`Exclude folders containing`,
         priority: ConfigPriority.advanced,
         uiResetNeeded: {server: true, db: true},
         uiOptional: true,
         hint: $localize`.ignore;.pg2ignore`
       } as TAGS,
-    description: $localize`Files that mark a folder to be excluded from indexing. Any folder that contains a file with this name will be excluded from indexing.`,
+    description: $localize`Skip folders containing a marker file with any of these names.`,
   })
   excludeFileList: string[] = [];
   @ConfigProperty({
     arrayType: 'string',
     tags:
       {
-        name: $localize`Exclude Filename List`,
+        name: $localize`Exclude files`,
         priority: ConfigPriority.advanced,
         uiResetNeeded: {server: true, db: true},
         uiOptional: true,
         hint: $localize`.*;*.rm`
       } as TAGS,
-    description: $localize`Glob patterns to exclude individual media files from indexing. Supports '*' (any characters), '?' (single character) wildcards and ';' to separate multiple patterns. E.g.: '._*' excludes macOS resource fork files starting with '._'; '*.rm' excludes .rm files.`,
+    description: $localize`Skip files by name. Patterns ignore case and support '*' and '?'. Separate patterns with ';', for example '._*;*.rm'.`,
   })
   excludeFilenameList: string[] = [];
 }
