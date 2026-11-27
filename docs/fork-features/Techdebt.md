@@ -29,6 +29,7 @@ later, **L** = cleanup.
 | T1 | Generated `.js` / `.js.map` files next to TypeScript sources | L | Completed in `cleanup/techdebt-modernization`: verified all git-ignored compiled files, working tree clean. |
 | T6 | Backend test fixtures tie on unrated album covers | L | Completed in `cleanup/techdebt-modernization`: added deterministic multi-criteria sorting and creationDate/name tie-breakers in `TestHelper.updateDirCache()`. |
 | T8 | ESLint: explicit `any` | M | Since `chore/lint-all-files`, `ng lint` checks every source, template and test file with zero errors. Since `chore/lint-accessibility` (adapting upstream `23eb43d7`), the keyboard and screen reader rules of `templateAccessibility` are errors with no findings. Still warnings: `@typescript-eslint/no-explicit-any` (about 1,350: 954 in tests, 266 frontend, 132 backend/common), to be removed after the upstream ports (after P15). Then switch it to an error. |
+| T9 | Long-lived caching of hashed frontend files | L | Since P15a every frontend file answers `no-cache` (revalidated with its ETag, usually a 304). Upstream caches hashed files for 365 days as `immutable`, but in the fork only `main` gets a locale prefix (`scripts/tooling.mjs` `localizeBundles`): lazy `chunk-*` files have the same names in every language and keep their hashes in a translation-only release. To cache them as immutable, give every chunk a name that includes the locale and the translation content, and keep the previous release's chunks for a short grace period. |
 
 ## ARMv7 Docker follow-up
 
