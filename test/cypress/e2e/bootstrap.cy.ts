@@ -16,10 +16,10 @@ describe('Bootstrap controls with zone-based change detection', () => {
     cy.get('.dropdown-menu:visible').should('be.visible');
     cy.get('.dropdown-menu:visible button').last().click();
 
-    cy.get('.version').trigger('mouseenter');
-    cy.get('popover-container').should('be.visible');
-    cy.get('.version').trigger('mouseleave');
-    cy.get('popover-container').should('not.exist');
+    cy.get('.version-area').trigger('mouseenter');
+    cy.get('.version-popover').should('be.visible');
+    cy.get('.version-area').trigger('mouseleave');
+    cy.get('.version-popover').should('not.exist');
 
     cy.get('app-settings-workflow .card-header .d-flex > div:first-child').first().click();
     cy.get('#repeatType0').select('scheduled');

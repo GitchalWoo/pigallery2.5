@@ -29,6 +29,23 @@ nav.sticky-top {
 .form-horizontal > .d-flex > div:first-child { min-width: 0; max-width: 100%; }
 .version { overflow-wrap: anywhere; }
 
+.version:focus-visible, .version-popover a:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.version-area {
+  display: inline-block;
+  position: relative;
+}
+
+.version-popover {
+  inset-inline-start: 0;
+  inset-block-start: 100%;
+  width: min(var(--bs-popover-max-width), calc(100vw - 2 * var(--gallery-page-gutter)));
+  overflow-wrap: anywhere;
+}
+
 .notification-details {
   white-space: pre-wrap;
   word-break: break-word;
