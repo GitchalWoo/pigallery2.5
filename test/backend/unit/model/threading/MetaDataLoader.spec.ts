@@ -10,6 +10,7 @@ import {ProjectPath} from '../../../../../src/backend/ProjectPath';
 import {DatabaseType} from '../../../../../src/common/config/private/PrivateConfig';
 import {TestHelper} from '../../../../TestHelper';
 import {Logger} from '../../../../../src/backend/Logger';
+import {PhotoMetadata} from '../../../../../src/common/entities/PhotoDTO';
 
 declare const before: any;
 
@@ -39,6 +40,27 @@ describe('MetadataLoader', () => {
     Config.Faces.enabled = true;
     Config.Faces.keywordsToPersons = true;
     Config.Extensions.enabled = false;
+  });
+
+  describe('face regions', () => {
+    const mapFaces = (metadata: PhotoMetadata) =>
+      (MetadataLoader as unknown as {mapFaces: (m: PhotoMetadata, e: object, o: number) => void}).mapFaces(metadata, exif, 1);
+    const exif = {
+      'mwg-rs': {Regions: {RegionList: [{Name: 'Alice', Type: 'Face', Area: {w: '0.2', h: '0.2', x: '0.5', y: '0.5'}}]}}
+    };
+
+    it('reads the faces of a photo without keywords', () => {
+      const metadata = {size: {width: 100, height: 100}} as PhotoMetadata;
+      mapFaces(metadata);
+      expect(metadata.faces).to.deep.equal([{name: 'Alice', box: {width: 20, height: 20, left: 40, top: 40}}]);
+      expect(metadata.keywords).to.equal(undefined);
+    });
+
+    it('removes the face names from the keywords', () => {
+      const metadata = {size: {width: 100, height: 100}, keywords: ['Alice', 'beach']} as PhotoMetadata;
+      mapFaces(metadata);
+      expect(metadata.keywords).to.deep.equal(['beach']);
+    });
   });
 
   describe('unreadable media warnings', () => {

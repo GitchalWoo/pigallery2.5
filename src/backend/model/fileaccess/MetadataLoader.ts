@@ -709,7 +709,7 @@ export class MetadataLoader {
       }
       if (faces.length > 0) {
         metadata.faces = faces; // save faces
-        if (Config.Faces.keywordsToPersons) {
+        if (Config.Faces.keywordsToPersons && metadata.keywords) {
           // remove faces from keywords
           metadata.faces.forEach((f) => {
             const index = metadata.keywords.indexOf(f.name);
