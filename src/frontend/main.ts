@@ -134,6 +134,9 @@ import {BsDatepickerModule} from 'ngx-bootstrap/datepicker';
 import {TimepickerModule} from 'ngx-bootstrap/timepicker';
 import {provideMarkdown} from 'ngx-markdown';
 import {AppComponent} from './app/app.component';
+import {type ClientBuildInfo, logClientBuild} from './app/model/client-build-info';
+
+declare const PIGALLERY_BUILD_INFO: ClientBuildInfo;
 import {DurationPipe} from './app/pipes/DurationPipe';
 import {GalleryService} from './app/ui/gallery/gallery.service';
 import {UploaderService} from './app/ui/gallery/uploader/uploader.service';
@@ -160,6 +163,8 @@ export class CustomUrlSerializer implements UrlSerializer {
       .replace(/%29/g, ')');
   }
 }
+
+logClientBuild(typeof PIGALLERY_BUILD_INFO === 'undefined' ? undefined : PIGALLERY_BUILD_INFO);
 
 bootstrapApplication(AppComponent, {
   providers: [

@@ -68,7 +68,7 @@ export async function localizeBundles(outputPath) {
   }
 }
 
-export async function buildFrontend({outputPath = 'dist', languages, release = false, statsJson = false} = {}) {
+export async function buildFrontend({outputPath = 'dist', languages, release = false, statsJson = false, buildInfo} = {}) {
   let locales;
   if (languages) {
     locales = languages.split(',').map(locale => locale.trim()).filter(Boolean);
@@ -85,6 +85,9 @@ export async function buildFrontend({outputPath = 'dist', languages, release = f
     localize: locales || true,
     extractLicenses: release,
     statsJson,
+    define: {
+      PIGALLERY_BUILD_INFO: JSON.stringify(buildInfo),
+    },
   })]);
   await localizeBundles(path.resolve(root, outputPath));
 }

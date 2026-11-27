@@ -26,6 +26,10 @@ export function createBuildInfo(sourceDir = root) {
   };
 }
 
+export function writeBuildInfo(buildInfo) {
+  return writeFile(path.join(root, 'build-info.json'), JSON.stringify(buildInfo, null, 2) + '\n');
+}
+
 if (process.argv[1] && realpathSync(process.argv[1]) === path.join(root, 'scripts/build-info.mjs')) {
-  await writeFile(path.join(root, 'build-info.json'), JSON.stringify(createBuildInfo(), null, 2) + '\n');
+  await writeBuildInfo(createBuildInfo());
 }
