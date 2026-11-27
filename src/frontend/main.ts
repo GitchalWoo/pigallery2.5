@@ -2,7 +2,8 @@ import {ANIMATION_MODULE_TYPE, enableProdMode, importProvidersFrom, inject, prov
 import {environment} from './environments/environment';
 import {HTTP_INTERCEPTORS, HttpClient, provideHttpClient, withInterceptorsFromDi, withXhr} from '@angular/common/http';
 import {ErrorInterceptor} from './app/model/network/helper/error.interceptor';
-import {DefaultUrlSerializer, UrlSerializer, UrlTree} from '@angular/router';
+import {DefaultUrlSerializer, Router, UrlSerializer, UrlTree} from '@angular/router';
+import {reloadOnStaleChunks} from './app/model/lazy-loading';
 import {bootstrapApplication, BrowserModule} from '@angular/platform-browser';
 import {StringifySortingMethod} from './app/pipes/StringifySortingMethod';
 import {NetworkService} from './app/model/network/network.service';
@@ -175,6 +176,10 @@ bootstrapApplication(AppComponent, {
     // The first history entry can be created while the gallery is still fetching its content.
     provideAppInitializer(() => {
       inject(ScrollRestorationService);
+    }),
+    // after an upgrade, an open tab reloads when a lazy page's file is gone
+    provideAppInitializer(() => {
+      reloadOnStaleChunks(inject(Router));
     }),
     importProvidersFrom(BrowserModule, FormsModule, AppRoutingModule, NgIconsModule.withIcons({
         ionDownloadOutline, ionFunnelOutline,
