@@ -16,6 +16,10 @@ import {DatabaseType} from '../../../../src/common/config/private/PrivateConfig'
 import * as chai from "chai";
 import {default as chaiHttp, request} from "chai-http";
 import {DBTestHelper} from '../../DBTestHelper';
+import {UserEntity} from '../../../../src/backend/model/database/enitites/UserEntity';
+import {ProjectPath} from '../../../../src/backend/ProjectPath';
+import * as fs from 'fs';
+import * as path from 'path';
 
 process.env.NODE_ENV = 'test';
 const should = chai.should();
@@ -119,6 +123,77 @@ describe('UserRouter', () => {
       should.equal(result.body.result, null);
     });
 
+    // remember me checked: the cookie survives a browser restart; unchecked: a session cookie, ends with the browser session
+    const sessionCookie = async (rememberMe: boolean): Promise<string> => {
+      const result = await request.execute(server.Server)
+        .post(Config.Server.apiPath + '/user/login')
+        .send({loginCredential: {username: testUser.name, password: testUser.password, rememberMe} as LoginCredential});
+      RouteTestingHelper.shouldBeValidUIUser(result, expectedUser);
+      const cookies = result.headers['set-cookie'] as unknown as string[];
+      const cookie = cookies.find(c => c.startsWith(CookieNames.session + '='));
+      should.exist(cookie);
+      return cookie;
+    };
+
+    it('sets a persistent session cookie with remember me', async () => {
+      Config.Users.authenticationRequired = true;
+      const cookie = await sessionCookie(true);
+      const expires = cookie.match(/;\s*expires=([^;]+)/i);
+      should.exist(expires, cookie);
+      const lifetime = new Date(expires[1]).getTime() - Date.now();
+      // whole seconds in the header
+      lifetime.should.be.within(Config.Server.sessionTimeout - 60000, Config.Server.sessionTimeout + 1000);
+      cookie.should.match(/;\s*httponly/i);
+      cookie.should.match(/;\s*samesite=lax/i);
+    });
+
+    it('sets a browser session cookie without remember me', async () => {
+      Config.Users.authenticationRequired = true;
+      const cookie = await sessionCookie(false);
+      cookie.should.not.match(/;\s*expires=/i);
+      cookie.should.not.match(/;\s*max-age=/i);
+      cookie.should.match(/;\s*httponly/i);
+    });
+
+  });
+
+  describe('fresh install', () => {
+    beforeEach(setUp);
+    afterEach(tearDown);
+
+    it('logs in with the generated admin-bootstrap.txt password, not admin/admin', async () => {
+      Config.Users.authenticationRequired = true;
+      const bootstrapFile = path.join(ProjectPath.getAbsolutePath(Config.Database.dbFolder), 'admin-bootstrap.txt');
+      fs.rmSync(bootstrapFile, {force: true});
+      await (await SQLConnection.getConnection()).getRepository(UserEntity).clear();
+      // the tests themselves get admin/admin: create the first admin as a real install does
+      const env = process.env.NODE_ENV;
+      const suppress = Config.Users.suppressDefUserWarn;
+      process.env.NODE_ENV = 'production';
+      Config.Users.suppressDefUserWarn = false;
+      try {
+        await SQLConnection.init();
+      } finally {
+        process.env.NODE_ENV = env;
+        Config.Users.suppressDefUserWarn = suppress;
+      }
+
+      const password = /^Password: (.+)$/m.exec(fs.readFileSync(bootstrapFile, 'utf8'))[1];
+      password.should.not.equal('admin');
+      const loginAs = (pw: string) => request.execute(server.Server)
+        .post(Config.Server.apiPath + '/user/login')
+        .send({loginCredential: {username: 'admin', password: pw, rememberMe: false} as LoginCredential});
+
+      const wrong = await loginAs('admin');
+      wrong.should.have.status(401);
+      should.equal(wrong.body.error?.code, ErrorCodes.CREDENTIAL_NOT_FOUND);
+
+      const res = await loginAs(password);
+      res.should.have.status(200);
+      should.equal(res.body.error, null);
+      res.body.result.name.should.equal('admin');
+      res.body.result.role.should.equal(UserRoles.Admin);
+    });
   });
 
 
