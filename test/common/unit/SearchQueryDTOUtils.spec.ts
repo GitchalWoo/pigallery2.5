@@ -229,8 +229,14 @@ describe('SearchQueryDTOUtils.parseSearchLink', () => {
   });
 
   it('rejects malformed JSON, unknown types and incomplete lists', () => {
-    for (const link of ['{', 'null', '{"t":"AND"}', '{"t":99999}', '{"t":1}', '{"t":1,"l":[{"t":888}]}']) {
+    for (const link of ['{', '[1', '{"t":"AND"}', '{"t":99999}', '{"t":1}', '{"t":1,"l":[{"t":888}]}', '', '  ']) {
       expect(SearchQueryUtils.parseSearchLink(link), link).to.equal(null);
+    }
+  });
+
+  it('searches for a hand-typed text (upstream 13270618)', () => {
+    for (const [link, text] of [['cat', 'cat'], [' Balaton nyár ', 'Balaton nyár'], ['2026', '2026'], ['null', 'null']]) {
+      expect(SearchQueryUtils.parseSearchLink(link), link).to.deep.equal({type: SearchQueryTypes.any_text, value: text});
     }
   });
 });
