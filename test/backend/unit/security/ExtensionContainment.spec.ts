@@ -6,6 +6,7 @@ import AdmZip from 'adm-zip';
 import {Config} from '../../../../src/common/config/private/Config';
 import {ProjectPath} from '../../../../src/backend/ProjectPath';
 import {ExtensionManager} from '../../../../src/backend/model/extension/ExtensionManager';
+import {ExtensionObject} from '../../../../src/backend/model/extension/ExtensionObject';
 import {ExtensionPath} from '../../../../src/backend/model/extension/ExtensionPath';
 import {ExtensionConfigTemplateLoader} from '../../../../src/backend/model/extension/ExtensionConfigTemplateLoader';
 import {ServerExtensionsEntryConfig} from '../../../../src/common/config/private/subconfigs/ServerExtensionsConfig';
@@ -71,10 +72,24 @@ describe('Extension filesystem containment', () => {
   it('does not execute external code during cleanup', async () => {
     const ext = path.join(ProjectPath.ExtensionFolder, 'sample');
     fs.mkdirSync(ext);
+    const serverEntry = path.join(ext, 'server.js');
+    fs.writeFileSync(serverEntry, `
+      exports.init = () => {};
+      exports.cleanUp = () => require('node:fs').writeFileSync(__dirname + '/cleaned', 'original');
+    `);
     fs.writeFileSync(path.join(root, 'outside/code.js'), 'throw new Error("OUTSIDE CODE EXECUTED")');
-    fs.symlinkSync(path.join(root, 'outside/code.js'), path.join(ext, 'server.js'));
-    manager.extObjects.sample = {folder: 'sample'} as any;
-    await assert.rejects((manager as any).cleanUpSingleExtension('sample'), /symlink escapes/);
+    Config.Extensions.extensions.addProperty('sample', {type: ServerExtensionsEntryConfig}, new ServerExtensionsEntryConfig('sample'));
+    try {
+      await manager.reloadExtension('sample');
+      fs.unlinkSync(serverEntry);
+      fs.symlinkSync(path.join(root, 'outside/code.js'), serverEntry);
+      await assert.rejects(manager.reloadExtension('sample'), /symlink escapes/);
+      assert.equal(fs.readFileSync(path.join(ext, 'cleaned'), 'utf8'), 'original');
+      assert.equal(manager.extObjects.sample, undefined);
+    } finally {
+      Config.Extensions.extensions.removeProperty('sample');
+      delete require.cache[serverEntry];
+    }
   });
 
   it('rejects directory modules and dangling code links', () => {
@@ -84,18 +99,6 @@ describe('Extension filesystem containment', () => {
     assert.throws(() => ExtensionPath.optionalEntry(ext, 'server.js'), /entry type/);
     fs.symlinkSync('missing.js', path.join(ext, 'config.js'));
     assert.throws(() => ExtensionPath.optionalEntry(ext, 'config.js'), /ENOENT/);
-  });
-
-  it('loads contained code and resolves cleanup under the extension root', async () => {
-    const ext = path.join(ProjectPath.ExtensionFolder, 'sample');
-    fs.mkdirSync(ext);
-    fs.writeFileSync(path.join(ext, 'server.js'), 'exports.cleanUp = obj => { obj.cleaned = true; };');
-    const obj: any = {folder: 'sample', messengers: {cleanUp() {}}};
-    manager.extObjects.sample = obj;
-    await (manager as any).cleanUpSingleExtension('sample');
-    assert.equal(obj.cleaned, true);
-    assert.equal(manager.extObjects.sample, undefined);
-    delete require.cache[path.join(ext, 'server.js')];
   });
 
   it('ignores private download staging during extension discovery', () => {
@@ -177,7 +180,9 @@ describe('Extension filesystem containment', () => {
       };
       (manager as any).initSingleExtension = async () => {
         if (fail && phase === 'init') {
-          manager.extObjects.partial = {folder: 'sample', messengers: {cleanUp() { released = true; }}} as any;
+          const partial = new ExtensionObject('partial', 'sample', 'sample', manager.events);
+          partial.messengers.cleanUp = () => { released = true; };
+          manager.extObjects.partial = partial;
           throw new Error('init failure');
         }
       };
