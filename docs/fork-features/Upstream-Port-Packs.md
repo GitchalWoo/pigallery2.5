@@ -65,7 +65,7 @@ The workflow for every pack — presence check, impact report and approval, port
 | C1 | Faster Docker verification in CI (fork work) | S–M | — | Workflow permissions and cache writes |
 | P10 | Grid & lightbox parity | M | P09 | — |
 | P11 | Loading, empty & error states | M | P03, P06 | — |
-| P12 | Prism shell, admin & PWA polish | M | P11 | Ported, PR pending |
+| P12 | Prism shell, admin & PWA polish | M | P11 | Ported in [#61](https://github.com/GitchalWoo/pigallery2.5/pull/61) |
 | P13 | Indexing, extensions & config | M | — | Extension reload |
 | P14 | Test infrastructure & regression scenarios | M | P03–P08 | — |
 | P15 | Stack-PR runtime-hunk sweep | S–M | all others | — |
