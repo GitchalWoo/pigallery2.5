@@ -31,14 +31,12 @@
     }
 
     @if ((albumsService.albums | async) && (albumsService.albums | async).length === 0) {
-      <div class="d-flex no-item-msg"
-        >
-        <div class="flex-fill">
-          <h2>:(
-            <ng-container i18n>No albums to show.</ng-container>
-          </h2>
-        </div>
-      </div>
+      <app-empty-state icon="ionAlbumsOutline">
+        <ng-container i18n>No albums to show.</ng-container>
+        @if (CanCreateAlbum) {
+          <span hint i18n>Save a search as an album to find it here.</span>
+        }
+      </app-empty-state>
     }
   </div>
 </app-frame>

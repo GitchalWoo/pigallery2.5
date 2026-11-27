@@ -9,15 +9,6 @@ app-face {
     padding-inline: calc(var(--gallery-page-gutter) - 4px);
 }
 
-.no-face-msg {
-    height: 100vh;
-    text-align: center;
-}
-
-.no-face-msg h2 {
-    color: #6c757d;
-}
-
 .container-fluid { padding-top: 0; padding-bottom: 2rem; }
 app-face { margin: 2px 4px 4px; }
 hr { border-color: var(--bs-border-color); margin: .75rem 4px; }

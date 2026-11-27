@@ -15,6 +15,7 @@ import {type FileDTO} from '../../../../common/entities/FileDTO';
 import {GalleryService} from './gallery.service';
 import {type SearchQueryDTO} from '../../../../common/entities/SearchQueryDTO';
 import {SearchQueryUtils} from '../../../../common/SearchQueryUtils';
+import {NotificationService} from '../../model/notification.service';
 
 @Injectable()
 export class ContentLoaderService implements OnDestroy {
@@ -31,7 +32,8 @@ export class ContentLoaderService implements OnDestroy {
     private galleryCacheService: GalleryCacheService,
     private shareService: ShareService,
     private galleryService: GalleryService,
-    private router: Router
+    private router: Router,
+    private notificationService: NotificationService
   ) {
     this.content = new BehaviorSubject<ContentWrapperWithError>(
       {} as ContentWrapperWithError
@@ -83,15 +85,16 @@ export class ContentLoaderService implements OnDestroy {
   }
 
   public async loadDirectory(directoryName: string, forceReload = false): Promise<void> {
-
     const generation = this.galleryCacheService.getMediaCacheGeneration();
     const request = Symbol();
-    // load from cache
     const cachedCw = this.galleryCacheService.getDirectory(directoryName);
-
-    this.setContent(ContentWrapperUtils.unpack(cachedCw));
+    const alreadyShown = this.content.value;
+    const shown = forceReload && this.lastContentRequest?.type === 'directory' &&
+      this.lastContentRequest.value === directoryName && alreadyShown?.directory && !alreadyShown.error
+      ? alreadyShown : ContentWrapperUtils.unpack(cachedCw);
     this.ongoingContentRequest = request;
     this.lastContentRequest = {type: 'directory', value: directoryName};
+    this.setContent(shown);
 
     // prepare server request
     const params: Record<string, unknown> = {};
@@ -101,7 +104,7 @@ export class ContentLoaderService implements OnDestroy {
           this.shareService.getSharingKey();
       }
     }
-    let cw :PackedContentWrapperWithError = null;
+    let cw: PackedContentWrapperWithError;
 
     try {
       if (
@@ -122,39 +125,44 @@ export class ContentLoaderService implements OnDestroy {
         params
       );
     } catch (e) {
-      if (e?.code === ErrorCodes.DIRECTORY_NOT_FOUND) {
-        if (this.ongoingContentRequest === request) {
-          this.ongoingContentRequest = null;
-          if (generation === this.galleryCacheService.getMediaCacheGeneration()) {
-            await this.onDirectoryNotFound(directoryName);
-          }
-        }
+      if (!this.finishRequest(request, generation)) {
         return;
       }
-      console.error(e);
-    }
-    if (this.ongoingContentRequest !== request) {
+      if (e?.code === ErrorCodes.DIRECTORY_NOT_FOUND) {
+        await this.onDirectoryNotFound(directoryName, generation);
+      } else if (!shown?.directory || shown.directory.isPartial) {
+        this.setError($localize`Could not load this folder.`);
+      }
       return;
     }
-    this.ongoingContentRequest = null;
-    this.pollingTimerRestart.next();
-    if (generation !== this.galleryCacheService.getMediaCacheGeneration()) {
+    if (!this.finishRequest(request, generation)) {
       return;
     }
     this.fallbackNavigation = null;
 
-    if (!cw || cw.notModified === true) {
+    if (cw?.notModified) {
       return;
     }
 
     if (cw?.directory) {
       this.galleryCacheService.setDirectory(cw); // save it before adding references
+      this.setContent(ContentWrapperUtils.unpack(cw));
+    } else if (!shown?.directory || shown.directory.isPartial) {
+      this.setError($localize`Could not load this folder.`);
     }
-    this.setContent(ContentWrapperUtils.unpack(cw));
-
   }
 
-  private async onDirectoryNotFound(directoryName: string): Promise<void> {
+  private finishRequest(request: symbol, generation: number): boolean {
+    if (this.ongoingContentRequest !== request) {
+      return false;
+    }
+    this.ongoingContentRequest = null;
+    this.pollingTimerRestart.next();
+    return generation === this.galleryCacheService.getMediaCacheGeneration();
+  }
+
+  private async onDirectoryNotFound(directoryName: string, generation: number): Promise<void> {
+    const failedRequest = this.lastContentRequest;
     const key = this.shareService.getSharingKey();
     const route = key
       ? this.shareService.getDefaultRoute(this.shareService.sharingSubject.value)
@@ -164,14 +172,19 @@ export class ContentLoaderService implements OnDestroy {
     if (target && target !== this.fallbackNavigation &&
         (route[0] !== '/gallery' || normalize(route[1]) !== normalize(directoryName))) {
       this.fallbackNavigation = target;
+      this.setContent(ContentWrapperUtils.build());
       const queryParams = key ? {[QueryParams.gallery.sharingKey_query]: key} : {};
+      this.notificationService.warning($localize`Folder not found.`);
       if (await this.router.navigate(route, {queryParams, replaceUrl: true})) {
+        return;
+      }
+      if (this.lastContentRequest !== failedRequest || generation !== this.galleryCacheService.getMediaCacheGeneration()) {
         return;
       }
     }
     this.fallbackNavigation = null;
     this.lastContentRequest = null;
-    this.setContent({directory: null, searchResult: null, error: $localize`Directory not found`});
+    this.setError($localize`Directory not found`);
   }
 
   public async search(query: SearchQueryDTO, forceReload = false): Promise<void> {
@@ -179,45 +192,58 @@ export class ContentLoaderService implements OnDestroy {
     const queryStr = JSON.stringify(query);
     const generation = this.galleryCacheService.getMediaCacheGeneration();
     const request = Symbol();
+    const shown = forceReload && this.lastContentRequest?.type === 'search' &&
+      this.lastContentRequest.value === queryStr && this.content.value?.searchResult && !this.content.value.error;
     this.ongoingContentRequest = request;
     this.lastContentRequest = {type: 'search', value: queryStr};
 
-    if (!forceReload) {
-      this.setContent({} as PackedContentWrapperWithError); // don't empty the page when its just a reload
+    if (!shown) {
+      this.setContent(ContentWrapperUtils.build(null, null));
     }
 
     let cw = this.galleryCacheService.getSearch(query);
-    if (forceReload || (!cw || cw.searchResult == null)) {
+    const fetch = forceReload || !cw?.searchResult;
+    if (fetch) {
       try {
         const key = this.shareService.getSharingKey();
         const params = key ? {[QueryParams.gallery.sharingKey_query]: key} : undefined;
         cw = await this.networkService.getJson<PackedContentWrapperWithError>('/search/' + encodeURIComponent(queryStr), params);
-        if (generation === this.galleryCacheService.getMediaCacheGeneration() && cw?.searchResult) {
-          this.galleryCacheService.setSearch(cw);
-        }
       } catch (e) {
-        cw = cw || {
-          directory: null,
-          searchResult: null
-        } as PackedContentWrapperWithError;
-        if (e.code === ErrorCodes.LocationLookUp_ERROR) {
-          cw.error = $localize`Cannot find location` + ': ' + e.message;
-        } else {
-          cw.error = $localize`Unknown server error` + ': ' + e.message;
+        if (this.finishRequest(request, generation) && !shown) {
+          this.setError(e?.code === ErrorCodes.LocationLookUp_ERROR
+            ? $localize`Cannot find location` + ': ' + e.message
+            : $localize`Could not load search results.`);
         }
+        return;
       }
     }
 
-    if (this.ongoingContentRequest !== request) {
+    if (!this.finishRequest(request, generation)) {
       return;
     }
-    this.ongoingContentRequest = null;
-    this.pollingTimerRestart.next();
-    if (generation !== this.galleryCacheService.getMediaCacheGeneration()) {
-      return;
+    if (cw?.searchResult) {
+      if (fetch) {
+        this.galleryCacheService.setSearch(cw);
+      }
+      this.setContent(ContentWrapperUtils.unpack(cw));
+    } else if (!shown) {
+      this.setError($localize`Could not load search results.`);
     }
+  }
 
-    this.setContent(ContentWrapperUtils.unpack(cw));
+  public showBrokenSearchLink(): void {
+    this.ongoingContentRequest = null;
+    this.lastContentRequest = null;
+    this.fallbackNavigation = null;
+    this.setError($localize`This search link is broken.`);
+  }
+
+  public get canRetry(): boolean {
+    return !!this.content.value?.error && this.lastContentRequest !== null;
+  }
+
+  private setError(error: string): void {
+    this.setContent({directory: null, searchResult: null, error});
   }
 
   isSearchResult(): boolean {

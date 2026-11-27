@@ -1,5 +1,6 @@
 import {
   DirectorySearch,
+  ListSearchQueryTypes,
   NegatableSearchQuery,
   OrientationSearch,
   RangeSearchQueryTypes,
@@ -137,6 +138,25 @@ export const SearchQueryUtils = {
       return out;
     }
     return val;
+  },
+  parseSearchLink: (value: string): SearchQueryDTO | null => {
+    try {
+      const query = SearchQueryUtils.parseURLifiedQuery(value);
+      return SearchQueryUtils.isKnownQuery(query) ? query : null;
+    } catch {
+      return null;
+    }
+  },
+  isKnownQuery: (query: SearchQueryDTO): boolean => {
+    if (!query || typeof query.type !== 'number' || query.type === SearchQueryTypes.UNKNOWN_RELATION ||
+        !Object.hasOwn(SearchQueryTypes, query.type)) {
+      return false;
+    }
+    if (ListSearchQueryTypes.includes(query.type)) {
+      const list = (query as SearchListQuery).list;
+      return Array.isArray(list) && list.every(SearchQueryUtils.isKnownQuery);
+    }
+    return true;
   },
   validateSearchQuery: (query: SearchQueryDTO, what = 'SearchQuery'): void => {
     if (!query) {

@@ -18,14 +18,10 @@
     }
 
     @if ((nonFavourites | async).length === 0 && (favourites | async).length === 0) {
-      <div class="d-flex no-face-msg"
-        >
-        <div class="flex-fill">
-          <h2>:(
-            <ng-container i18n>No faces to show.</ng-container>
-          </h2>
-        </div>
-      </div>
+      <app-empty-state icon="ionPeopleOutline">
+        <ng-container i18n>No faces to show.</ng-container>
+        <span hint i18n>Tag faces in your photo manager, then index the photos again.</span>
+      </app-empty-state>
     }
   </div>
 </app-frame>

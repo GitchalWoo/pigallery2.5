@@ -34,6 +34,7 @@ import {BlogService, GroupedMarkdown} from './blog/blog.service';
 import {UploaderService} from './uploader/uploader.service';
 import {UserRoles} from '../../../../common/entities/UserDTO';
 import {LightboxService} from './lightbox/lightbox.service';
+import {QueryParams} from '../../../../common/QueryParams';
 
 
 // Mock services
@@ -41,6 +42,8 @@ class MockContentLoaderService {
   content = new BehaviorSubject<ContentWrapperWithError>({} as ContentWrapperWithError);
   loadDirectory = vi.fn();
   search = vi.fn().mockResolvedValue(undefined);
+  showBrokenSearchLink = vi.fn();
+  canRetry = false;
   reloadCurrentContent = vi.fn().mockResolvedValue(undefined);
 
   constructor(private initialContent: ContentWrapperWithError = null) {
@@ -217,6 +220,25 @@ describe('GalleryComponent', () => {
     expect(mockShareService.getDefaultRoute).toHaveBeenCalledWith({sharingKey: 'test-key'});
   });
 
+  it.each(['broken JSON', '{"type":99999}', '{"type":1,"list":[{"type":812}]}'])(
+    'shows a broken link without loading %s', async query => {
+      await component['onRoute']({[QueryParams.gallery.search.query]: query});
+      expect(mockContentLoader.showBrokenSearchLink).toHaveBeenCalledOnce();
+      expect(mockContentLoader.search).not.toHaveBeenCalled();
+      expect(mockContentLoader.loadDirectory).not.toHaveBeenCalled();
+    });
+
+  it('shows an empty search or complete empty folder after loading', () => {
+    expect(component.emptyState).toBeNull();
+    mockContentLoader.content.next({directory: {isPartial: true}} as ContentWrapperWithError);
+    expect(component.emptyState).toBeNull();
+    mockContentLoader.content.next({directory: {media: [], directories: []}} as ContentWrapperWithError);
+    expect(component.emptyState?.message).toBe('This folder is empty.');
+    mockContentLoader.content.next({searchResult: {media: [], directories: []}} as ContentWrapperWithError);
+    expect(component.emptyState?.message).toBe('No search results.');
+    mockContentLoader.content.next({error: 'unavailable'} as ContentWrapperWithError);
+    expect(component.emptyState).toBeNull();
+  });
   it('shows the full-screen empty frame only after a successful empty result', () => {
     vi.spyOn(TestBed.inject(LightboxService), 'playback', 'get').mockReturnValue(true);
     component.directoryContent = {mediaGroups: []} as any;
@@ -346,7 +368,7 @@ describe('GalleryComponent', () => {
       fixture.detectChanges();
 
       const compiled = fixture.nativeElement;
-      const errorAlert = compiled.querySelector('.alert-danger');
+      const errorAlert = compiled.querySelector('app-empty-state [role="alert"]');
       expect(errorAlert).toBeTruthy();
       expect(errorAlert.textContent.trim()).toBe('Test error message');
     });
