@@ -32,6 +32,7 @@ import { SafeHtmlPipe } from '../../../../pipes/SafeHTMLPipe';
 import {UserRoles} from '../../../../../../common/entities/UserDTO';
 import {AuthenticationService} from '../../../../model/network/authentication.service';
 import {DirectorySearchListSettingsComponent} from '../../directory-search-list/directory-search-list.settings.component';
+import {errorMessage} from '../../../../../../common/entities/Error';
 
 interface IState {
   shouldHide(): boolean;
@@ -562,7 +563,7 @@ export class SettingsEntryComponent
       } catch (e) {
         console.error(e);
         if (this.iconModal) {
-          this.iconModal.error = 'Can\'t parse SVG file: ' + e.toState;
+          this.iconModal.error = 'Can\'t parse SVG file: ' + errorMessage(e);
         }
       }
       this.onChange(null);

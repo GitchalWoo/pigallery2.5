@@ -5,6 +5,7 @@ import { NotificationService } from '../../../model/notification.service';
 import { ModalDirective } from 'ngx-bootstrap/modal';
 import {SettingsService} from '../settings.service';
 import { NgIconComponent } from '@ng-icons/core';
+import {errorMessage} from '../../../../../common/entities/Error';
 
 
 @Component({
@@ -44,7 +45,7 @@ export class ExtensionInstallerComponent {
       .catch(err => {
         this.error = 'Failed to load extensions: ' + (err.message || err);
         this.loading = false;
-        this.notificationService.error('Failed to load extensions', err);
+        this.notificationService.error('Failed to load extensions', errorMessage(err));
       });
   }
 
@@ -60,7 +61,7 @@ export class ExtensionInstallerComponent {
       await this.settingsService.getSettings();
       this.notificationService.success(`Extension "${extension.name}" installed successfully`);
     }catch(err) {
-      this.notificationService.error(`Failed to install extension "${extension.name}"`, err);
+      this.notificationService.error(`Failed to install extension "${extension.name}"`, errorMessage(err));
     }finally {
 
       this.loading = false;
