@@ -124,7 +124,7 @@ App CLI options:
   --Media-Photo-personThumbnailSize                                         Person (face) thumbnail size. (default: 200)
   --Media-Photo-thumbnailSizes                                              Size of the thumbnails and photo previews. The best matching size will be used (smaller for photo and video thumbnail, bigger for photo preview). More sizes give better quality, but use more storage and CPU to render. If size is 240, that shorter side of the thumbnail will be 240 pixels. (default: [320,540,1080,2160])
   --Media-Photo-concurrentThumbnailGenerationsLimit                         By default the app uses the number of cpus -1 concurrent threads to generate thumbnails. Set this number higher than 0 to limit the number of concurrent threads. (default: 0)
-  --Media-Photo-supportedFormats                                            Photo formats that are supported. Browser needs to support these formats natively. Also sharp (libvips) package should be able to convert these formats. (default: ["gif","jpeg","jpg","jpe","png","webp","svg","avif","heic","dng","arw","tiff","cr2"])
+  --Media-Photo-supportedFormats                                            Photo formats that are supported. Browser needs to support these formats natively. Also sharp (libvips) package should be able to convert these formats. (default: ["gif","jpeg","jpg","jpe","png","webp","svg","avif","heic","dng","arw","tiff","cr2","jxl"])
   --Media-Photo-useLanczos3                                                 if true, 'lanczos3' will used to scale photos, otherwise faster but lower quality 'nearest'. (default: true)
   --Media-Photo-quality                                                     Between 0-100. (default: 80)
   --Media-Photo-smartSubsample                                              Use high quality chroma subsampling in webp. See: https://sharp.pixelplumbing.com/api-output#webp. (default: true)
@@ -317,7 +317,7 @@ Environmental variables:
   Media-Photo-personThumbnailSize                                       Person (face) thumbnail size. (default: 200)
   Media-Photo-thumbnailSizes                                            Size of the thumbnails and photo previews. The best matching size will be used (smaller for photo and video thumbnail, bigger for photo preview). More sizes give better quality, but use more storage and CPU to render. If size is 240, that shorter side of the thumbnail will be 240 pixels. (default: [320,540,1080,2160])
   Media-Photo-concurrentThumbnailGenerationsLimit                       By default the app uses the number of cpus -1 concurrent threads to generate thumbnails. Set this number higher than 0 to limit the number of concurrent threads. (default: 0)
-  Media-Photo-supportedFormats                                          Photo formats that are supported. Browser needs to support these formats natively. Also sharp (libvips) package should be able to convert these formats. (default: ["gif","jpeg","jpg","jpe","png","webp","svg","avif","heic","dng","arw","tiff","cr2"])
+  Media-Photo-supportedFormats                                          Photo formats that are supported. Browser needs to support these formats natively. Also sharp (libvips) package should be able to convert these formats. (default: ["gif","jpeg","jpg","jpe","png","webp","svg","avif","heic","dng","arw","tiff","cr2","jxl"])
   Media-Photo-useLanczos3                                               if true, 'lanczos3' will used to scale photos, otherwise faster but lower quality 'nearest'. (default: true)
   Media-Photo-quality                                                   Between 0-100. (default: 80)
   Media-Photo-smartSubsample                                            Use high quality chroma subsampling in webp. See: https://sharp.pixelplumbing.com/api-output#webp. (default: true)
@@ -718,7 +718,8 @@ Environmental variables:
                 "dng",
                 "arw",
                 "tiff",
-                "cr2"
+                "cr2",
+                "jxl"
             ],
             "//[useLanczos3]": "if true, 'lanczos3' will used to scale photos, otherwise faster but lower quality 'nearest'.",
             "useLanczos3": true,
