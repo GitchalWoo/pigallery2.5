@@ -273,11 +273,9 @@ describe('GalleryLightboxComponent', () => {
     expect(photoParam()).toBe('photo3.jpg');
   });
 
-  it('should continue slideshow from first image when loopSlideshow is enabled', async () => {
-    await openPhoto('photo3.jpg', {
-      [QueryParams.gallery.lightbox.playback]: 'true',
-      [QueryParams.gallery.lightbox.loopSlideshow]: 'true'
-    });
+  it.each([{}, {[QueryParams.gallery.lightbox.loopSlideshow]: 'true'}])(
+    'should continue the slideshow from the first image with loop options %j', async options => {
+    await openPhoto('photo3.jpg', {[QueryParams.gallery.lightbox.playback]: 'true', ...options});
     expect(component.nextMedia()).toBe(photos[0]);
     expect(component.nextGridMedia()!.media).toBe(photos[0]);
 

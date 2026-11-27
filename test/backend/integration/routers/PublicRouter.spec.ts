@@ -129,9 +129,10 @@ describe('PublicRouter', () => {
       const language = await app().get('/en/').redirects(0);
       expect(language.status).to.equal(302);
       expect(language.headers.location).to.equal('/photos/family/?ln=en');
-      expect((await app().get('/manifest.json')).body.start_url).to.equal('/photos/family/');
+      const expected = {id: '/photos/family/', scope: '/photos/family/', start_url: '/photos/family/'};
+      expect(JSON.parse((await app().get('/manifest.json')).text)).to.include(expected);
       Config.Server.publicUrl = 'https://gallery.example/photos/family/';
-      expect((await app().get('/manifest.json')).body.start_url).to.equal('https://gallery.example/photos/family/');
+      expect(JSON.parse((await app().get('/manifest.json')).text)).to.include(expected);
     });
 
     it('returns the app 404 with the configured base href', async () => {
@@ -140,6 +141,43 @@ describe('PublicRouter', () => {
       expect(html.status).to.equal(404);
       expect(html.type).to.equal('text/html');
       expect(html.text).to.include('<base href="/photos/family/"');
+    });
+  });
+
+  describe('Installed app metadata', () => {
+    let publicUrl: string;
+    beforeEach(async () => {
+      publicUrl = Config.Server.publicUrl;
+      await setUp();
+    });
+    afterEach(async () => {
+      Config.Server.publicUrl = publicUrl;
+      await tearDown();
+    });
+
+    it('starts the installed app on the current origin', async () => {
+      Config.Server.publicUrl = 'https://gallery.example.com';
+      const response = await request.execute(server.Server).get('/manifest.json');
+      expect(response.status).to.equal(200);
+      expect(response.type).to.equal('application/manifest+json');
+      expect(JSON.parse(response.text)).to.include({id: '/', scope: '/', start_url: '/', display: 'standalone'});
+    });
+
+    it('serves the manifest and Apple touch PNGs at their declared sizes', async () => {
+      const manifest = await request.execute(server.Server).get('/manifest.json');
+      const icons: {src: string; sizes: string; type: string}[] = JSON.parse(manifest.text).icons;
+      const pngs = icons.filter(icon => icon.type === 'image/png');
+      expect(pngs.map(icon => icon.sizes)).to.deep.equal(['192x192', '512x512']);
+      const index = await request.execute(server.Server).get('/login').set('Accept-Language', 'en');
+      expect(index.text).to.include('rel="apple-touch-icon" sizes="180x180" href="icon_180.png"');
+
+      for (const icon of [...pngs, {src: 'icon_180.png', sizes: '180x180'}]) {
+        const image = await request.execute(server.Server).get('/' + icon.src).responseType('blob');
+        expect(image.status, icon.src).to.equal(200);
+        expect(image.type, icon.src).to.equal('image/png');
+        const png: Buffer = image.body;
+        expect(`${png.readUInt32BE(16)}x${png.readUInt32BE(20)}`, icon.src).to.equal(icon.sizes);
+      }
     });
   });
 

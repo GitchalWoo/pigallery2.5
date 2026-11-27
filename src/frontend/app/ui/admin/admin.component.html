@@ -27,14 +27,38 @@
     <div class="form-horizontal">
       <div class="d-flex justify-content-between">
         <div>
-          <a triggers="mouseenter:mouseleave"
-            placement="bottom"
-            [popover]="popTemplate"
-            class="version"
-            [href]="(settingsService.settings | async).Environment.appVersionUrl">
-            <span
-              i18n>App version:</span>&nbsp;<span>{{(settingsService.settings | async).Environment.appVersion || '----'}}</span>
+          @let build = (settingsService.settings | async).Environment;
+          <div class="version-area" #versionArea
+            (mouseenter)="versionDetailsOpen = true"
+            (mouseleave)="leaveVersionArea(versionArea)"
+            (focusout)="leaveVersionFocus(versionArea, $event)">
+            <a #versionTrigger class="version" [href]="build.appVersionUrl"
+              [attr.aria-expanded]="versionDetailsOpen"
+              (focus)="versionDetailsOpen = true" (keydown.escape)="closeVersionPopover(versionTrigger)">
+              <span i18n>App version:</span>&nbsp;<span>{{build.appVersion || '----'}}</span>
             </a>
+            @if (versionDetailsOpen) {
+              <div class="popover show version-popover">
+                <div class="popover-body">
+                  <span i18n>Application version</span>: {{build.appVersion}}
+                  @if (build.buildTime) {
+                    <br/>
+                    <span i18n>Built at</span>: {{build.buildTime | date:'medium'}}
+                  }
+                  @if (build.buildCommitHash) {
+                    <br/>
+                    <span i18n>Git commit</span>:
+                    @if (versionCommitUrl(build.buildCommitHash); as url) {
+                      <a [href]="url" target="_blank" rel="noopener"
+                        (keydown.escape)="closeVersionPopover(versionTrigger)">{{build.buildCommitHash}}</a>
+                    } @else {
+                      {{build.buildCommitHash}}
+                    }
+                  }
+                </div>
+              </div>
+            }
+          </div>
           </div>
           <div class="mb-1">
             <label class="control-label align-self-end me-2" for="config-priority" i18n>Mode:</label>
@@ -148,14 +172,3 @@
 
     </div>
   </app-frame>
-  <ng-template #popTemplate>
-    <span i18n>Application version</span>: {{(settingsService.settings | async).Environment.appVersion}}
-    @if ((settingsService.settings | async).Environment.buildTime) {
-      <br/>
-      <span i18n>Built at</span>: {{(settingsService.settings | async).Environment.buildTime | date:'medium' }}
-    }
-    @if ((settingsService.settings | async).Environment.buildCommitHash) {
-      <br/>
-      <span i18n>Git commit</span>: {{(settingsService.settings | async).Environment.buildCommitHash}}
-    }
-  </ng-template>

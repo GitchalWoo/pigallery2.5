@@ -10,7 +10,6 @@ import {WebConfigClassBuilder} from 'typeconfig/src/decorators/builders/WebConfi
 import {enumToTranslatedArray} from '../EnumTranslations';
 import {PiTitleService} from '../../model/pi-title.service';
 import { FrameComponent } from '../frame/frame.component';
-import { PopoverDirective } from 'ngx-bootstrap/popover';
 import { BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective } from 'ngx-bootstrap/dropdown';
 import { NgIconComponent } from '@ng-icons/core';
 import { TemplateComponent } from '../settings/template/template.component';
@@ -29,7 +28,6 @@ import { ScheduledJobsService } from '../settings/scheduled-jobs.service';
     providers: [SettingsService, ScheduledJobsService],
     imports: [
     FrameComponent,
-    PopoverDirective,
     BsDropdownDirective,
     BsDropdownToggleDirective,
     BsDropdownMenuDirective,
@@ -54,6 +52,7 @@ export class AdminComponent implements OnInit, AfterViewInit {
   public readonly ConfigPriority = ConfigPriority;
   public readonly ConfigStyle = ConfigStyle;
   public readonly configPaths: string[] = [];
+  versionDetailsOpen = false;
 
   constructor(
     public viewportScroller: ViewportScroller,
@@ -75,6 +74,27 @@ export class AdminComponent implements OnInit, AfterViewInit {
   ngOnInit(): void {
     // AdminGuard lets only admins in
     this.piTitleService.setTitle($localize`Admin`);
+  }
+
+  versionCommitUrl(commit: string): string | null {
+    return /^[0-9a-f]{40}$/i.test(commit) ? `https://github.com/GitchalWoo/pigallery2.5/commit/${commit}` : null;
+  }
+
+  leaveVersionArea(area: HTMLElement): void {
+    if (!area.contains(document.activeElement)) {
+      this.versionDetailsOpen = false;
+    }
+  }
+
+  leaveVersionFocus(area: HTMLElement, event: FocusEvent): void {
+    if (!(event.relatedTarget instanceof Node && area.contains(event.relatedTarget)) && !area.matches(':hover')) {
+      this.versionDetailsOpen = false;
+    }
+  }
+
+  closeVersionPopover(trigger: HTMLAnchorElement): void {
+    trigger.focus();
+    this.versionDetailsOpen = false;
   }
 
   public getCss(type: NotificationType): string {

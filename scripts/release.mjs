@@ -29,9 +29,10 @@ export function releasePackage(source, {skipOptional = '', forceOptional = false
 
 export async function createRelease(options = {}) {
   const releaseDir = path.join(root, 'release');
+  const buildInfo = createBuildInfo();
   await rm(releaseDir, {recursive: true, force: true});
   await mkdir(releaseDir, {recursive: true});
-  await buildFrontend({outputPath: 'release/dist', languages: options.languages, release: true});
+  await buildFrontend({outputPath: 'release/dist', languages: options.languages, release: true, buildInfo});
   await runTool('typescript/bin/tsc', ['--project', 'tsconfig.release.json']);
   for (const file of ['README.md', 'LICENSE', 'src/backend/model/diagnostics/image_formats', 'src/backend/model/diagnostics/blank.jpg']) {
     const target = path.join(releaseDir, file);
@@ -39,7 +40,7 @@ export async function createRelease(options = {}) {
     await cp(path.join(root, file), target, {recursive: true});
   }
   const source = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
-  await writeFile(path.join(releaseDir, 'package.json'), JSON.stringify(releasePackage(source, {...options, ...createBuildInfo()}), null, 2) + '\n');
+  await writeFile(path.join(releaseDir, 'package.json'), JSON.stringify(releasePackage(source, {...options, ...buildInfo}), null, 2) + '\n');
   if (options.skipZip) {
     console.log('Release ready: release/');
     return;

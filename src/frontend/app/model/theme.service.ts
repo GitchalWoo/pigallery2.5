@@ -52,13 +52,16 @@ export class ThemeService {
   }
 
   applyMode(darkMode: boolean) {
-    if (!Config.Gallery.Themes.enabled) {
-      return;
+    if (Config.Gallery.Themes.enabled) {
+      if (darkMode) {
+        document.documentElement.setAttribute('data-bs-theme', 'dark');
+      } else {
+        document.documentElement.removeAttribute('data-bs-theme');
+      }
     }
-    if (!darkMode) {
-      document.documentElement.removeAttribute('data-bs-theme');
-    } else {
-      document.documentElement.setAttribute('data-bs-theme', 'dark');
+    const background = getComputedStyle(document.body).backgroundColor;
+    if (background && background !== 'transparent' && background !== 'rgba(0, 0, 0, 0)') {
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', background);
     }
   }
 

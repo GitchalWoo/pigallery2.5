@@ -1,8 +1,32 @@
 import {BehaviorSubject} from 'rxjs';
 import {ErrorCodes} from '../../../../common/entities/Error';
 import {ShareLoginComponent} from './share-login.component';
+import {TestBed} from '@angular/core/testing';
+import {CUSTOM_ELEMENTS_SCHEMA} from '@angular/core';
+import {AuthenticationService} from '../../model/network/authentication.service';
+import {NavigationService} from '../../model/navigation.service';
+import {ShareService} from '../gallery/share.service';
+import {LanguageComponent} from '../language/language.component';
+import {NgIconComponent} from '@ng-icons/core';
 
 describe('ShareLoginComponent', () => {
+  it('identifies the share password for autofill', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        {provide: AuthenticationService, useValue: {user: new BehaviorSubject(null), isAuthenticated: () => false}},
+        {provide: NavigationService, useValue: {}},
+        {provide: ShareService, useValue: {sharingIsValid: new BehaviorSubject(true)}},
+      ],
+    }).overrideComponent(ShareLoginComponent, {
+      remove: {imports: [LanguageComponent, NgIconComponent]},
+      add: {schemas: [CUSTOM_ELEMENTS_SCHEMA]},
+    });
+    const fixture = TestBed.createComponent(ShareLoginComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('#password').getAttribute('autocomplete')).toBe('current-password');
+  });
+
   const setup = (valid: boolean) => {
     const sharing = {
       getSharingKey: () => 'new',

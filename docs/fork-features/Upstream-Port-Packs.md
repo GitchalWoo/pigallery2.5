@@ -65,7 +65,7 @@ The workflow for every pack — presence check, impact report and approval, port
 | C1 | Faster Docker verification in CI (fork work) | S–M | — | Workflow permissions and cache writes |
 | P10 | Grid & lightbox parity | M | P09 | — |
 | P11 | Loading, empty & error states | M | P03, P06 | — |
-| P12 | Prism shell, admin & PWA polish | M | P11 | — |
+| P12 | Prism shell, admin & PWA polish | M | P11 | Ported in [#61](https://github.com/GitchalWoo/pigallery2.5/pull/61) |
 | P13 | Indexing, extensions & config | M | — | Extension reload |
 | P14 | Test infrastructure & regression scenarios | M | P03–P08 | — |
 | P15 | Stack-PR runtime-hunk sweep | S–M | all others | — |
@@ -295,20 +295,20 @@ Branch `port/upstream-p11-states`.
 
 ### P12 — Prism shell, admin & PWA polish (M)
 
-Branch `port/upstream-p12-shell-polish`. Fork design wins every styling conflict.
+Branch `port/upstream-p12-shell-polish`. Adapted for the fork's Classic and Prism designs.
 
 | Commit | Change | Notes |
 | --- | --- | --- |
-| `8ba350db` | Close navbar menu on outside click | |
-| `36fc6635` (#1274) | Remove unused navbar collapse hidden from assistive tech | |
-| `bcad49e0` | Underline photo info links on hover | |
-| `d5fd716b` | Loop lightbox slideshow by default | Verify; may already be in the fork. |
-| `c4f66156` | Log client version/build/commit to console | Compare with [Build-Version.md](Build-Version.md); the gulp part does not apply. |
-| `9b6911b1`, `5c161414` (#1274) | Job counted finished when gone; job progress on settings cards | |
-| #1390 | Installed app (PWA) on phones | Manifest/meta behavior only; drop `.xlf` churn. |
-| #1393 | Clickable git commit in admin version popover | |
-| #1352 | Backend admin and job tests | Reuse scenarios. |
-| #1430 (`64d7d6b5`) | Login forms use the `username` / `current-password` autocomplete tokens | Also fix the fork-only Prism login (`themes/prism/login/prism-login.component.html`). Assert the tokens in Cypress (`login.cy.ts`, `share.cy.ts`) instead of Playwright. Skip release-note commit `f6f41186`. |
+| `8ba350db` | Close navbar menu on outside click | Composed event paths cover the Tools submenu. Escape restores focus to the toggle. |
+| `36fc6635` (#1274) | Remove unused navbar collapse hidden from assistive tech | The navbar keeps its responsive Bootstrap classes. |
+| `bcad49e0` | Underline lightbox directory links on hover and focus | Photo-grid hover styling already shipped in PR #45. |
+| `d5fd716b` | Loop lightbox slideshow by default | Explicit settings still take precedence. New photo-frame links record the chosen value. |
+| `c4f66156` | Log client version, build time and commit to the console | The Node build scripts pass the existing fork metadata into the frontend bundle. |
+| `9b6911b1`, `5c161414` (#1274) | Job completion and settings-card progress | Cards share polling even with the Jobs card hidden. |
+| #1390 (`0a1e9664`) | Installed app metadata on phones | Origin-relative manifest URLs honor `urlBase`; PNG icons and theme color follow the active app. |
+| #1393 (`fa95545a`) | Clickable Git commit in the admin version popover | The link targets the fork and supports keyboard focus. |
+| #1352 | Backend admin and job tests | Adapted job, schedule, settings rejection, and notification visibility scenarios. |
+| #1430 (`64d7d6b5`) | Login forms use the `username` and `current-password` autocomplete tokens | Classic, Prism and share login are covered by Vitest and Cypress. Release-note commit `f6f41186` is skipped. |
 
 ### P13 — Indexing, extensions & config (M)
 

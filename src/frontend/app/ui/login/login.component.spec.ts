@@ -38,6 +38,13 @@ describe('LoginComponent', () => {
 
   // #1306, on the legacy and on the Prism login page
   for (const [name, component] of [['legacy', LoginComponent], ['Prism', PrismLoginComponent]] as const) {
+    it('identifies the credentials for autofill (' + name + ')', () => {
+      render(component as Type<LoginComponent>);
+      const form = fixture.nativeElement as HTMLElement;
+      expect(form.querySelector('#username').getAttribute('autocomplete')).toBe('username');
+      expect(form.querySelector('#password').getAttribute('autocomplete')).toBe('current-password');
+    });
+
     it('should clear and focus the password after a wrong password (' + name + ')', async () => {
       const login = render(component as Type<LoginComponent>);
       login.loginCredential.username = 'user';

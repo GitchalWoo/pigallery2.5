@@ -1,7 +1,8 @@
 import {ComponentFixture, TestBed} from '@angular/core/testing';
+import {provideRouter} from '@angular/router';
 import {BehaviorSubject} from 'rxjs';
 import {NgIconsModule} from '@ng-icons/core';
-import {ionCalendarOutline, ionImageOutline, ionLocationOutline, ionVideocamOutline} from '@ng-icons/ionicons';
+import {ionCalendarOutline, ionFolderOutline, ionImageOutline, ionLocationOutline, ionVideocamOutline} from '@ng-icons/ionicons';
 import {By} from '@angular/platform-browser';
 import {LeafletDirective} from '@bluehalo/ngx-leaflet';
 
@@ -74,10 +75,12 @@ describe('InfoPanelLightboxComponent - Live Photo', () => {
           ionImageOutline,
           ionVideocamOutline,
           ionCalendarOutline,
+          ionFolderOutline,
           ionLocationOutline,
         }),
       ],
       providers: [
+        provideRouter([]),
         {provide: QueryService, useClass: MockQueryService},
         {provide: MapService, useClass: MockMapService},
         {provide: AuthenticationService, useClass: MockAuthenticationService},
@@ -88,6 +91,18 @@ describe('InfoPanelLightboxComponent - Live Photo', () => {
 
     fixture = TestBed.createComponent(InfoPanelLightboxComponent);
     component = fixture.componentInstance;
+  });
+
+  it('exposes a focusable directory link with hover and focus underlines', () => {
+    vi.spyOn(TestBed.inject(ContentLoaderService), 'isSearchResult').mockReturnValue(true);
+    component.media = makePhoto({directory: {path: '/', name: 'Family'}});
+    fixture.detectChanges();
+    const link = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('a.dir-link');
+    expect(link.getAttribute('href')).toBe('/gallery/Family');
+    link.focus();
+    expect(document.activeElement).toBe(link);
+    const styles = [...document.head.querySelectorAll('style')].map(style => style.textContent).join('\n');
+    expect(styles).toMatch(/a\.dir-link[^,{]*:hover[^,{]*,\s*a\.dir-link[^,{]*:focus-visible[^{]*\{\s*text-decoration:\s*underline/);
   });
 
   it('should show companion video row when media is a Live Photo', () => {
