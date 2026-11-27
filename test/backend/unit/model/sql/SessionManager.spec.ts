@@ -1,8 +1,11 @@
 import {expect} from 'chai';
+import {mock} from 'node:test';
 import {ObjectManagers} from '../../../../../src/backend/model/ObjectManagers';
 import {UserEntity} from '../../../../../src/backend/model/database/enitites/UserEntity';
 import {
   ANDSearchQuery,
+  DatePatternFrequency,
+  DatePatternSearch,
   DirectorySearch,
   SearchQueryTypes,
   TextSearch,
@@ -619,6 +622,206 @@ describe('SessionManager', (sqlHelper: DBTestHelper) => {
         const context2 = await sm.buildContext(sm.createSharingUser({...sh, directoryQuery: dq('other')} as SharingEntity));
         expect(context2.user.projectionKey).to.not.equal(context.user.projectionKey);
       });
+    });
+  });
+
+  describe('createProjectionKey with relative dates', () => {
+    const day = 24 * 60 * 60 * 1000;
+    const relative: DatePatternSearch = {
+      type: SearchQueryTypes.date_pattern,
+      daysLength: 2,
+      frequency: DatePatternFrequency.every_year
+    };
+
+    before(async () => {
+      await sqlHelper.initDB();
+    });
+
+    afterEach(() => {
+      mock.timers.reset();
+    });
+
+    after(sqlHelper.clearDB);
+
+    it('should keep projectionKey stable across days for queries without relative dates', () => {
+      const sm = new SessionManager();
+      const nonRelativeQuery: TextSearch = {
+        type: SearchQueryTypes.keyword,
+        value: 'summer',
+        matchType: TextSearchQueryMatchTypes.like
+      };
+
+      mock.timers.enable({apis: ['Date'], now: new Date('2026-06-10T12:00:00Z')});
+      const key1 = sm.createProjectionKey(nonRelativeQuery);
+
+      mock.timers.tick(day);
+      const key2 = sm.createProjectionKey(nonRelativeQuery);
+
+      expect(key2).to.equal(key1);
+      // the fork's SHA-256 keys of fixed queries do not change
+      expect(sm.createProjectionKey({type: SearchQueryTypes.directory, value: 'private'} as TextSearch))
+        .to.equal('89039d9f5530956922990ebf6551940a');
+    });
+
+    it('should use the default key without a projection query', () => {
+      const sm = new SessionManager();
+      expect(sm.createProjectionKey(null)).to.equal(SessionManager.NO_PROJECTION_KEY);
+      expect(sm.createProjectionKey(undefined)).to.equal(SessionManager.NO_PROJECTION_KEY);
+    });
+
+    it('should change projectionKey across midnight for queries with relative dates', () => {
+      const sm = new SessionManager();
+      const nestedRelative: ANDSearchQuery = {
+        type: SearchQueryTypes.AND,
+        list: [
+          {type: SearchQueryTypes.keyword, value: 'holiday'} as TextSearch,
+          relative
+        ]
+      };
+
+      mock.timers.enable({apis: ['Date'], now: new Date('2026-06-10T10:00:00Z')});
+      const directDay1Morning = sm.createProjectionKey(relative);
+      const nestedDay1Morning = sm.createProjectionKey(nestedRelative);
+
+      mock.timers.tick(60 * 60 * 1000);
+      expect(sm.createProjectionKey(relative)).to.equal(directDay1Morning);
+      expect(sm.createProjectionKey(nestedRelative)).to.equal(nestedDay1Morning);
+
+      mock.timers.tick(day);
+      const directDay2 = sm.createProjectionKey(relative);
+      const nestedDay2 = sm.createProjectionKey(nestedRelative);
+
+      expect(directDay2).to.not.equal(directDay1Morning);
+      expect(nestedDay2).to.not.equal(nestedDay1Morning);
+      expect(directDay2).to.match(/^[a-f0-9]{32}$/);
+    });
+
+    it('should change the day key at both the UTC and the server-local midnight', () => {
+      const originalTZ = process.env.TZ;
+      // UTC-4 in June: the UTC date changes at 20:00 local time, the local date 4 hours later
+      process.env.TZ = 'America/New_York';
+      try {
+        mock.timers.enable({apis: ['Date'], now: new Date('2026-06-10T23:30:00Z')});
+        const evening = SessionManager.getDayKey();
+        mock.timers.setTime(new Date('2026-06-11T00:30:00Z').getTime()); // UTC midnight passed
+        const afterUTCMidnight = SessionManager.getDayKey();
+        mock.timers.setTime(new Date('2026-06-11T03:30:00Z').getTime()); // still the same local day
+        expect(SessionManager.getDayKey()).to.equal(afterUTCMidnight);
+        mock.timers.setTime(new Date('2026-06-11T04:30:00Z').getTime()); // local midnight passed
+        const afterLocalMidnight = SessionManager.getDayKey();
+
+        expect(afterUTCMidnight).to.not.equal(evening);
+        expect(afterLocalMidnight).to.not.equal(afterUTCMidnight);
+      } finally {
+        if (originalTZ === undefined) {
+          delete process.env.TZ;
+        } else {
+          process.env.TZ = originalTZ;
+        }
+      }
+    });
+
+    it('should match buildContext projectionKey in getProjectionKeyForUser', async () => {
+      const sm = new SessionManager();
+      const plainUser = new UserEntity();
+      plainUser.id = 20;
+      plainUser.name = 'plain';
+      plainUser.role = UserRoles.User;
+      plainUser.overrideAllowBlockList = true;
+
+      const relativeUser = new UserEntity();
+      relativeUser.id = 21;
+      relativeUser.name = 'relative';
+      relativeUser.role = UserRoles.User;
+      relativeUser.overrideAllowBlockList = true;
+      relativeUser.allowQuery = relative;
+
+      const plainCtx = await sm.buildContext(plainUser);
+      expect(sm.getProjectionKeyForUser(plainUser)).to.equal(plainCtx.user.projectionKey);
+      expect(sm.getProjectionKeyForUser(plainUser)).to.equal(SessionManager.NO_PROJECTION_KEY);
+
+      const relCtx = await sm.buildContext(relativeUser);
+      expect(sm.getProjectionKeyForUser(relativeUser)).to.equal(relCtx.user.projectionKey);
+      // the Timeline cache bypass still applies
+      expect(relCtx.hasTimeDependentProjection).to.equal(true);
+    });
+  });
+
+  describe('day change cleanup', () => {
+    const day1 = new Date('2026-06-10T12:00:00Z');
+    const day2 = new Date('2026-06-11T12:00:00Z');
+    let restore: (() => void)[];
+
+    const stubOnNewDay = (manager: { onNewDay?: () => Promise<void> }, impl: () => Promise<void>) => {
+      const original = Object.prototype.hasOwnProperty.call(manager, 'onNewDay') ? manager.onNewDay : undefined;
+      manager.onNewDay = impl;
+      restore.push(() => {
+        if (original) {
+          manager.onNewDay = original;
+        } else {
+          delete manager.onNewDay;
+        }
+      });
+    };
+
+    beforeEach(async () => {
+      restore = [];
+      mock.timers.enable({apis: ['Date'], now: day1});
+      await sqlHelper.initDB();
+    });
+
+    afterEach(async () => {
+      restore.forEach(r => r());
+      mock.timers.reset();
+      await sqlHelper.clearDB();
+    });
+
+    it('runs the cleanup once for concurrent first requests of a new day, and they wait for it', async () => {
+      const om = ObjectManagers.getInstance();
+      let calls = 0;
+      let finished = false;
+      stubOnNewDay(om.AlbumManager, async () => {
+        calls++;
+        await new Promise(setImmediate);
+        await new Promise(setImmediate);
+        finished = true;
+      });
+      const admin = () => ({name: 'admin', role: UserRoles.Admin} as UserEntity);
+
+      await om.SessionManager.buildContext(admin());
+      expect(calls).to.equal(0); // already done for day 1 at startup
+
+      mock.timers.setTime(day2.getTime());
+      const finishedWhenBuilt: boolean[] = [];
+      await Promise.all(Array.from({length: 5}, async () => {
+        await om.SessionManager.buildContext(admin());
+        finishedWhenBuilt.push(finished);
+      }));
+      expect(calls).to.equal(1);
+      expect(finishedWhenBuilt).to.deep.equal([true, true, true, true, true]);
+    });
+
+    it('keeps cleaning up the other managers when one fails, and retries it only the next day', async () => {
+      const om = ObjectManagers.getInstance();
+      let failing = 0;
+      let albums = 0;
+      stubOnNewDay(om.PersonManager, async () => {
+        failing++;
+        throw new Error('test failure');
+      });
+      stubOnNewDay(om.AlbumManager, async () => {
+        albums++;
+      });
+      mock.timers.setTime(day2.getTime());
+      await om.onDayChangeIfNeeded();
+      await om.onDayChangeIfNeeded();
+      expect(failing).to.equal(1);
+      expect(albums).to.equal(1);
+
+      mock.timers.setTime(day2.getTime() + 24 * 60 * 60 * 1000);
+      await om.onDayChangeIfNeeded();
+      expect(failing).to.equal(2);
+      expect(albums).to.equal(2);
     });
   });
 });

@@ -1,3 +1,4 @@
+import {mock} from 'node:test';
 import {DBTestHelper} from '../../../DBTestHelper';
 import {Connection} from 'typeorm';
 import {SQLConnection} from '../../../../../src/backend/model/database/SQLConnection';
@@ -8,12 +9,15 @@ import {SessionManager} from '../../../../../src/backend/model/database/SessionM
 import {DiskManager} from '../../../../../src/backend/model/fileaccess/DiskManager';
 import {TestHelper} from '../../../../TestHelper';
 import {DirectoryBaseDTO, ParentDirectoryDTO, SubDirectoryDTO} from '../../../../../src/common/entities/DirectoryDTO';
-import {PhotoDTO} from '../../../../../src/common/entities/PhotoDTO';
+import {FaceRegion, PhotoDTO} from '../../../../../src/common/entities/PhotoDTO';
 import {VideoDTO} from '../../../../../src/common/entities/VideoDTO';
 import {Config} from '../../../../../src/common/config/private/Config';
 import {ClientSortingConfig} from '../../../../../src/common/config/public/ClientConfig';
 import {SortByTypes} from '../../../../../src/common/entities/SortingMethods';
-import {SearchQueryTypes, TextSearch} from '../../../../../src/common/entities/SearchQueryDTO';
+import {DatePatternFrequency, DatePatternSearch, SearchQueryTypes, TextSearch} from '../../../../../src/common/entities/SearchQueryDTO';
+import {UserEntity} from '../../../../../src/backend/model/database/enitites/UserEntity';
+import {UserRoles} from '../../../../../src/common/entities/UserDTO';
+import {SessionContext, SessionUser} from '../../../../../src/backend/model/SessionContext';
 import {ObjectManagers} from '../../../../../src/backend/model/ObjectManagers';
 import {MediaDTO} from '../../../../../src/common/entities/MediaDTO';
 import {Utils} from '../../../../../src/common/Utils';
@@ -74,14 +78,14 @@ describe('ProjectedCacheManager', (sqlHelper: DBTestHelper) => {
         }
       }
 
-      await pcm.init();
+      await pcm.onNewDay();
       for (const {entity} of caches) {
         const repo = connection.getRepository(entity);
         expect(await repo.countBy({projectionKey: legacyKey})).to.equal(0);
         expect(await repo.countBy({projectionKey: currentKey})).to.be.greaterThan(0);
       }
       // Repeated startup must preserve the current cache namespace too.
-      await pcm.init();
+      await pcm.onNewDay();
       for (const {entity} of caches) {
         expect(await connection.getRepository(entity).countBy({projectionKey: currentKey})).to.be.greaterThan(0);
       }
@@ -356,6 +360,199 @@ describe('ProjectedCacheManager', (sqlHelper: DBTestHelper) => {
       // nested gallery: one photo in each of the 6 directories, 3 of them are deeper than the root's children
       expect(cache.mediaCount).to.equal(1);
       expect(cache.recursiveMediaCount).to.equal(6);
+    });
+  });
+
+  describe('relative-date cache refresh and cleanup', () => {
+    const day1 = new Date(2026, 5, 10, 12, 0, 0);
+    const day2 = new Date(2026, 5, 11, 12, 0, 0);
+    const today: DatePatternSearch = {
+      type: SearchQueryTypes.date_pattern,
+      daysLength: 1,
+      frequency: DatePatternFrequency.days_ago,
+      agoNumber: 0
+    };
+
+    const setupRelativeGallery = async (): Promise<void> => {
+      const root = TestHelper.getDirectoryEntry(null, '.');
+      const sub = TestHelper.getDirectoryEntry(root, 'sub');
+
+      const p1 = TestHelper.getPhotoEntry(sub);
+      p1.name = 'day1.jpg';
+      p1.metadata.creationDate = day1.getTime();
+      p1.metadata.creationDateOffset = '+00:00';
+      p1.metadata.keywords = ['day-test'];
+      p1.metadata.faces = [{
+        name: 'Alice',
+        box: {top: 0, left: 0, width: 10, height: 10}
+      } as FaceRegion];
+
+      const p2 = TestHelper.getPhotoEntry(sub);
+      p2.name = 'day2.jpg';
+      p2.metadata.creationDate = day2.getTime();
+      p2.metadata.creationDateOffset = '+00:00';
+      p2.metadata.keywords = ['day-test'];
+      p2.metadata.faces = [{
+        name: 'Bob',
+        box: {top: 0, left: 0, width: 10, height: 10}
+      } as FaceRegion];
+
+      await DBTestHelper.persistTestDir(root);
+    };
+
+    // every request builds its context, which runs the day-change cleanup
+    const adminSession = (): Promise<SessionContext> =>
+      ObjectManagers.getInstance().SessionManager.buildContext({name: 'admin', role: UserRoles.Admin} as UserEntity);
+
+    beforeEach(async () => {
+      mock.timers.enable({apis: ['Date'], now: day1});
+      await sqlHelper.initDB();
+      await setupRelativeGallery();
+    });
+
+    afterEach(async () => {
+      mock.restoreAll();
+      mock.timers.reset();
+      await sqlHelper.clearDB();
+    });
+
+    it('refreshes folder, person, and album caches across days for relative-date projections and cleans up old keys', async () => {
+      const om = ObjectManagers.getInstance();
+      await om.AlbumManager.addSavedSearch('Day Test Album', {
+        type: SearchQueryTypes.keyword,
+        value: 'day-test'
+      } as TextSearch);
+
+      const conn = await SQLConnection.getConnection();
+      const user = new UserEntity();
+      user.name = 'rel-user';
+      user.password = 'pw';
+      user.role = UserRoles.User;
+      user.overrideAllowBlockList = true;
+      user.allowQuery = today;
+      const savedUser = await conn.getRepository(UserEntity).save(user);
+
+      // Day 1: caches are populated with day1.jpg and Alice
+      const session1 = await om.SessionManager.buildContext(Utils.clone(savedUser));
+      const day1Key = session1.user.projectionKey;
+      const root1 = await om.GalleryManager.listDirectory(session1, '.', undefined, undefined, {allowIndexing: false});
+      expect(root1!.cache!.recursiveMediaCount).to.equal(1);
+      expect(root1!.directories![0].cache!.mediaCount).to.equal(1);
+      expect(root1!.directories![0].cache!.cover!.name).to.equal('day1.jpg');
+
+      const persons1 = await om.PersonManager.getAll(session1);
+      expect(persons1.map(p => p.name)).to.deep.equal(['Alice']);
+      expect(persons1[0].cache.count).to.equal(1);
+
+      const albums1 = await om.AlbumManager.getAll(session1);
+      expect(albums1).to.have.lengthOf(1);
+      expect(albums1[0].cache.itemCount).to.equal(1);
+      expect(albums1[0].cache.cover.name).to.equal('day1.jpg');
+
+      // Day 2: key rotates, Day 1 cache rows are cleaned up, and caches reflect day2.jpg and Bob
+      mock.timers.setTime(day2.getTime());
+
+      const session2 = await om.SessionManager.buildContext(Utils.clone(savedUser));
+      expect(session2.user.projectionKey).to.not.equal(day1Key);
+
+      expect(await conn.getRepository(ProjectedDirectoryCacheEntity).count({where: {projectionKey: day1Key}})).to.equal(0);
+      expect(await conn.getRepository(ProjectedPersonCacheEntity).count({where: {projectionKey: day1Key}})).to.equal(0);
+      expect(await conn.getRepository(ProjectedAlbumCacheEntity).count({where: {projectionKey: day1Key}})).to.equal(0);
+
+      const root2 = await om.GalleryManager.listDirectory(session2, '.', undefined, undefined, {allowIndexing: false});
+      expect(root2!.cache!.recursiveMediaCount).to.equal(1);
+      expect(root2!.directories![0].cache!.mediaCount).to.equal(1);
+      expect(root2!.directories![0].cache!.cover!.name).to.equal('day2.jpg');
+
+      const persons2 = await om.PersonManager.getAll(session2);
+      expect(persons2.map(p => p.name)).to.deep.equal(['Bob']);
+      expect(persons2[0].cache.count).to.equal(1);
+
+      const albums2 = await om.AlbumManager.getAll(session2);
+      expect(albums2).to.have.lengthOf(1);
+      expect(albums2[0].cache.itemCount).to.equal(1);
+      expect(albums2[0].cache.cover.name).to.equal('day2.jpg');
+    });
+
+    it('invalidates saved-search album caches across days when the album query has a relative date', async () => {
+      const om = ObjectManagers.getInstance();
+      await om.AlbumManager.addSavedSearch('Today Album', today);
+      await om.AlbumManager.addSavedSearch('Fixed Album', {type: SearchQueryTypes.keyword, value: 'day-test'} as TextSearch);
+
+      const albums1 = await om.AlbumManager.getAll(await adminSession());
+      const todayAlbum1 = albums1.find(a => a.name === 'Today Album');
+      expect(todayAlbum1.cache.itemCount).to.equal(1);
+      expect(todayAlbum1.cache.cover.name).to.equal('day1.jpg');
+
+      mock.timers.setTime(day2.getTime());
+
+      const session2 = await adminSession();
+      // the default projection does not change with the day, only the relative album
+      expect(session2.user.projectionKey).to.equal(SessionManager.NO_PROJECTION_KEY);
+      const conn = await SQLConnection.getConnection();
+      const validity = await conn.getRepository(ProjectedAlbumCacheEntity).createQueryBuilder('c')
+        .leftJoin('c.album', 'album').select(['c.valid', 'album.name']).addSelect('album.name', 'name')
+        .getRawMany();
+      expect(validity.find(r => r.name === 'Today Album').c_valid).to.be.oneOf([0, false]);
+      expect(validity.find(r => r.name === 'Fixed Album').c_valid).to.be.oneOf([1, true]);
+
+      const albums2 = await om.AlbumManager.getAll(session2);
+      const todayAlbum2 = albums2.find(a => a.name === 'Today Album');
+      expect(todayAlbum2.cache.itemCount).to.equal(1);
+      expect(todayAlbum2.cache.cover.name).to.equal('day2.jpg');
+    });
+
+    it('does not keep album results read across midnight', async () => {
+      const om = ObjectManagers.getInstance();
+      await om.AlbumManager.addSavedSearch('Today Album', today);
+      const session1 = await adminSession();
+
+      // A request reads the album on day 1. Meanwhile midnight passes and another request
+      // runs the day-change cleanup. The first request then writes yesterday's result.
+      const pcm = om.ProjectedCacheManager;
+      const original = pcm.setAndGetCacheForAlbum.bind(pcm);
+      mock.method(pcm, 'setAndGetCacheForAlbum', async (...args: Parameters<typeof pcm.setAndGetCacheForAlbum>) => {
+        mock.timers.setTime(day2.getTime());
+        await om.onDayChangeIfNeeded();
+        mock.timers.setTime(day1.getTime());
+        const ret = await original(...args);
+        mock.timers.setTime(day2.getTime());
+        return ret;
+      });
+      const stale = await om.AlbumManager.getAll(session1);
+      // its own result was already invalidated: no count rather than yesterday's
+      expect(stale[0].cache).to.equal(null);
+      mock.restoreAll();
+
+      const fresh = await om.AlbumManager.getAll(await adminSession());
+      expect(fresh[0].cache.itemCount).to.equal(1);
+      expect(fresh[0].cache.cover.name).to.equal('day2.jpg');
+    });
+
+    it('keeps the projection of the unauthenticated user when no login is required', async () => {
+      const authenticationRequired = Config.Users.authenticationRequired;
+      const allowQuery = Config.Users.allowQuery;
+      Config.Users.authenticationRequired = false;
+      Config.Users.allowQuery = today;
+      try {
+        const om = ObjectManagers.getInstance();
+        // no DB user shares the global projection: only the unauthenticated user has it
+        await (await SQLConnection.getConnection()).getRepository(UserEntity).createQueryBuilder().delete().execute();
+
+        const session = await om.SessionManager.buildContext(om.UserManager.getUnAuthenticatedUser() as unknown as SessionUser);
+        expect(session.user.projectionKey).to.not.equal(SessionManager.NO_PROJECTION_KEY);
+        expect(await om.ProjectedCacheManager.getAllProjections()).to.include(session.user.projectionKey);
+      } finally {
+        Config.Users.authenticationRequired = authenticationRequired;
+        Config.Users.allowQuery = allowQuery;
+      }
+    });
+
+    it('lists the projection keys without building session contexts', async () => {
+      const om = ObjectManagers.getInstance();
+      const buildContext = mock.method(om.SessionManager, 'buildContext');
+      await om.ProjectedCacheManager.getAllProjections();
+      expect(buildContext.mock.callCount()).to.equal(0);
     });
   });
 });
