@@ -345,11 +345,9 @@ export class IndexingManager {
         }
       }
       if (metaFile == null) {
-        // not in DB yet
-        item.directory = null;
-        metaFile = Utils.clone(item);
-        item.directory = scannedDirectory;
-        metaFile.directory = {id: currentDirID} as DirectoryBaseDTO;
+        // not in DB yet; the parent reference is circular, so it is left out of the clone
+        const {directory: _directory, ...file} = item;
+        metaFile = {...Utils.clone(file), directory: {id: currentDirID} as DirectoryBaseDTO};
         metaFilesToInsert.push(metaFile);
       } else if ((item as MDFileDTO).date) {
         if ((item as MDFileDTO).date != (metaFile as MDFileDTO).date) {
@@ -422,10 +420,9 @@ export class IndexingManager {
 
 
       if (mediaItem == null) {
-        // Media not in DB yet
-        media[i].directory = null;
-        mediaItem = Utils.clone(media[i]);
-        mediaItem.directory = {id: parentDirId} as DirectoryBaseDTO;
+        // Media not in DB yet; the parent reference is circular, so it is left out of the clone
+        const {directory: _directory, ...newMedia} = media[i];
+        mediaItem = {...Utils.clone(newMedia), directory: {id: parentDirId} as DirectoryBaseDTO};
         (MediaDTOUtils.isPhoto(mediaItem)
             ? mediaChange.insertP
             : mediaChange.insertV

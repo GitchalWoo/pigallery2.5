@@ -118,7 +118,7 @@ export class MetadataLoader {
 
       try {
         for (const stream of data.streams) {
-          if (stream.width) {
+          if (stream.width && stream.height) {
             metadata.size.width = stream.width;
             metadata.size.height = stream.height;
 

@@ -270,7 +270,7 @@ export abstract class FileJob<S extends { indexedOnly?: boolean } = { indexedOnl
     if (this.scanFilter.noVideo === true &&
       this.scanFilter.noPhoto === true &&
       this.scanFilter.noMetaFile === true) {
-      return;
+      return 0;
     }
     let count = 0;
     const connection = await SQLConnection.getConnection();

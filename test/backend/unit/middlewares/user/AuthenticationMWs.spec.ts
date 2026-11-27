@@ -1,5 +1,6 @@
 import {Brackets} from 'typeorm';
 import {expect} from 'chai';
+import {NextFunction, Request} from 'express';
 import {AuthenticationMWs} from '../../../../../src/backend/middlewares/user/AuthenticationMWs';
 import {ErrorCodes, ErrorDTO} from '../../../../../src/common/entities/Error';
 import {UserDTO, UserRoles} from '../../../../../src/common/entities/UserDTO';
@@ -715,6 +716,16 @@ describe('Authentication middleware', (sqlHelper: DBTestHelper) => {
         }
       } as any, next);
 
+    });
+  });
+
+  describe('authorise without a session context', () => {
+    it('should fail closed', () => {
+      for (const req of [{session: {}}, {session: {context: {}}}, {session: {context: {user: {}}}}]) {
+        let error: ErrorDTO;
+        AuthenticationMWs.authorise(UserRoles.LimitedGuest)(req as unknown as Request, null, ((err: ErrorDTO) => { error = err; }) as unknown as NextFunction);
+        expect(error?.code, JSON.stringify(req)).to.equal(ErrorCodes.NOT_AUTHORISED);
+      }
     });
   });
 

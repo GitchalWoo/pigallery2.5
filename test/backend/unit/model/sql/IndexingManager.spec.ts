@@ -497,6 +497,25 @@ describe('IndexingManager', (sqlHelper: DBTestHelper) => {
   });
 
 
+  it('should keep the parent of the scanned media and meta files', async () => {
+    const im = new IndexingManagerTest();
+    const parent = TestHelper.getRandomizedDirectoryEntry(null, '.');
+    TestHelper.getRandomizedPhotoEntry(parent, 'Photo1', 2, 4);
+    TestHelper.getRandomizedGPXEntry(parent, 'GPX1');
+    DirectoryDTOUtils.removeReferences(parent);
+    const scanned = Utils.clone(parent) as ParentDirectoryDTO;
+    // the disk scan links every file to its folder
+    for (const item of [...scanned.media, ...scanned.metaFile]) {
+      item.directory = scanned;
+    }
+
+    await im.saveToDB(scanned);
+
+    for (const item of [...scanned.media, ...scanned.metaFile]) {
+      expect(item.directory, item.name).to.equal(scanned);
+    }
+  });
+
   it('should save photos with extreme parameters', async () => {
     const gm = new GalleryManagerTest();
     const im = new IndexingManagerTest();
