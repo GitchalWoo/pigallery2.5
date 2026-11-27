@@ -8,8 +8,6 @@ const contentUrl = /\/pgapi\/gallery\/content\/(?![^?]*\.\w+\/\d+)/;
 
 const login = () => {
   cy.visit('/');
-  cy.get('.card-body');
-  cy.get('.col-sm-12').contains('Login');
   cy.get('#username').type('admin');
   cy.get('#password').clear();
   cy.get('#password').type('admin');
@@ -17,7 +15,7 @@ const login = () => {
     method: 'Get',
     url: '/pgapi/gallery/content/',
   }).as('getContent');
-  cy.get('.col-sm-12 > .btn').click();
+  cy.get('form#form button[type="submit"]').click();
   cy.wait('@getContent');
 };
 
@@ -120,6 +118,7 @@ describe('Share', () => {
         interceptNoCache('getSharedContent', contentUrl);
         cy.visit(link);
         cy.location('pathname').should('eq', new URL(link).pathname);
+        cy.get('input#password').should('have.attr', 'autocomplete', 'current-password');
         cy.get('input#password').type('secret');
         cy.get('button#button-share-login').click();
 
