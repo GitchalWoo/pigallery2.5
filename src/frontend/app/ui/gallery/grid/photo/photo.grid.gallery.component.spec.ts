@@ -10,6 +10,7 @@ import {MediaButtonModalService} from './media-button-modal/media-button-modal.s
 import {provideRouter} from '@angular/router';
 import {PageHelper} from '../../../../model/page.helper';
 import {QueryService} from '../../../../model/query.service';
+import {type IMetadataFilter} from '../../../../../../common/entities/extension/IClientUIConfig';
 
 class MockThumbnailManagerService {
   mockThumbnail: any = {
@@ -94,6 +95,33 @@ describe('GalleryPhotoComponent - Live Photo badge', () => {
     const badge = fixture.nativeElement.querySelector('.live-photo-indicator');
     expect(badge).not.toBeNull();
     expect(badge.textContent.trim()).toBe('LIVE');
+  });
+
+  it('matches whole array entries and case-sensitive string substrings', () => {
+    const tile = makeGridMedia();
+    Object.assign(tile.Photo.metadata, {keywords: ['favorite', '4'], caption: 'Summer 2026', rating: 4});
+    fixture.componentRef.setInput('gridMedia', tile);
+    fixture.detectChanges();
+    const matches = (...filters: IMetadataFilter[]) => component.matchesMetadataFilter(filters);
+
+    expect(matches({field: 'keywords', comparator: 'contains', value: 'favorite'})).toBe(true);
+    expect(matches({field: 'keywords', comparator: 'contains', value: 'fav'})).toBe(false);
+    expect(matches({field: 'keywords', comparator: 'contains', value: 4})).toBe(true);
+    expect(matches({field: 'caption', comparator: 'contains', value: 'Summer'})).toBe(true);
+    expect(matches({field: 'caption', comparator: '!contains', value: 'summer'})).toBe(true);
+    expect(matches({field: 'rating', comparator: 'contains', value: 4})).toBe(false);
+    expect(matches({field: 'rating', comparator: '!contains', value: 4})).toBe(true);
+    expect(matches({field: 'size.width', comparator: '>=', value: 400},
+      {field: 'rating', comparator: '==', value: '4'},
+      {field: 'keywords', comparator: '!contains', value: 'favorite'})).toBe(false);
+  });
+
+  it('treats missing fields as containing no value', () => {
+    fixture.componentRef.setInput('gridMedia', makeGridMedia());
+    fixture.detectChanges();
+    expect(component.matchesMetadataFilter([{field: 'keywords', comparator: '!contains', value: 'favorite'}])).toBe(true);
+    expect(component.matchesMetadataFilter([{field: 'positionData.city', comparator: 'contains', value: 'Warsaw'}])).toBe(false);
+    expect(component.matchesMetadataFilter([{field: 'positionData.city', comparator: '==', value: 'Warsaw'}])).toBe(false);
   });
 
   it('should not render the LIVE badge for regular photos', () => {
