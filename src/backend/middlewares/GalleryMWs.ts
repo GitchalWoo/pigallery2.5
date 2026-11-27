@@ -231,7 +231,8 @@ export class GalleryMWs {
       if (!clientDisconnected) {
         await archive.finalize();
       }
-      return next();
+      // The zip is the response: there is no handler after this one (next() would reach the API 404).
+      return;
     } catch (err) {
       return next(
         new ErrorDTO(ErrorCodes.GENERAL_ERROR, 'Error creating search results zip', err)

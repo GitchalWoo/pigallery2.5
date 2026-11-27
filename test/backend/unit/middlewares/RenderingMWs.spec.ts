@@ -4,6 +4,7 @@ import express, {NextFunction, Request, Response} from 'express';
 import {expect} from 'chai';
 import {RenderingMWs} from '../../../../src/backend/middlewares/RenderingMWs';
 import {ErrorCodes, ErrorDTO} from '../../../../src/common/entities/Error';
+import {NotificationManager} from '../../../../src/backend/model/NotifocationManager';
 
 describe('RenderingMWs', () => {
 
@@ -58,6 +59,20 @@ describe('RenderingMWs', () => {
           headers: {'Content-Range': 'bytes */100'}
         });
         next(err);
+      });
+      // handlers that answered and still called next() (like the zip download did)
+      app.get('/api/answered', (req: Request, res: Response, next: NextFunction) => {
+        res.json({answered: true});
+        next();
+      });
+      app.get('/answered-then-error', (req: Request, res: Response, next: NextFunction) => {
+        res.json({answered: true});
+        next(new Error('late error'));
+      });
+      app.get('/partial-then-error', (req: Request, res: Response, next: NextFunction) => {
+        res.setHeader('Content-Length', '100');
+        res.write('{"partial":');
+        next(new Error('error while streaming'));
       });
       app.use('/api', RenderingMWs.notFound);
       app.use(RenderingMWs.renderError);
@@ -114,6 +129,38 @@ describe('RenderingMWs', () => {
       expect(res.status).to.equal(416);
       expect(res.headers['content-range']).to.equal('bytes */100');
       expect(res.body.error.code).to.equal(ErrorCodes.INPUT_ERROR);
+    });
+
+    describe('after the response was sent', () => {
+      let notifications: number;
+      beforeEach(() => {
+        notifications = NotificationManager.notifications.length;
+      });
+
+      it('should not answer an API path again that was already answered', async () => {
+        const res = await get('/api/answered');
+        expect(res.status).to.equal(200);
+        expect(res.body).to.deep.equal({answered: true});
+        expect(NotificationManager.notifications.length).to.equal(notifications);
+      });
+
+      it('should keep the sent response and raise no server error notification', async () => {
+        const res = await get('/answered-then-error');
+        expect(res.status).to.equal(200);
+        expect(res.body).to.deep.equal({answered: true});
+        expect(NotificationManager.notifications.length).to.equal(notifications);
+      });
+
+      it('should close an unfinished response, so it is not taken as complete', async () => {
+        const complete = await new Promise<boolean>((resolve) => {
+          http.get({host: '127.0.0.1', port, path: '/partial-then-error'}, (res) => {
+            res.on('data', () => undefined);
+            res.on('close', () => resolve(res.complete));
+          }).on('error', () => resolve(false));
+        });
+        expect(complete).to.equal(false);
+        expect(NotificationManager.notifications.length).to.equal(notifications);
+      });
     });
 
     it('should answer an unknown API path with a JSON PATH_ERROR', async () => {
