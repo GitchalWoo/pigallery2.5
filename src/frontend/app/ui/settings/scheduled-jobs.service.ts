@@ -12,11 +12,13 @@ import {type DynamicConfig} from '../../../../common/entities/DynamicConfig';
 export class ScheduledJobsService {
   public progress: BehaviorSubject<Record<string, OnTimerJobProgressDTO>>;
   public onJobFinish: EventEmitter<string> = new EventEmitter<string>();
-  timer: number = null;
+  private timer: number = null;
   public availableJobs: BehaviorSubject<JobDTO[]>;
   public availableMessengers: BehaviorSubject<string[]>;
   public jobStartingStopping: Record<string, boolean> = {};
   private subscribers = 0;
+  private progressRequest = 0;
+  private appliedProgressRequest = 0;
 
   constructor(
     private networkService: NetworkService,
@@ -32,7 +34,7 @@ export class ScheduledJobsService {
     return !!this.availableJobs.value.find(j => j.Name === name);
   }
 
-  public async getAvailableJobs(): Promise<void> {
+  private async getAvailableJobs(): Promise<void> {
     this.availableJobs.next(
       await this.networkService.getJson<JobDTO[]>('/admin/jobs/available')
     );
@@ -72,11 +74,17 @@ export class ScheduledJobsService {
   }
 
   subscribeToProgress(): void {
-    this.incSubscribers();
+    if (++this.subscribers === 1) {
+      this.getAvailableJobs().catch(console.error);
+      this.getProgressPeriodically();
+    }
   }
 
   unsubscribeFromProgress(): void {
-    this.decSubscribers();
+    if (--this.subscribers === 0) {
+      window.clearTimeout(this.timer);
+      this.timer = null;
+    }
   }
 
   public async forceUpdate(): Promise<void> {
@@ -117,36 +125,31 @@ export class ScheduledJobsService {
   }
 
   protected async loadProgress(): Promise<void> {
-    const prevPrg = this.progress.value;
-    this.progress.next(
-      await this.networkService.getJson<Record<string, JobProgressDTO>>(
-        '/admin/jobs/scheduled/progress'
-      )
+    const request = ++this.progressRequest;
+    const nextProgress = await this.networkService.getJson<Record<string, OnTimerJobProgressDTO>>(
+      '/admin/jobs/scheduled/progress'
     );
-    for (const prg of Object.keys(prevPrg)) {
-      if (
-        // eslint-disable-next-line no-prototype-builtins
-        !(this.progress.value).hasOwnProperty(prg) ||
-        // state changed from running to finished
-        ((prevPrg[prg].state === JobProgressStates.running ||
-            prevPrg[prg].state === JobProgressStates.cancelling) &&
-          !(
-            this.progress.value[prg].state === JobProgressStates.running ||
-            this.progress.value[prg].state === JobProgressStates.cancelling
-          ))
-      ) {
-        this.onJobFinish.emit(prg);
-        if (this.progress.value[prg].state === JobProgressStates.failed) {
+    if (request < this.appliedProgressRequest) {
+      return;
+    }
+    this.appliedProgressRequest = request;
+    const prevPrg = this.progress.value;
+    this.progress.next(nextProgress);
+    for (const [hash, previous] of Object.entries(prevPrg)) {
+      const state = nextProgress[hash]?.state;
+      if (this.isActive(previous.state) && !this.isActive(state)) {
+        this.onJobFinish.emit(hash);
+        if (state === JobProgressStates.failed) {
           this.notification.warning(
             $localize`Job failed` +
             ': ' +
-            this.backendTextService.getJobName(prevPrg[prg].jobName)
+            this.backendTextService.getJobName(previous.jobName)
           );
         } else {
           this.notification.success(
             $localize`Job finished` +
             ': ' +
-            this.backendTextService.getJobName(prevPrg[prg].jobName)
+            this.backendTextService.getJobName(previous.jobName)
           );
         }
       }
@@ -154,9 +157,11 @@ export class ScheduledJobsService {
   }
 
   protected isAnyJobRunning(): boolean {
-    return Object.values(this.progress.value)
-      .findIndex(p => p.state === JobProgressStates.running ||
-        p.state === JobProgressStates.cancelling) !== -1;
+    return Object.values(this.progress.value).some(p => this.isActive(p.state));
+  }
+
+  private isActive(state: JobProgressStates | undefined): boolean {
+    return state === JobProgressStates.running || state === JobProgressStates.cancelling;
   }
 
   protected getProgressPeriodically(): void {
@@ -167,7 +172,7 @@ export class ScheduledJobsService {
     if (!this.isAnyJobRunning()) {
       repeatTime = 15000;
     }
-    this.timer = window.setTimeout(async () => {
+    this.timer = window.setTimeout(() => {
       this.timer = null;
       this.getProgressPeriodically();
     }, repeatTime);
@@ -194,12 +199,4 @@ export class ScheduledJobsService {
     this.progress.next(prgs);
   }
 
-  private incSubscribers(): void {
-    this.subscribers++;
-    this.getProgressPeriodically();
-  }
-
-  private decSubscribers(): void {
-    this.subscribers--;
-  }
 }

@@ -147,6 +147,7 @@ export class TemplateComponent implements OnInit, OnChanges, OnDestroy, ISetting
       return;
     }
     this.getSettings();
+    this.jobsService.subscribeToProgress();
 
     // TODO: fix after this issue is fixed: https://github.com/angular/angular/issues/24818
     this.subscription = this.form.valueChanges.subscribe(() => {
@@ -158,6 +159,7 @@ export class TemplateComponent implements OnInit, OnChanges, OnDestroy, ISetting
 
   ngOnDestroy(): void {
     if (this.subscription != null) {
+      this.jobsService.unsubscribeFromProgress();
       this.subscription.unsubscribe();
     }
     if (this.settingsSubscription != null) {
@@ -352,11 +354,9 @@ export class TemplateComponent implements OnInit, OnChanges, OnDestroy, ISetting
     return states.keys;
   }
 
-  getProgress(uiJob: { job: string, config?: any }): JobProgressDTO {
-    if (!uiJob.config) {
-      uiJob.config = this.jobsService.getDefaultConfig(uiJob.job);
-    }
-    return this.jobsService.progress.value[JobDTOUtils.getHashName(uiJob.job, uiJob.config || {})];
+  getProgress(uiJob: { job: string, config?: Record<string, unknown> }): JobProgressDTO {
+    const config = uiJob.config ?? this.jobsService.getDefaultConfig(uiJob.job) ?? {};
+    return this.jobsService.progress.value[JobDTOUtils.getHashName(uiJob.job, config)];
   }
 
   protected isExtension(c: ConfigState): boolean {

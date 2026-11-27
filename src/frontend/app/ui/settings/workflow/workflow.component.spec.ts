@@ -33,7 +33,6 @@ describe('WorkflowComponent - job details toggle', () => {
           provide: ScheduledJobsService, useValue: {
             subscribeToProgress: vi.fn(),
             unsubscribeFromProgress: vi.fn(),
-            getAvailableJobs: vi.fn().mockResolvedValue(undefined),
             getAvailableMessengers: vi.fn().mockResolvedValue(undefined),
             isValidJob: () => true,
             getConfigTemplate: (): unknown[] => [],
