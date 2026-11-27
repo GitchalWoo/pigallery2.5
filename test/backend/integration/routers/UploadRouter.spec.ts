@@ -513,6 +513,37 @@ describe('UploadRouter', () => {
     });
   });
 
+  describe('minimum upload role', () => {
+    const origMinimumRole = Config.Upload.minimumRole;
+    const uploader = {name: 'uploader', password: 'uploader', role: UserRoles.User} as UserDTO;
+
+    beforeEach(async () => {
+      Config.Upload.minimumRole = UserRoles.Admin; // read when the routes are set up
+      await setUp();
+      await ObjectManagers.getInstance().UserManager.createUser(Utils.clone(uploader));
+    });
+    afterEach(async () => {
+      Config.Upload.minimumRole = origMinimumRole;
+      await tearDown();
+    });
+
+    it('should not let a user below the minimum upload role upload', async () => {
+      const loginRes = await (request.execute(server.Server) as SuperAgentStatic)
+        .post(Config.Server.apiPath + '/user/login')
+        .send({loginCredential: {username: uploader.name, password: uploader.password, rememberMe: false} as LoginCredential});
+      const res = await request.execute(server.Server)
+        .post(Config.Server.apiPath + '/upload/')
+        .set('Cookie', loginRes.headers['set-cookie'] as unknown as string[])
+        .set(CustomHeaders.csrfToken, RouteTestingHelper.getCsrfToken(loginRes))
+        .attach('files', Buffer.from('test image'), 'not_allowed.jpg');
+
+      res.should.have.status(403);
+      res.body.error.code.should.equal(ErrorCodes.NOT_AUTHORISED);
+      fs.existsSync(path.join(testDir, 'not_allowed.jpg')).should.be.false;
+      tempFiles().should.deep.equal([]);
+    });
+  });
+
   describe('startup', () => {
     beforeEach(async () => {
       fs.mkdirSync(uploadTemp(), {recursive: true});

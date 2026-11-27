@@ -5,11 +5,26 @@ import {SuperAgentStatic} from 'superagent';
 import {ErrorRouter} from '../../../../src/backend/routes/ErrorRouter';
 import {PublicRouter} from '../../../../src/backend/routes/PublicRouter';
 import {ExtensionManager} from '../../../../src/backend/model/extension/ExtensionManager';
+import {ObjectManagers} from '../../../../src/backend/model/ObjectManagers';
 import {Config} from '../../../../src/common/config/private/Config';
 import {ErrorCodes} from '../../../../src/common/entities/Error';
 
 // #1305: unknown API paths answer a JSON 404
 describe('ErrorRouter', () => {
+  // PublicRouter reads the UI extension configs; do not depend on managers left behind by another suite
+  let ownsInstance = false;
+  before(() => {
+    if (!ObjectManagers.getInstance().ExtensionManager) {
+      ObjectManagers.getInstance().ExtensionManager = new ExtensionManager();
+      ownsInstance = true;
+    }
+  });
+  after(async () => {
+    if (ownsInstance) {
+      await ObjectManagers.reset();
+    }
+  });
+
   it('keeps the extension API reachable when an extension adds its routes later (reload, install)', async () => {
     const app = express();
     // ExtensionManager.init mounts its router at startup, before the routes and the ErrorRouter
