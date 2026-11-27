@@ -182,6 +182,15 @@ describe('GalleryRouter', (sqlHelper: DBTestHelper) => {
       expect(Number(result.header['content-length'])).to.equal(100);
     });
 
+    it('should serve a range from the middle of the bestFit video (seeking)', async () => {
+      const result = await (request.execute(server.Server) as SuperAgentStatic)
+        .get(Config.Server.apiPath + '/gallery/content/video.mp4/bestFit')
+        .set('Range', 'bytes=100-');
+
+      expect(result.status).to.equal(206);
+      expect(result.header['content-range']).to.match(/^bytes 100-\d+\/\d+$/);
+    });
+
     it('should answer 416 to a range past the end of the video', async () => {
       const size = fs.statSync(path.join(__dirname, '../../assets/video.mp4')).size;
       const result = await (request.execute(server.Server) as SuperAgentStatic)
