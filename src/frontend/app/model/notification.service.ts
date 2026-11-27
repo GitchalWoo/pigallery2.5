@@ -1,5 +1,6 @@
 import {Injectable} from '@angular/core';
 import {ToastrService} from 'ngx-toastr';
+import {BehaviorSubject} from 'rxjs';
 import {NetworkService} from './network/network.service';
 import {AuthenticationService} from './network/authentication.service';
 import {type NotificationDTO, NotificationType,} from '../../../common/entities/NotificationDTO';
@@ -17,7 +18,8 @@ export class NotificationService {
     tapToDismiss: false,
   };
   countedNotifications: CountedNotificationDTO[] = [];
-  numberOfNotifications = 0;
+  private readonly notificationCount = new BehaviorSubject(0);
+  readonly numberOfNotifications = this.notificationCount.asObservable();
   lastUser: UserDTO = null;
 
   constructor(
@@ -43,24 +45,16 @@ export class NotificationService {
   }
 
   groupNotifications(notifications: NotificationDTO[]): void {
-    const groups: Record<string, { notification: NotificationDTO; count: number }> = {};
+    const groups = new Map<string, CountedNotificationDTO>();
     notifications.forEach((n) => {
       let key = n.message;
       if (n.details) {
         key += JSON.stringify(n.details);
       }
-      groups[key] = groups[key] || {notification: n, count: 0};
-      groups[key].count++;
+      groups.set(key, {...n, count: (groups.get(key)?.count ?? 0) + 1});
     });
-    this.numberOfNotifications = notifications.length;
-    this.countedNotifications = [];
-    for (const key of Object.keys(groups)) {
-      (groups[key].notification as CountedNotificationDTO).count =
-          groups[key].count;
-      this.countedNotifications.push(
-          groups[key].notification as CountedNotificationDTO
-      );
-    }
+    this.countedNotifications = Array.from(groups.values());
+    this.notificationCount.next(notifications.length);
   }
 
   async getServerNotifications(): Promise<void> {

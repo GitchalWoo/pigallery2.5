@@ -1,4 +1,5 @@
 <app-top-loading-bar></app-top-loading-bar>
+@let notificationCount = notificationService.numberOfNotifications | async;
 <div #navContainer class="navbar-container auto-hide-navbar"
   [class.navbar-keep-top]="navbarKeepTop || fixNavbarOnTop"
   [class.hide-navbar]="!navbarKeepTop && shouldHideNavbar"
@@ -90,9 +91,9 @@
                   type="button" class="btn btn-tertiary dropdown-toggle"
                   aria-controls="dropdown-frame-menu" aria-label="Menu" i18n-aria-label>
                   <ng-icon class="align-text-top" size="1.2em" name="ionMenuOutline"></ng-icon>
-                  @if (isAdmin() && notificationService.numberOfNotifications>0) {
+                  @if (isAdmin() && notificationCount > 0) {
                     <span
-                    class="navbar-badge badge text-bg-warning">{{ notificationService.numberOfNotifications }}</span>
+                    class="navbar-badge badge text-bg-warning">{{ notificationCount }}</span>
                   }
                 </button>
                 <ul id="dropdown-frame-menu" *dropdownMenu
@@ -267,9 +268,9 @@
                     <li role="menuitem">
                       <a class="dropdown-item" [routerLink]="['/admin']">
                         <ng-icon name="ionSettingsOutline"></ng-icon>
-                        @if (notificationService.numberOfNotifications>0) {
+                        @if (notificationCount > 0) {
                           <span
-                          class="badge rounded-pill position-absolute p-0 text-bg-warning">{{ notificationService.numberOfNotifications }}</span>
+                          class="badge rounded-pill position-absolute p-0 text-bg-warning">{{ notificationCount }}</span>
                         }
                         <ng-container i18n>Settings</ng-container>
                       </a>

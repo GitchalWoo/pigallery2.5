@@ -1,5 +1,6 @@
 import {Component, ElementRef, HostListener, Input, ViewChild, ViewEncapsulation, ChangeDetectionStrategy} from '@angular/core';
 import {Router, RouterLink} from '@angular/router';
+import {AsyncPipe} from '@angular/common';
 import {AuthenticationService} from '../../model/network/authentication.service';
 import {type UserDTO, UserRoles} from '../../../../common/entities/UserDTO';
 import {Config} from '../../../../common/config/public/Config';
@@ -35,6 +36,7 @@ import {TopLoadingBarComponent} from '../top-loading-bar/top-loading-bar.compone
   changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     RouterLink,
+    AsyncPipe,
     IconComponent,
     CollapseDirective,
     GallerySearchComponent,

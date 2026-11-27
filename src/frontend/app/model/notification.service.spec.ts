@@ -4,6 +4,7 @@ import {NotificationService} from './notification.service';
 import {NetworkService} from './network/network.service';
 import {AuthenticationService} from './network/authentication.service';
 import {type UserDTO, UserRoles} from '../../../common/entities/UserDTO';
+import {NotificationType} from '../../../common/entities/NotificationDTO';
 
 describe('NotificationService', () => {
   const setUp = (getJson = vi.fn()) => {
@@ -24,5 +25,23 @@ describe('NotificationService', () => {
       closeButton: true,
       tapToDismiss: false,
     }));
+  });
+
+  it('publishes the total once server notifications arrive, including grouped repeats', async () => {
+    let complete: (notifications: unknown) => void;
+    const pending = new Promise(resolve => { complete = resolve; });
+    const {service, user, info} = setUp(vi.fn().mockReturnValue(pending));
+    const counts: number[] = [];
+    const subscription = service.numberOfNotifications.subscribe(count => counts.push(count));
+    user.next({id: 1, name: 'admin', role: UserRoles.Admin});
+    expect(counts).toEqual([0]);
+
+    const notification = {type: NotificationType.info, message: 'Index ready'};
+    complete([notification, notification]);
+    await pending;
+    expect(counts).toEqual([0, 2]);
+    expect(service.countedNotifications).toEqual([{...notification, count: 2}]);
+    expect(info).toHaveBeenCalledOnce();
+    subscription.unsubscribe();
   });
 });
