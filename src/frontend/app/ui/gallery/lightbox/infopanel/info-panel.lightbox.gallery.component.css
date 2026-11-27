@@ -56,7 +56,7 @@
   color: rgba(var(--bs-body-color-rgb), var(--bs-text-opacity)) !important;
 }
 
-.clickable a:hover{
+.clickable a:hover, a.dir-link:hover, a.dir-link:focus-visible {
   text-decoration: underline;
 }
 
