@@ -351,7 +351,7 @@ Split by user decision (section 2). Per-commit decisions for every stack PR are 
 
 ### P16 — JPEG XL support (S)
 
-Branch `port/upstream-p16-jpeg-xl`. Run after P15b. Needs the P15a `SupportedFormats` fix so a removed `.jxl` is not indexed.
+Branch `port/upstream-p16-jpeg-xl`, P16 PR. Run after P15b. Needs the P15a `SupportedFormats` fix so a removed `.jxl` is not indexed.
 
 | Commit | Change | Notes |
 | --- | --- | --- |
@@ -360,6 +360,8 @@ Branch `port/upstream-p16-jpeg-xl`. Run after P15b. Needs the P15a `SupportedFor
 ---
 
 ## 5. Finishing
+
+Status (2026-11-27): P16 was the final queued pack. The Planned queue is empty, Deferred is empty, and `node scripts/upstream-status.mjs --fetch --check` passes at watermark `cf3c5e2b`.
 
 After the final queued pack:
 - The ledger's **Planned** queue is empty, and **Deferred** contains only items the user deferred.
