@@ -1,4 +1,6 @@
 import {expect} from 'chai';
+import * as path from 'node:path';
+import {type Request} from 'express';
 import {ErrorCodes, ErrorDTO} from '../../../../../src/common/entities/Error';
 import {ObjectManagers} from '../../../../../src/backend/model/ObjectManagers';
 import {SettingsMWs} from '../../../../../src/backend/middlewares/admin/SettingsMWs';
@@ -8,6 +10,7 @@ import {UserRoles} from '../../../../../src/common/entities/UserDTO';
 import {ExtensionConfigWrapper} from '../../../../../src/backend/model/extension/ExtensionConfigWrapper';
 import {ConfigClassBuilder} from 'typeconfig/node';
 import {DBTestHelper} from '../../../DBTestHelper';
+import {TestHelper} from '../../../../TestHelper';
 
 
 declare let describe: any;
@@ -24,6 +27,22 @@ describe('Settings middleware', (sqlHelper: DBTestHelper) => {
   beforeEach(async () => {
     await sqlHelper.initDB();
     await ObjectManagers.getInstance().init();
+  });
+
+  it('keeps the running and persisted config when media settings are rejected', async () => {
+    const runningFolder = Config.Media.folder;
+    const savedFolder = (await ExtensionConfigWrapper.original()).Media.folder;
+    const media = ConfigClassBuilder.attachPrivateInterface(Config.Media).toJSON({skipTags: {secret: true}});
+    const req = {
+      session: {context: {user: {role: UserRoles.Admin}}},
+      body: {settingsPath: 'Media', settings: {...media, folder: path.join(TestHelper.TMP_DIR, 'missing-media-folder')}},
+    } as Request;
+    const error = await new Promise<unknown>((resolve, reject) => {
+      SettingsMWs.updateSettings(req, null, resolve).catch(reject);
+    });
+    expect(error).to.be.instanceOf(ErrorDTO).and.have.property('code', ErrorCodes.SETTINGS_ERROR);
+    expect(Config.Media.folder).to.equal(runningFolder);
+    expect((await ExtensionConfigWrapper.original()).Media.folder).to.equal(savedFolder);
   });
 
   it('should save empty enforced users settings', (done: (err?: any) => void) => {
