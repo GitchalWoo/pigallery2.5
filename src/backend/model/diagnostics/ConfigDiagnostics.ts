@@ -2,6 +2,7 @@ import {PrivateConfigClass} from '../../../common/config/private/PrivateConfigCl
 import {Logger} from '../../Logger';
 import {NotificationManager} from '../NotifocationManager';
 import {SQLConnection} from '../database/SQLConnection';
+import {errorMessage} from '../../../common/entities/Error';
 import * as fs from 'fs';
 import * as path from 'path';
 import {FFmpegFactory} from '../FFmpegFactory';
@@ -123,7 +124,8 @@ export class ConfigDiagnostics {
               return reject(
                 new Error(
                   'Error accessing ffmpeg, cant find executable: ' +
-                  err.toString()
+                  err.toString(),
+                  {cause: err}
                 )
               );
             }
@@ -132,7 +134,8 @@ export class ConfigDiagnostics {
                 return reject(
                   new Error(
                     'Error accessing ffmpeg-probe, cant find executable: ' +
-                    err2.toString()
+                    err2.toString(),
+                    {cause: err2}
                   )
                 );
               }
@@ -185,22 +188,16 @@ export class ConfigDiagnostics {
     await this.checkReadWritePermission(folder);
   }
 
-  static testImageFolder(folder: string): Promise<void> {
+  static async testImageFolder(folder: string): Promise<void> {
     Logger.debug(LOG_TAG, 'Testing images folder');
-    return new Promise((resolve, reject) => {
-      if (!fs.existsSync(folder)) {
-        reject('Images folder not exists: \'' + folder + '\'');
-      }
-      fs.access(folder, fs.constants.R_OK, (err) => {
-        if (err) {
-          reject({
-            message: 'Error during getting read access to images folder',
-            error: err.toString(),
-          });
-        }
-      });
-      resolve();
-    });
+    if (!fs.existsSync(folder)) {
+      throw new Error('Images folder not exists: \'' + folder + '\'');
+    }
+    try {
+      await fs.promises.access(folder, fs.constants.R_OK);
+    } catch (err) {
+      throw new Error('Error during getting read access to images folder: ' + errorMessage(err), {cause: err});
+    }
   }
 
 
@@ -434,12 +431,13 @@ export class ConfigDiagnostics {
         Logger.debug(LOG_TAG, `✔️ ${ext} image formats tested successfully.`);
       } catch (e) {
         Logger.verbose(e);
-        Logger.verbose(LOG_TAG, `❌ ${ext} image format tested failed, removing it form config.`);
+        Logger.verbose(LOG_TAG, `❌ ${ext} image format tested failed, removing it from config.`);
         config.supportedFormats.splice(i, 1);
         removedSome = true;
       }
     }
     if (removedSome) {
+      // the indexer reads the formats from SupportedFormats, not from the config
       SupportedFormats.init();
     }
   }
