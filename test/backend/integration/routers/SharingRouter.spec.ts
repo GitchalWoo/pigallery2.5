@@ -111,9 +111,33 @@ describe('SharingRouter', () => {
       should.equal(result.body.error.code, ErrorCodes.CREDENTIAL_NOT_FOUND);
     });
 
+    it('should not login to an expired sharing, even with its password', async () => {
+      Config.Sharing.passwordRequired = false;
+      const sharing = await RouteTestingHelper.createSharing(testUser, 'secret_pass', Date.now() - 1000);
+      const agent = request.agent(server.Server);
+      try {
+        const result = await agent.post(Config.Server.apiPath + '/share/login?' + QueryParams.gallery.sharingKey_query + '=' + sharing.sharingKey)
+          .send({password: 'secret_pass'});
 
+        result.should.have.status(401);
+        should.equal(result.body.error.code, ErrorCodes.CREDENTIAL_NOT_FOUND);
+        should.equal(result.body.result, null);
+        // the refused login did not start a session
+        (await agent.get(Config.Server.apiPath + '/user/me')).should.have.status(401);
+      } finally {
+        agent.close();
+      }
+    });
 
+    it('should not let a guest in with the key of an expired sharing without password', async () => {
+      Config.Sharing.passwordRequired = false;
+      const sharing = await RouteTestingHelper.createSharing(testUser, null, Date.now() - 1000);
+      const result = await (request.execute(server.Server) as SuperAgentStatic)
+        .get(Config.Server.apiPath + '/gallery/content/?' + QueryParams.gallery.sharingKey_query + '=' + sharing.sharingKey);
 
+      result.should.have.status(401);
+      should.equal(result.body.error.code, ErrorCodes.NOT_AUTHENTICATED_SHARING);
+    });
   });
 
 

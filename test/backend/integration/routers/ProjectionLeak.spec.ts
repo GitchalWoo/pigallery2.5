@@ -507,6 +507,33 @@ describe('Projection leak', (sqlHelper: DBTestHelper) => {
       }
     });
 
+    it('keeps a share key valid when its folder is removed, with a new login too', async () => {
+      const originalPath = path.join(ProjectPath.ImageFolder, SHARED_DIR);
+      const backup = path.join(TestHelper.TMP_DIR, 'removed shared folder');
+      fs.cpSync(originalPath, backup, {recursive: true});
+      fs.rmSync(originalPath, {recursive: true});
+      const newGuest = request.agent(server.Server);
+      // closing an agent stops the server: it is closed with the others in after()
+      agents['after removal'] = newGuest;
+      try {
+        const publicInfo = await get(sharingGuest, '/share/' + sharingKey + '/publicInfo');
+        expect(publicInfo.status).to.equal(200);
+        expect(json(publicInfo).result.sharingKey).to.equal(sharingKey);
+        const login = await newGuest.post(Config.Server.apiPath + '/share/login?' + QueryParams.gallery.sharingKey_query + '=' + sharingKey)
+          .send({password: sharingGuest.password});
+        expect(login.status).to.equal(200);
+        for (const agent of [agents[sharingGuest.name], newGuest]) {
+          expect((await agent.get(Config.Server.apiPath + '/user/me')).status).to.equal(200);
+          const listing = await agent.get(Config.Server.apiPath + '/gallery/content/' + encodeURIComponent(SHARED_DIR));
+          expect(listing.status).to.equal(404);
+          expect(listing.body.error).to.have.property('code', ErrorCodes.DIRECTORY_NOT_FOUND);
+        }
+      } finally {
+        fs.cpSync(backup, originalPath, {recursive: true});
+        fs.rmSync(backup, {recursive: true, force: true});
+      }
+    });
+
     // keep it last: it ends the sharing
     it('should see nothing after the sharing expired', async () => {
       const conn = await SQLConnection.getConnection();
