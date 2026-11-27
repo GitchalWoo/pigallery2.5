@@ -5,6 +5,7 @@ import {CookieService} from 'ngx-cookie-service';
 import { BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective } from 'ngx-bootstrap/dropdown';
 
 import { NgIconComponent } from '@ng-icons/core';
+import {Router} from '@angular/router';
 
 @Component({
     selector: 'app-language',
@@ -21,13 +22,14 @@ import { NgIconComponent } from '@ng-icons/core';
 export class LanguageComponent {
   languages: string[] = [];
   current: string = null;
+  // the server sets the language and redirects back to the current page
   getLanguageUrl(language: string): string {
-    return Config.Server.getAppUrl(language);
+    return Config.Server.getAppUrl(language, this.router.url);
   }
 
   @ViewChild('dropdown', {static: true}) dropdown: BsDropdownDirective;
 
-  constructor(private cookieService: CookieService) {
+  constructor(private cookieService: CookieService, private router: Router) {
     this.languages = Config.Server.languages.sort();
     if (this.cookieService.get(CookieNames.lang) != null) {
       this.current = this.cookieService.get(CookieNames.lang);
