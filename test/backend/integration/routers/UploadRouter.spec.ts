@@ -41,6 +41,7 @@ describe('UploadRouter', () => {
   // the upload temp folder may not exist yet, it is made by the first upload
   const tempFiles = (): string[] => fs.existsSync(uploadTemp()) ? fs.readdirSync(uploadTemp()) : [];
   let originalTempFolder: string;
+  let originalMediaFolder: string;
 
   const adminUser: UserDTO = {
     id: 1,
@@ -70,6 +71,7 @@ describe('UploadRouter', () => {
     RateLimiter.reset();
     Config.Upload.enabled = true;
     await sqlHelper.initDB();
+    originalMediaFolder = Config.Media.folder;
     Config.Media.folder = testDir;
     originalTempFolder = Config.Media.tempFolder;
     Config.Media.tempFolder = tempDir;
@@ -86,6 +88,8 @@ describe('UploadRouter', () => {
     Config.Upload.maxFileSizeMB = 50;
     Config.Upload.enforcedDirectoryConfig = false;
     Config.Media.tempFolder = originalTempFolder;
+    // the folder is removed after the suite: later suites must not resolve paths in it
+    Config.Media.folder = originalMediaFolder;
     ProjectPath.reset();
     await sqlHelper.clearDB();
   };

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import * as path from 'path';
 import {DBTestHelper} from '../../../DBTestHelper';
+import {ProjectPath} from '../../../../../src/backend/ProjectPath';
 import {GalleryManager} from '../../../../../src/backend/model/database/GalleryManager';
 import {DirectoryBaseDTO, ParentDirectoryDTO} from '../../../../../src/common/entities/DirectoryDTO';
 import {TestHelper} from '../../../../TestHelper';
@@ -190,6 +191,8 @@ describe('GalleryManager', (sqlHelper: DBTestHelper) => {
     beforeEach(() => {
       // Reset config defaults that matter for tests
       Config.loadSync();
+      // and the folders resolved from it (an earlier suite may have left its own media folder)
+      ProjectPath.reset();
 
       gm = new GalleryManagerTest();
       sessionNoProj = new SessionContext();
