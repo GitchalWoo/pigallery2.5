@@ -108,4 +108,15 @@ describe('Collection page states', () => {
     expect(view.querySelector('app-spinner')).toBeNull();
     expect(view.textContent).toContain('No duplicates found');
   });
+
+  it('renders both counts in the duplicates summary', async () => {
+    getJson.mockResolvedValueOnce([]);
+    const fixture = TestBed.createComponent(DuplicateComponent);
+    await fixture.whenStable();
+    fixture.componentInstance.duplicateCount = {pairs: 2, photos: 5};
+    fixture.detectChanges();
+    const summary = (fixture.nativeElement as HTMLElement).querySelector('[role="alert"]');
+    expect(summary.textContent).toContain('Listing 2 duplicates (5 photos).');
+    expect(summary.querySelector('strong').textContent).toBe('2');
+  });
 });
