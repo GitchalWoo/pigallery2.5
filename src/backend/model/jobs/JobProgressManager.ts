@@ -15,6 +15,7 @@ export class JobProgressManager {
   };
   private readonly dbPath: string;
   private timer: NodeJS.Timeout = null;
+  private saving: Promise<void> = null;
 
   constructor() {
     this.dbPath = path.join(ProjectPath.DBFolder, 'jobs.db');
@@ -37,6 +38,19 @@ export class JobProgressManager {
   onJobProgressUpdate(progress: JobProgressDTO): void {
     this.db.progresses[progress.HashName] = {progress, timestamp: Date.now()};
     this.delayedSave();
+  }
+
+  /**
+   * Writes out a pending delayed save and waits for a save in flight,
+   * so no write happens after shutdown (e.g. after the DB folder was removed).
+   */
+  async cleanUp(): Promise<void> {
+    if (this.timer !== null) {
+      clearTimeout(this.timer);
+      this.timer = null;
+      await this.save();
+    }
+    await this.saving;
   }
 
   private async loadDB(): Promise<void> {
@@ -79,16 +93,33 @@ export class JobProgressManager {
   }
 
   private async saveDB(): Promise<void> {
+    await fsp.mkdir(path.dirname(this.dbPath), {recursive: true});
     await fsp.writeFile(this.dbPath, JSON.stringify(this.db));
+  }
+
+  /**
+   * Saves after the previous save finished, so two writes never overlap.
+   */
+  private save(): Promise<void> {
+    const saving = (this.saving || Promise.resolve())
+      .then(() => this.saveDB())
+      .catch(console.error)
+      .finally(() => {
+        if (this.saving === saving) {
+          this.saving = null;
+        }
+      });
+    this.saving = saving;
+    return saving;
   }
 
   private delayedSave(): void {
     if (this.timer !== null) {
       return;
     }
-    this.timer = setTimeout(async (): Promise<void> => {
-      this.saveDB().catch(console.error);
+    this.timer = setTimeout((): void => {
       this.timer = null;
+      this.save().catch(console.error);
     }, 5000);
   }
 }
