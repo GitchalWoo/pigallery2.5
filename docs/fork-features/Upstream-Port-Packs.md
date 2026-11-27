@@ -26,7 +26,7 @@ The workflow for every pack — presence check, impact report and approval, port
 
 | Topic | Decision | Reason |
 | --- | --- | --- |
-| One big PR | **No.** 15 packs, one PR each (P07 merged into P08, see below). | More than 70 conflicting files and a schema migration in one PR cannot be reviewed or bisected. |
+| Pack boundaries | **One PR per pack.** P07 was merged into P08 by decision (see below). | Small PRs keep individual ports reviewable and bisectable. |
 | P07 + P08 | **One pack, P08** (branch `port/upstream-p08-search`). | User decision before P08: both rework the LIKE conditions of `SearchManager`; one branch resolves them once and tests the final code on SQLite and MariaDB. The automated tests are the gate, not the diff size. |
 | #1380 accent-insensitive SQLite search | **Port as upstream**, default off (P08). No extra folding of `ł`/`ø`/`ß`. | Keeps SQLite results identical to MariaDB `utf8mb4_general_ci`, which does not fold those letters either. Document that `ł` → `l` does not match. |
 | #1198 sort/group by directory | **Port** (P09), after the search packs. | Wanted feature. It must be re-implemented inside the fork's `GridLayout`/`GridScroller` from PR #45, not cherry-picked into the old grid. |
@@ -65,10 +65,11 @@ The workflow for every pack — presence check, impact report and approval, port
 | C1 | Faster Docker verification in CI (fork work) | S–M | — | Workflow permissions and cache writes |
 | P10 | Grid & lightbox parity | M | P09 | — |
 | P11 | Loading, empty & error states | M | P03, P06 | — |
-| P12 | Prism shell, admin & PWA polish | M | P11 | Ported in [#61](https://github.com/GitchalWoo/pigallery2.5/pull/61) |
+| P12 | Prism shell, admin & PWA polish | M | P11 | — |
 | P13 | Indexing, extensions & config | M | — | Extension reload |
-| P14 | Test infrastructure & regression scenarios | M | P03–P08 | — |
-| P15 | Stack-PR runtime-hunk sweep | S–M | all others | — |
+| P14 | Test infrastructure, regressions & cache correctness | M | P03–P08 | Projection cache invalidation |
+| P15 | Stack-PR runtime-hunk sweep | S–M | P14 | — |
+| P16 | JPEG XL support | S | P15 (queue order) | — |
 
 P02 and P13 do not depend on other packs and can be done whenever convenient.
 
@@ -322,7 +323,7 @@ Branch `port/upstream-p13-indexing-extensions`. Implemented in [PR #62](https://
 | `bf6b8bc9` (#1394) | Skipped config removal. | Duplicates still uses `enableOnScrollRendering` to decide when to display more groups. |
 | #1428 (`c3e257e7`) | Adapted indexing diagnostics and vanished-file handling. | Unreadable media retains fallback metadata. Vanished files are skipped and logged. Existing admin notifications for failed photo loads remain available. |
 
-### P14 — Test infrastructure & regression scenarios (M)
+### P14 — Test infrastructure, regressions & cache correctness (M)
 
 Branch `port/upstream-p14-tests`.
 
@@ -330,20 +331,29 @@ Branch `port/upstream-p14-tests`.
 | --- | --- | --- |
 | `a82bec8b`, `3a43889a`, `1084031d`, `10165e9c` | DB test races, `clearDB`, teardown, faster MySQL reset | Compare with `test/root-hooks.cjs` and `DBTestHelper`; keep fork isolation. |
 | `c7564ca8` | Deterministic album covers; lazy column collation | **Runtime change** in `CoverManager` and entities. Test on MariaDB; collation must match existing columns. |
+| #1417 (`154c9c24`, `9c5025bb`, `7e776787`) | Refresh date-relative projection and saved-search album caches at the day boundary | Compare the final upstream behavior with the fork's existing `SessionManager.isTimeDependent()` and Timeline cache bypass. Preserve the SHA-256 projection key, stable keys for fixed queries, and the cache isolation between users and shares. Avoid re-entering session creation during cleanup. Cover nested relative dates, UTC and server-local midnight, and concurrent first requests on SQLite and MariaDB. |
 | `8d8a22c2` | Benchmark runner fix | |
 | #1353 and leftovers of #1348, #1349, #1351, #1352 | Backend regression scenarios not already used in P02–P12 | Keep the fork's upload-limit coverage. |
 
 ### P15 — Stack-PR runtime-hunk sweep (S–M)
 
-Branch `port/upstream-p15-stack-sweep`. Last pack, after all the others.
+Branch `port/upstream-p15-stack-sweep`. Run after P14.
 
 For #1220, #1221, #1255, #1259, #1262, #1265, #1296 and #1301, diff `src/` per PR and ignore framework, tooling, signal and control-flow migration. Port only real runtime fixes: blog rendering, stable list keys, job defaults, notifications, share navigation, diagnostics, search input checks. Record each PR's outcome in the ledger as "behavioral hunks ported: …" or "nothing applicable". Time-box: if a hunk needs framework changes to apply, skip it with that reason.
+
+### P16 — JPEG XL support (S)
+
+Branch `port/upstream-p16-jpeg-xl`. Run after P15.
+
+| Commit | Change | Notes |
+| --- | --- | --- |
+| `03a6f7c7` | Add `.jxl` to supported photos and include a decoder probe fixture | The upstream fixture decoded to PNG in the Debian 8086 test container (libvips 8.18.7). Before enabling the format by default, verify the fork's startup probe, indexing and metadata, thumbnails, and lightbox display in a browser. Verify codec detection in the supported Debian and Alpine images and confirm startup removes `.jxl` when a decoder is unavailable. Document the format requirements. |
 
 ---
 
 ## 5. Finishing
 
-After P15:
-- The ledger's **Planned**, **Deferred** and **Deferred pending fork comparison** tables are empty or only contain items the user deferred on purpose.
+After the final queued pack:
+- The ledger's **Planned** queue is empty, and **Deferred** contains only items the user deferred.
 - `node scripts/upstream-status.mjs --fetch --check` passes.
-- New upstream commits after `c36b1fdc` go into a new pack list at the end of this file.
+- Assign new upstream commits found after the ledger watermark to a pack during the next survey.
