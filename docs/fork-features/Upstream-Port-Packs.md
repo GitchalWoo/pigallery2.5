@@ -265,7 +265,7 @@ Verification: the PR verifies the cold native run (and confirms PRs do not write
 
 ### P10 — Grid & lightbox parity (M)
 
-Implemented on `port/upstream-p10-grid-lightbox`. The presence check found most of the virtual-grid work in PR #45. P10 adapts the remaining behavior to the fork's grid, lightbox and themes.
+Implemented on `port/upstream-p10-grid-lightbox` in PR [#59](https://github.com/GitchalWoo/pigallery2.5/pull/59). The presence check found most of the virtual-grid work in PR #45. P10 adapts the remaining behavior to the fork's grid, lightbox and themes.
 
 | Commit | Change | Notes |
 | --- | --- | --- |
