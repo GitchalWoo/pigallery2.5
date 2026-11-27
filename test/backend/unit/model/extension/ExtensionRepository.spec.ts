@@ -31,4 +31,11 @@ describe('ExtensionRepository', () => {
     expect(extensions[0].url).to.equal('https://example.com/manual');
     expect(extensions[0].zipUrl).to.equal(undefined);
   });
+
+  it('should keep a plain url instead of failing on it', () => {
+    const repo = new ExtensionRepository() as unknown as {getUrlFromMDLink: (t: string) => string};
+    expect(repo.getUrlFromMDLink('https://example.com/ext.zip')).to.equal('https://example.com/ext.zip');
+    expect(repo.getUrlFromMDLink('[Download](https://example.com/ext.zip)')).to.equal('https://example.com/ext.zip');
+    expect(repo.getUrlFromMDLink('[Readme](/relative/README.md)')).to.equal('[Readme](/relative/README.md)');
+  });
 });

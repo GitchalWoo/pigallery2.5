@@ -46,6 +46,10 @@ The workflow for every pack — presence check, impact report and approval, port
 | #1259 GitHub Actions versions (`824b9f32`) & HEALTHCHECK exec form (`cfe33e6e`) | **Adapt/port in C1**, not P15. | `824b9f32` adapts all four workflow files (`build.yml`, `codeql-analysis.yml`, `dockerfile-hadolint.yml`, `docs.yml`) because `build.yml` overlaps the Docker job lines that C1 rewrites. `hadolint/hadolint-action@v3.5.0` fails on `DL3025`, so `cfe33e6e` (exec-form `HEALTHCHECK` in all three Dockerfiles) is cherry-picked in C1 as well; only `5a91bb72` (Coveralls frontend coverage) stays skipped. |
 | Template accessibility (PR [#55](https://github.com/GitchalWoo/pigallery2.5/pull/55), upstream `23eb43d7`) | **Ported templates must pass the accessibility lint errors.** | Since PR #55 the six `templateAccessibility` rules are errors. Upstream templates written before `23eb43d7` (e.g. clickable `div`s in P09–P12) are adapted to buttons, or to a role, `tabindex` and Enter/Space handlers, while porting. |
 | `c7564ca8` lazy column collation | **No schema version change** (P14). | User decision during P14. Production loads the config before the entities are imported, so existing MySQL/MariaDB columns already have `utf8mb4_bin`; only test processes that switch engines were affected. Upstream did not bump the version either. A metadata test checks the per-engine charset and collation. |
+| P15 split | **P15a** backend, **P15b** frontend, then **P16**: three stacked PRs merged in order. | User decision before P15: the sweep found about 13 backend and 8 frontend fixes, mixing backend and UI review (rule 5). |
+| Frontend file caching (`df5e7e6f`) | **Every frontend file `no-cache`** (ETag revalidation); no 365-day `immutable`. | User decision before P15: the fork's lazy chunks have the same names in every language and keep their hashes in a translation-only release. Tracked as Techdebt T9. |
+| `/search/<text>` links (`13270618`) | **Frontend links only** fall back to a text search; the API keeps answering `INPUT_ERROR` to a query that is not JSON. | User decision before P15. |
+| P15 optional items | **Port** the toast layout (`78ed0401`), the timestamp pickers (`b025d5bc`) and the backend hardening of #1301. **Skip** preloading Albums and Faces (`b625c8a4`, performance only). | User decision before P15. |
 | Upstream Playwright, e2e fixtures, translations, release tooling | **Skip** (unchanged). | See the ledger. Behavior is covered by Vitest, Mocha and Cypress instead. |
 
 ---
@@ -69,8 +73,9 @@ The workflow for every pack — presence check, impact report and approval, port
 | P12 | Prism shell, admin & PWA polish | M | P11 | — |
 | P13 | Indexing, extensions & config | M | — | Extension reload |
 | P14 | Test infrastructure, regressions & cache correctness | M | P03–P08 | Projection cache invalidation |
-| P15 | Stack-PR runtime-hunk sweep | S–M | P14 | — |
-| P16 | JPEG XL support | S | P15 (queue order) | — |
+| P15a | Stack-PR sweep, backend | S–M | P14 | Cache headers, language redirect |
+| P15b | Stack-PR sweep, frontend | S–M | P15a | — |
+| P16 | JPEG XL support | S | P15a (`SupportedFormats` fix), P15b (queue order) | — |
 
 P02 and P13 do not depend on other packs and can be done whenever convenient.
 
@@ -338,17 +343,19 @@ Branch `port/upstream-p14-tests`. Implemented in [PR #63](https://github.com/Git
 
 ### P15 — Stack-PR runtime-hunk sweep (S–M)
 
-Branch `port/upstream-p15-stack-sweep`. Run after P14.
+Split by user decision (section 2). Per-commit decisions for every stack PR are in the ledger's selective PR table.
 
-For #1220, #1221, #1255, #1259, #1262, #1265, #1296 and #1301, diff `src/` per PR and ignore framework, tooling, signal and control-flow migration. Port only real runtime fixes: blog rendering, stable list keys, job defaults, notifications, share navigation, diagnostics, search input checks. Record each PR's outcome in the ledger as "behavioral hunks ported: …" or "nothing applicable". Time-box: if a hunk needs framework changes to apply, skip it with that reason.
+**P15a** (branch `port/upstream-p15a-stack-sweep-backend`, [PR #64](https://github.com/GitchalWoo/pigallery2.5/pull/64)): formats removed at startup (`23a88567`, `37f293b7`), image folder and ffmpeg checks (`c001fc8f`, `7979a267`), cache headers (`df5e7e6f`, `5d86ad47`, `4d883217`), language redirects (`c8c1ea84`, `5ad837c9`), search lists (`c7f84192`, `78e19a83`) with a fork `INPUT_ERROR` check, crash fixes (`7f795348`, `a73b9657`, `7ab2c443`), hardening (`026570c6`, `4b463730`, `c0a5dd1f`, `a464166c`), date-pattern tests (`6cf5bf20`, `a546d5c4`, `e3d46dd4`).
+
+**P15b** (branch `port/upstream-p15b-stack-sweep-frontend`): blog comments (`bb951471`), stable list keys (`30a6b417`, `6bb877a2`, `2b34e430`, `38d4f884`), unregistered icons (`04ccd74d`), double theme init (`aacf95cb`), timestamp pickers (`b025d5bc`), `/search/<text>` links (`13270618`), language menu link (`c8c1ea84`), stale chunk reload (`b625c8a4`, `5d86ad47`), guest share 404 (`5c09394f`), toast layout (`78ed0401`), error toasts (`e8b0138f`).
 
 ### P16 — JPEG XL support (S)
 
-Branch `port/upstream-p16-jpeg-xl`. Run after P15.
+Branch `port/upstream-p16-jpeg-xl`. Run after P15b. Needs the P15a `SupportedFormats` fix so a removed `.jxl` is not indexed.
 
 | Commit | Change | Notes |
 | --- | --- | --- |
-| `03a6f7c7` | Add `.jxl` to supported photos and include a decoder probe fixture | The upstream fixture decoded to PNG in the Debian 8086 test container (libvips 8.18.7). Before enabling the format by default, verify the fork's startup probe, indexing and metadata, thumbnails, and lightbox display in a browser. Verify codec detection in the supported Debian and Alpine images and confirm startup removes `.jxl` when a decoder is unavailable. Document the format requirements. |
+| `03a6f7c7`, `4d12010d` | Add `.jxl` to supported photos and include a decoder probe fixture; docs | The upstream fixture decoded to PNG in the Debian 8086 test container (libvips 8.18.7). Before enabling the format by default, verify the fork's startup probe, indexing and metadata, thumbnails, and lightbox display in a browser. Verify codec detection in the supported Debian and Alpine images and confirm startup removes `.jxl` when a decoder is unavailable. Document the format requirements. |
 
 ---
 

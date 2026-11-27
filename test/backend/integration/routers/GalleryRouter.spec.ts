@@ -318,6 +318,30 @@ describe('GalleryRouter', (sqlHelper: DBTestHelper) => {
       expect(res.body.error.code).to.equal(ErrorCodes.INPUT_ERROR);
     });
 
+    it('should reject a search whose list is not an array', async () => {
+      const bad = encodeURIComponent(JSON.stringify({type: SearchQueryTypes.AND, list: {length: 1e9}}));
+      for (const url of ['/search/' + bad, '/gallery/random/' + bad, '/gallery/zip/' + bad]) {
+        const res = await get(url);
+        expect(res.status, url).to.equal(400);
+        expect(res.body.error.code, url).to.equal(ErrorCodes.INPUT_ERROR);
+      }
+    });
+
+    it('should still search with a list query', async () => {
+      const query = {type: SearchQueryTypes.AND, list: [
+          {type: SearchQueryTypes.file_name, value: 'abbey'} as TextSearch,
+          {type: SearchQueryTypes.any_text, value: 'abbey'} as TextSearch]};
+      const res = await get('/search/' + encodeURIComponent(JSON.stringify(query)));
+      expect(res.status).to.equal(200);
+      expect(res.body.error).to.equal(null);
+    });
+
+    it('should cache thumbnails privately for a day', async () => {
+      const res = await get('/gallery/content/abbey.jpg/240');
+      expect(res.status).to.equal(200);
+      expect(res.headers['cache-control']).to.equal('private, max-age=86400');
+    });
+
     it('returns a plain-text 404 if no photo matches the random link', async () => {
       const query = SearchQueryUtils.urlify({type: SearchQueryTypes.file_name, value: 'missing photo'} as TextSearch);
       const res = await get('/gallery/random/' + encodeURIComponent(query));

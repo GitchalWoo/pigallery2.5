@@ -49,7 +49,7 @@ describe('Filesystem containment at resource boundaries', () => {
     } finally {
       Config.Server.languages = languages;
     }
-    const assetRoute = routes.find(r => r.route instanceof RegExp && r.route.test('/assets/icon.svg'));
+    const assetRoute = routes.find(r => r.route instanceof RegExp && r.route.source.includes('assets') && r.route.test('/assets/icon.svg'));
     assert.ok(assetRoute);
     const assets = path.join(ProjectPath.FrontendFolder, 'en/assets');
     fs.writeFileSync(path.join(assets, 'icon.svg'), '<svg/>');

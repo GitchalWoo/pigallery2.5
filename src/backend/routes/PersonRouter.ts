@@ -59,7 +59,7 @@ export class PersonRouter {
         PersonMWs.getPerson,
         ThumbnailGeneratorMWs.generatePersonThumbnail,
         ServerTimingMWs.addServerTiming,
-        RenderingMWs.renderFile
+        RenderingMWs.renderFileNoCache
     );
   }
 }

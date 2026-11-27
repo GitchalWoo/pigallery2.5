@@ -180,4 +180,59 @@ describe('RenderingMWs', () => {
       expect(RenderingMWs.isClientHttpError(null)).to.be.false;
     });
   });
+
+  describe('renderFile cache headers', () => {
+    let server: http.Server;
+    let base: string;
+    const existing = __filename;
+
+    beforeEach((done: () => void) => {
+      const app = express();
+      const pipe = (file: string) => (req: Request, _res: Response, next: NextFunction) => {
+        req.resultPipe = file;
+        next();
+      };
+      app.get('/thumbnail', pipe(existing), RenderingMWs.renderFile);
+      app.get('/person', pipe(existing), RenderingMWs.renderFileNoCache);
+      app.get('/preset', (_req: Request, res: Response, next: NextFunction) => {
+        res.setHeader('Cache-Control', 'private, no-store');
+        next();
+      }, pipe(existing), RenderingMWs.renderFile);
+      app.get('/missing', pipe(existing + '.missing'), RenderingMWs.renderFile);
+      app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+        res.status(500).json({error: err.message});
+      });
+      server = app.listen(0, '127.0.0.1', () => {
+        base = 'http://127.0.0.1:' + (server.address() as AddressInfo).port;
+        done();
+      });
+    });
+
+    afterEach((done: () => void) => {
+      server.close(() => done());
+    });
+
+    it('caches thumbnails privately for a day', async () => {
+      const res = await fetch(base + '/thumbnail');
+      expect(res.status).to.equal(200);
+      expect(res.headers.get('cache-control')).to.equal('private, max-age=86400');
+    });
+
+    it('revalidates files that can change under the same URL', async () => {
+      const res = await fetch(base + '/person');
+      expect(res.headers.get('cache-control')).to.equal('private, no-cache');
+      expect(res.headers.get('etag')).to.be.a('string');
+    });
+
+    it('keeps a cache policy set by an earlier middleware', async () => {
+      const res = await fetch(base + '/preset');
+      expect(res.headers.get('cache-control')).to.equal('private, no-store');
+    });
+
+    it('does not let the browser cache an error', async () => {
+      const res = await fetch(base + '/missing');
+      expect(res.status).to.equal(500);
+      expect(res.headers.get('cache-control')).to.equal(null);
+    });
+  });
 });

@@ -256,7 +256,9 @@ export class AuthenticationMWs {
       res: Response,
       next: NextFunction
     ): void {
-      if (req.session.context?.user.role < role) {
+      // fail closed: a request without a session context is not authorised
+      const userRole = req.session?.context?.user?.role;
+      if (userRole === undefined || userRole === null || userRole < role) {
         return next(new ErrorDTO(ErrorCodes.NOT_AUTHORISED));
       }
       return next();

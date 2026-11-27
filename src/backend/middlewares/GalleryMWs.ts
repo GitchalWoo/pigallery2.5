@@ -67,6 +67,11 @@ export class GalleryMWs {
         );
       }
 
+      // e.g. an AND/OR whose list is not an array: the search would fail on it
+      if (!SearchQueryUtils.isKnownQuery(query)) {
+        return next(new ErrorDTO(ErrorCodes.INPUT_ERROR, 'Invalid search query'));
+      }
+
       // Store the parsed query for use by subsequent middlewares
       req.resultPipe = query;
       return next();

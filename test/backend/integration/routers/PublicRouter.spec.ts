@@ -460,4 +460,93 @@ describe('PublicRouter', () => {
     });
   });
 
+
+  describe('Language links', () => {
+    let languages: string[];
+    beforeEach(async () => {
+      await setUp();
+      languages = Config.Server.languages;
+      Config.Server.languages = ['en', 'hu'];
+    });
+    afterEach(async () => {
+      Config.Server.languages = languages;
+      await tearDown();
+    });
+
+    const get = (url: string): Promise<{status: number, header: Record<string, string | string[]>}> =>
+      (request.execute(server.Server) as SuperAgentStatic).get(url).redirects(0);
+
+    it('should set the language and open the same page', async () => {
+      for (const page of ['/admin', '/faces', '/albums', '/duplicates', '/timeline', '/login']) {
+        const res = await get('/hu' + page);
+        expect(res.status, page).to.equal(302);
+        expect(res.header['location'], page).to.equal(page + '?ln=hu');
+        expect((res.header['set-cookie'] as string[]).join(';'), page).to.contain('pigallery2-lang=hu');
+      }
+    });
+
+    it('should open the root without a page', async () => {
+      expect((await get('/hu')).header['location']).to.equal('/?ln=hu');
+      expect((await get('/hu/')).header['location']).to.equal('/?ln=hu');
+    });
+
+    it('should keep the encoded path and the query', async () => {
+      const res = await get('/hu/gallery/%C3%A1rv%C3%ADz%20t%C5%B1r%C5%91?p=k%C3%A9p.jpg');
+      expect(res.header['location']).to.equal('/gallery/%C3%A1rv%C3%ADz%20t%C5%B1r%C5%91?p=k%C3%A9p.jpg&ln=hu');
+    });
+
+    it('should replace the language of an earlier switch', async () => {
+      expect((await get('/en/admin?ln=hu')).header['location']).to.equal('/admin?ln=en');
+      expect((await get('/en/search/cat?ln=hu&p=a.jpg')).header['location']).to.equal('/search/cat?p=a.jpg&ln=en');
+    });
+
+    it('should only redirect within the app', async () => {
+      for (const url of ['/hu//evil.com', '/hu/https://evil.com', '/hu/%2F%2Fevil.com', '/hu/%5C%5Cevil.com',
+        '/hu/\\evil.com', '/hu/%2F%5Cevil.com']) {
+        const location = (await get(url)).header['location'] as string;
+        expect(location, url).to.match(/^\/(?![/\\])/);
+      }
+    });
+
+    it('should keep the application prefix', async () => {
+      Config.Server.urlBase = 'photos/';
+      try {
+        expect((await get('/hu/faces?x=1')).header['location']).to.equal('/photos/faces?x=1&ln=hu');
+      } finally {
+        Config.Server.urlBase = '';
+      }
+    });
+
+    it('should not redirect an unknown language', async () => {
+      const res = await get('/xx/admin');
+      expect(res.status).to.not.equal(302);
+    });
+  });
+
+  describe('Cache headers', () => {
+    beforeEach(setUp);
+    afterEach(tearDown);
+
+    it('should revalidate the icons, they follow the configured icon', async () => {
+      // the PNG icons are rendered into the temp folder (an earlier suite may have removed it)
+      fs.mkdirSync(ProjectPath.TempFolder, {recursive: true});
+      for (const url of ['/icon.svg', '/icon_auto.svg', '/icon_white.svg', '/icon_padding_auto.svg', '/icon.png', '/icon_white.png']) {
+        const res = await request.execute(server.Server).get(url);
+        expect(res.status, url).to.equal(200);
+        expect(res.headers['cache-control'], url).to.equal('no-cache');
+      }
+    });
+
+    it('should revalidate the frontend files with their ETag', async () => {
+      const files = fs.readdirSync(path.join(ProjectPath.FrontendFolder, 'en'))
+        .filter(f => f === 'robots.txt' || /^en\.main-.*\.js$/.test(f) || /^chunk-.*\.js$/.test(f)).slice(0, 3);
+      expect(files.length).to.be.greaterThan(1);
+      for (const file of files) {
+        const res = await request.execute(server.Server).get('/' + file).set('Cookie', 'pigallery2-lang=en');
+        expect(res.status, file).to.equal(200);
+        expect(res.headers['cache-control'], file).to.equal('no-cache');
+        expect(res.headers['etag'], file).to.be.a('string');
+      }
+    });
+  });
 });

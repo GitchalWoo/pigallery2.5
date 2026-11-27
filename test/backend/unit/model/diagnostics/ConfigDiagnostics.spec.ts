@@ -1,6 +1,7 @@
 import {expect} from 'chai';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as os from 'node:os';
 import {ConfigDiagnostics} from '../../../../../src/backend/model/diagnostics/ConfigDiagnostics';
 import {ProjectPath} from '../../../../../src/backend/ProjectPath';
 import {ServerLogConfig} from '../../../../../src/common/config/private/PrivateConfig';
@@ -14,6 +15,9 @@ import {TestHelper} from '../../../../TestHelper';
 import {NotificationManager} from '../../../../../src/backend/model/NotifocationManager';
 import {NotificationDTO} from '../../../../../src/common/entities/NotificationDTO';
 import {PrivateConfigClass} from '../../../../../src/common/config/private/PrivateConfigClass';
+import {Config} from '../../../../../src/common/config/private/Config';
+import {SupportedFormats} from '../../../../../src/common/SupportedFormats';
+import {MediaRendererInput, PhotoWorker} from '../../../../../src/backend/model/fileaccess/PhotoWorker';
 
 declare const describe: any;
 declare const it: any;
@@ -194,6 +198,84 @@ describe('ConfigDiagnostics', () => {
       ConfigDiagnostics.warnDirectorySearchInMediaLists(configWith(emptyQuery, emptyQuery));
       ConfigDiagnostics.warnDirectorySearchInMediaLists(configWith(validQuery, {type: SearchQueryTypes.directory, value: ' '} as TextSearch));
       expect(NotificationManager.notifications).to.deep.equal([]);
+    });
+  });
+
+  describe('removeUnsupportedPhotoExtensions', () => {
+    let photoFormats: string[];
+    let videoFormats: string[];
+    let transcoded: string[];
+    let render: typeof PhotoWorker.renderFromImage;
+
+    beforeEach(() => {
+      photoFormats = Config.Media.Photo.supportedFormats;
+      videoFormats = Config.Media.Video.supportedFormats;
+      transcoded = Config.Media.Video.supportedFormatsWithTranscoding;
+      render = PhotoWorker.renderFromImage;
+    });
+
+    afterEach(() => {
+      PhotoWorker.renderFromImage = render;
+      Config.Media.Photo.supportedFormats = photoFormats;
+      Config.Media.Video.supportedFormats = videoFormats;
+      Config.Media.Video.supportedFormatsWithTranscoding = transcoded;
+      SupportedFormats.init();
+    });
+
+    it('stops indexing a photo format that sharp cannot decode', async () => {
+      Config.Media.Photo.supportedFormats = ['jpg', 'png', 'heic'];
+      SupportedFormats.init();
+      PhotoWorker.renderFromImage = (input: MediaRendererInput) =>
+        input.mediaPath.endsWith('.heic') ? Promise.reject(new Error('no decoder')) : Promise.resolve();
+
+      await ConfigDiagnostics.removeUnsupportedPhotoExtensions(Config.Media.Photo);
+
+      expect(Config.Media.Photo.supportedFormats).to.deep.equal(['jpg', 'png']);
+      expect(SupportedFormats.Photos).to.not.include('heic');
+      expect(SupportedFormats.WithDots.Photos).to.not.include('.heic');
+    });
+
+    it('does not list the transcoded video formats twice after a re-init', () => {
+      SupportedFormats.init();
+      SupportedFormats.init();
+      const expected = Config.Media.Video.supportedFormats.concat(Config.Media.Video.supportedFormatsWithTranscoding);
+      expect(SupportedFormats.Videos).to.deep.equal(expected);
+      expect(new Set(SupportedFormats.WithDots.Videos).size).to.equal(SupportedFormats.WithDots.Videos.length);
+    });
+  });
+
+  describe('testImageFolder', () => {
+    // in the OS temp folder: chmod has no effect on some file systems the repo may be on
+    const dir = path.join(os.tmpdir(), 'pg-diag-images-' + process.pid);
+
+    beforeEach(() => {
+      fs.rmSync(dir, {recursive: true, force: true});
+      fs.mkdirSync(dir, {recursive: true});
+    });
+
+    afterEach(() => {
+      fs.chmodSync(dir, 0o755);
+      fs.rmSync(dir, {recursive: true, force: true});
+    });
+
+    it('accepts a readable folder', async () => {
+      await ConfigDiagnostics.testImageFolder(dir);
+    });
+
+    it('rejects a missing folder with an error', async () => {
+      const err = await ConfigDiagnostics.testImageFolder(path.join(dir, 'missing')).then((): unknown => null, (e: unknown) => e);
+      expect(err).to.be.instanceOf(Error);
+      expect((err as Error).message).to.contain('Images folder not exists');
+    });
+
+    it('waits for the read access check', async function() {
+      if (process.getuid?.() === 0) {
+        this.skip(); // root can read anything
+      }
+      fs.chmodSync(dir, 0o000);
+      const err = await ConfigDiagnostics.testImageFolder(dir).then((): unknown => null, (e: unknown) => e);
+      expect(err).to.be.instanceOf(Error);
+      expect((err as Error).message).to.contain('read access');
     });
   });
 });

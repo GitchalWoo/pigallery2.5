@@ -32,6 +32,11 @@ class TestFileJob extends FileJob {
 }
 
 describe('FileJob processing loop', () => {
+  it('counts no media without querying when every file type is filtered out', async () => {
+    const job = new TestFileJob({noPhoto: true, noVideo: true, noMetaFile: true});
+    expect(await (job as unknown as {countMediaFromDB: () => Promise<number>}).countMediaFromDB()).to.equal(0);
+  });
+
   it('continues after a file processing error and stops after queued files are consumed', async () => {
     const job = new TestFileJob();
     job.setup(false);

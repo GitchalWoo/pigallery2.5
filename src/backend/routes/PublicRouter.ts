@@ -65,13 +65,26 @@ export class PublicRouter {
       );
     };
 
-    const redirectToBase = (locale: string) => {
-      return (req: Request, res: Response) => {
-        if (Config.Server.languages.indexOf(locale) !== -1) {
-          res.cookie(CookieNames.lang, locale);
-        }
-        res.redirect(Config.Server.getAppUrl() + '?ln=' + locale);
-      };
+    // /<locale>/<page> links (e.g. from the language menu) set the language, then open the same page
+    const redirectToLocalePage = (req: Request, res: Response, next: NextFunction) => {
+      const locale = req.params['locale'] as string;
+      if (Config.Server.languages.indexOf(locale) === -1) {
+        return next();
+      }
+      res.cookie(CookieNames.lang, locale);
+      // req.path is still url encoded, so the page is passed on as it is
+      const page = req.path.substring(locale.length + 1);
+      // keep the query, but drop the ln of an earlier language switch
+      const queryStart = req.originalUrl.indexOf('?');
+      const query = queryStart === -1 ? [] : req.originalUrl.substring(queryStart + 1)
+        .split('&').filter((p) => p !== '' && !p.startsWith('ln='));
+      query.push('ln=' + encodeURIComponent(locale));
+      let target = Config.Server.getAppUrl(page);
+      // stay within the app: never a protocol-relative (//host or /\host) location
+      if (/^[/\\]{2}/.test(target) || target.includes('\\')) {
+        target = Config.Server.getAppUrl();
+      }
+      res.redirect(target + '?' + query.join('&'));
     };
 
     const addTPl = (req: Request, res: Response, next: NextFunction) => {
@@ -230,14 +243,14 @@ export class PublicRouter {
     };
 
     app.get('/icon.svg', (req: Request, res: Response) => {
-      res.set('Cache-control', 'public, max-age=31536000');
+      res.set('Cache-Control', 'no-cache');
       res.header('Content-Type', 'image/svg+xml');
       res.send(getIcon());
     });
 
 
     app.get('/icon_padding_auto.svg', (req: Request, res: Response) => {
-      res.set('Cache-control', 'public, max-age=31536000');
+      res.set('Cache-Control', 'no-cache');
       res.header('Content-Type', 'image/svg+xml');
       // Use 40% padding: https://w3c.github.io/manifest/#icon-masks
       res.send(getIcon('auto', 0.7));
@@ -245,13 +258,13 @@ export class PublicRouter {
 
 
     app.get('/icon_auto.svg', (req: Request, res: Response) => {
-      res.set('Cache-control', 'public, max-age=31536000');
+      res.set('Cache-Control', 'no-cache');
       res.header('Content-Type', 'image/svg+xml');
       res.send(getIcon('auto'));
     });
 
     app.get('/icon_white.svg', (req: Request, res: Response) => {
-      res.set('Cache-control', 'public, max-age=31536000');
+      res.set('Cache-Control', 'no-cache');
       res.header('Content-Type', 'image/svg+xml');
       res.send(getIcon('white'));
     });
@@ -261,10 +274,8 @@ export class PublicRouter {
       try {
         const p = path.join(ProjectPath.TempFolder, '/icon.png');
         const outP = await PhotoProcessing.renderSVG(Config.Server.svgIcon, p);
-        res.sendFile(outP, {
-          maxAge: 31536000,
-          dotfiles: 'allow',
-        });
+        res.set('Cache-Control', 'no-cache');
+        res.sendFile(outP, {cacheControl: false, dotfiles: 'allow'});
       } catch (e) {
         return next(e);
       }
@@ -274,10 +285,8 @@ export class PublicRouter {
       try {
         const p = path.join(ProjectPath.TempFolder, '/icon_inv.png');
         const outP = await PhotoProcessing.renderSVG(Config.Server.svgIcon, p, 'white');
-        res.sendFile(outP, {
-          maxAge: 31536000,
-          dotfiles: 'allow',
-        });
+        res.set('Cache-Control', 'no-cache');
+        res.sendFile(outP, {cacheControl: false, dotfiles: 'allow'});
       } catch (e) {
         return next(e);
       }
@@ -327,21 +336,7 @@ export class PublicRouter {
       setLocale,
       renderIndex
     );
-    Config.Server.languages.forEach((l) => {
-      app.get(
-        [
-          '/' + l + '/',
-          '/' + l + '/login',
-          new RegExp('^/' + l + '/gallery(?:/.*)?$'),
-          new RegExp('^/' + l + '/share(?:/.*)?$'),
-          '/' + l + '/admin',
-          new RegExp('^/' + l + '/search(?:/.*)?$'),
-          '/' + l + '/timeline',
-          '/' + l + '/error',
-        ],
-        redirectToBase(l)
-      );
-    });
+    app.get(/^\/(?<locale>[^/]+)(?:\/.*)?$/, redirectToLocalePage);
 
     const isApiPath = (requestPath: string): boolean => {
       const apiPath = Config.Server.apiPath.toLowerCase();
@@ -364,8 +359,11 @@ export class PublicRouter {
           }
           return res.sendStatus(403);
         }
+        // Revalidated with the ETag: lazy chunks have the same names in every language,
+        // and a translation-only release keeps the content hashes.
         res.sendFile(file, {
-          maxAge: 31536000,
+          cacheControl: false,
+          headers: {'Cache-Control': 'no-cache'},
           dotfiles: 'allow',
         });
       };

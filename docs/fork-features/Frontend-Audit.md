@@ -193,6 +193,11 @@ These routes do not currently set `immutable`. The missing HTML policy and
 caching of fixed-name assets are confirmed gaps, but do not establish that a
 browser reused stale HTML or application bundles.
 
+> **Update (P15a):** icons and every frontend file now answer `Cache-Control: no-cache`
+> and are revalidated with their ETag, so fixed-name assets no longer stay stale. Long
+> immutable caching of hashed files is tracked as Techdebt T9. P15b reloads a tab whose
+> lazy chunk is gone after an upgrade (upstream `b625c8a4`).
+
 Release builds do not retain previous hashed assets. Replacing a deployment
 can therefore break an already-open page that requests an old lazy-loaded chunk
 after rollout; this is distinct from a fresh page load showing an old UI.

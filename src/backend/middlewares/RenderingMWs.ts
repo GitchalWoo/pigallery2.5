@@ -84,20 +84,45 @@ export class RenderingMWs {
     return RenderingMWs.renderMessage(res, rs);
   }
 
+  /**
+   * For media that rarely changes under the same URL (thumbnails, previews).
+   * Cached for a day only: a photo can be replaced in the folder, a thumbnail regenerated with other settings.
+   * private: these are behind authentication, so shared caches (proxies, CDNs) must not store them.
+   * A Cache-Control set earlier (e.g. GalleryMWs.noStore) is kept.
+   */
   public static renderFile(
     req: Request,
     res: Response,
     next: NextFunction
   ): void {
+    return RenderingMWs.sendFile(req, res, next, 'private, max-age=86400');
+  }
+
+  /**
+   * For files that can change under the same URL (e.g. a person's thumbnail follows the chosen face).
+   * The browser revalidates them with the ETag.
+   */
+  public static renderFileNoCache(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): void {
+    return RenderingMWs.sendFile(req, res, next, 'private, no-cache');
+  }
+
+  private static sendFile(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+    cacheControl: string
+  ): void {
     if (!req.resultPipe) {
       return next();
     }
-    // Protected media should be cached privately
-    if (!res.hasHeader('Cache-Control')) {
-      res.setHeader('Cache-Control', 'private, max-age=31536000');
-    }
     return res.sendFile(req.resultPipe as string, {
       cacheControl: false,
+      // only set on a successful transfer, so errors are not cached
+      ...(res.hasHeader('Cache-Control') ? {} : {headers: {'Cache-Control': cacheControl}}),
       dotfiles: 'allow',
     });
   }

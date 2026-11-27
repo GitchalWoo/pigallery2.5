@@ -24,8 +24,10 @@ export class ExtensionRepository {
     // source: https://davidwells.io/snippets/regex-match-markdown-links
     const regex = /^\[.*]\(((?:\/|https?:\/\/)[\S./?=#]+)\)$/;
 
-    if (text.match(regex).length > 0) {
-      return text.match(regex)[0].match(/https?:\/\/[\S./?=#]+/)[0].slice(0, -1);
+    // a line that is not a markdown link (e.g. a plain url) is kept as it is
+    const link = text.match(regex)?.[0].match(/https?:\/\/[\S./?=#]+/);
+    if (link) {
+      return link[0].slice(0, -1);
     }
     return text;
   }

@@ -118,6 +118,12 @@ describe('SearchManager query rewriting', () => {
 describe = DBTestHelper.describe();
 describe('SearchManager', (sqlHelper: DBTestHelper) => {
   describe = tmpDescribe;
+
+  // The "now" of the test photos: 12:00 in the photos' local time (+02:00) on today's UTC date.
+  // The date patterns read the photos' local time; with the real clock, "now" would already be tomorrow there
+  // in the last 2 hours of the UTC day. The every-year patterns compare with today's UTC date (SQLite 'now').
+  const today = new Date();
+  const testNow = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 12) - 2 * 60 * 60 * 1000;
   /**
    * dir  <-- root: '.'
    * |- v
@@ -148,25 +154,25 @@ describe('SearchManager', (sqlHelper: DBTestHelper) => {
     subDir = TestHelper.getDirectoryEntry(directory, 'The Phantom Menace');
     subDir2 = TestHelper.getDirectoryEntry(directory, 'Return of the Jedi');
     p = TestHelper.getPhotoEntry1(directory);
-    p.metadata.creationDate = Date.now();
+    p.metadata.creationDate = testNow;
     p.metadata.creationDateOffset = '+02:00';
     p.metadata.keywords.push('question mark?');
     p2 = TestHelper.getPhotoEntry2(directory);
-    p2.metadata.creationDate = Date.now() - 60 * 60 * 24 * 1000;
+    p2.metadata.creationDate = testNow - 60 * 60 * 24 * 1000;
     p2.metadata.creationDateOffset = '+02:00';
     p2.metadata.keywords.push('underscore_');
     v = TestHelper.getVideoEntry1(directory);
-    v.metadata.creationDate = Date.now() - 60 * 60 * 24 * 7 * 1000;
+    v.metadata.creationDate = testNow - 60 * 60 * 24 * 7 * 1000;
     v.metadata.creationDateOffset = '+02:00';
     gpx = TestHelper.getRandomizedGPXEntry(directory);
     p4 = TestHelper.getPhotoEntry4(subDir2);
-    let d = new Date();
+    let d = new Date(testNow);
     //set creation date to one year and one day earlier
     p4.metadata.creationDate = d.getTime() - 60 * 60 * 24 * (Utils.isDateFromLeapYear(d) ? 367 : 366) * 1000;
     p4.metadata.creationDateOffset = '+02:00';
     const pFaceLessTmp = TestHelper.getPhotoEntry3(subDir);
     delete pFaceLessTmp.metadata.faces;
-    d = new Date();
+    d = new Date(testNow);
     //we create a date 1 month and 1 day before now
     d = Utils.addMonthToDate(d, -1); //subtract 1 month in the "human way"
     d.setDate(d.getDate() - 1); //subtract 1 day
@@ -2044,17 +2050,17 @@ describe('SearchManager', (sqlHelper: DBTestHelper) => {
         await sqlHelper.clearDB();
         await setUpSqlDB();
         p5 = TestHelper.getBasePhotoEntry(subDir2, 'p5-23h-ago.jpg');
-        p5.metadata.creationDate = Date.now() - 60 * 60 * 24 * 1000 - 1000;
+        p5.metadata.creationDate = testNow - 60 * 60 * 24 * 1000 - 1000;
         //p5.metadata.creationDateOffset = "+02:00";
         p6 = TestHelper.getBasePhotoEntry(subDir2, 'p6-300d-ago.jpg');
-        p6.metadata.creationDate = Date.now() - 60 * 60 * 24 * 300 * 1000;
+        p6.metadata.creationDate = testNow - 60 * 60 * 24 * 300 * 1000;
         //p6.metadata.creationDateOffset = "+02:00";
-        p7 = TestHelper.getBasePhotoEntry(subDir2, 'p7-1y-1min-ago.jpg');
-        const d = new Date();
+        p7 = TestHelper.getBasePhotoEntry(subDir2, 'p7-1y-ago.jpg');
+        // exactly 1 year ago keeps today's day; the every-year patterns match by day
+        const d = new Date(testNow);
         d.setUTCFullYear(d.getUTCFullYear() - 1);
-        d.setUTCMinutes(d.getUTCMinutes() - 1);
         p7.metadata.creationDate = d.getTime();
-        //p7.metadata.creationDateOffset = "+02:00";
+        p7.metadata.creationDateOffset = '+02:00';
 
         subDir2 = await DBTestHelper.persistTestDir(subDir2) as any;
         p4 = subDir2.media[0];
@@ -2071,7 +2077,6 @@ describe('SearchManager', (sqlHelper: DBTestHelper) => {
         sm = new SearchManager();
       });
 
-      //TODO: this is flaky test for mysql
       it('last-0-days:every-year', async () => {
 
 
@@ -2108,7 +2113,6 @@ describe('SearchManager', (sqlHelper: DBTestHelper) => {
 
       });
 
-      //TODO: this is flaky test for mysql
       it('last-1-days:every-year', async () => {
         let query: DatePatternSearch = {
           daysLength: 1,

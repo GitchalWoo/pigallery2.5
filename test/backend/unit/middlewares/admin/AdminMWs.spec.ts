@@ -62,6 +62,18 @@ describe('AdminMWs', () => {
     expect(calls[1]).to.deep.equal({name: 'stop', args: ['scan']});
   });
 
+  it('starts a job with its default config when the request has no body', async () => {
+    // Express 5 leaves req.body undefined for a request without a body
+    const requests: {params: {id: string}, body?: object, resultPipe?: unknown}[] = [{params: {id: 'scan'}}, {params: {id: 'scan'}, body: {}}];
+    for (const req of requests) {
+      calls = [];
+      await invoke(AdminMWs.startJob, req);
+      expect(error).to.equal(undefined);
+      expect(req.resultPipe).to.equal('ok');
+      expect(calls[0]).to.deep.equal({name: 'run', args: ['scan', {}, undefined, undefined]});
+    }
+  });
+
   it('returns available job data', async () => {
     const jobs: any = {};
     AdminMWs.getAvailableJobs(jobs, {} as any, () => undefined);

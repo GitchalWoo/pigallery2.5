@@ -236,12 +236,12 @@ describe('RouteMatching', (sqlHelper: DBTestHelper) => {
       expect(res.text).to.include('<!DOCTYPE html>');
     });
 
-    it('should redirect localized paths to base: /en/gallery', async () => {
+    it('should redirect localized paths to the same page: /en/gallery', async () => {
       const res = await (request.execute(server.Server) as SuperAgentStatic)
         .get('/en/gallery')
         .redirects(0);
       (res.should as any).have.status(302);
-      expect(res.header['location']).to.include('/?ln=en');
+      expect(res.header['location']).to.equal('/gallery?ln=en');
     });
 
     it('should return 404 for non-existent routes', async () => {
