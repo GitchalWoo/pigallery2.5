@@ -12,26 +12,25 @@
   </div>
 
   <div body #container class="container-fluid">
-    @for (album of albumsService.albums | async; track album) {
-      <app-album
-        [album]="album"
-      [size]="size"></app-album>
-    }
+    @let albums = albumsService.albums | async;
+    <div class="album-tiles">
+      @for (album of albums; track album) {
+        <app-album [album]="album" [size]="size"></app-album>
+      }
 
-    @if (CanCreateAlbum) {
-      <button type="button" class="add-saved-search btn btn-secondary"
-        [style.width.px]="size"
-        [style.height.px]="size"
-        (click)="openModal(modal)">
-        <span class="text d-block">
-          <ng-icon name="ionAddOutline" class="mb-2"></ng-icon>
+      @if (CanCreateAlbum && albums !== null && size > 0) {
+        <button type="button" class="add-saved-search btn btn-secondary"
+          [style.width.px]="size"
+          [style.height.px]="size"
+          (click)="openModal(modal)">
+          <ng-icon name="ionAddOutline" aria-hidden="true"></ng-icon>
           <span i18n>Add saved search</span>
-        </span>
-      </button>
-    }
+        </button>
+      }
+    </div>
 
-    @if ((albumsService.albums | async) && (albumsService.albums | async).length === 0) {
-      <app-empty-state icon="ionAlbumsOutline">
+    @if (albums?.length === 0) {
+      <app-empty-state class="page-state" icon="ionAlbumsOutline">
         <ng-container i18n>No albums to show.</ng-container>
         @if (CanCreateAlbum) {
           <span hint i18n>Save a search as an album to find it here.</span>

@@ -17,6 +17,12 @@ import {NgIconComponent} from '@ng-icons/core';
       line-height: 1.5;
       overflow-wrap: anywhere;
     }
+    :host(.page-state) {
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      min-height: 50dvh;
+    }
     ng-icon {
       color: var(--bs-secondary-color);
       font-size: 2.5rem;

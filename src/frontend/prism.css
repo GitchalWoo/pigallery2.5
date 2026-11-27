@@ -43,7 +43,6 @@ html[data-gallery-design="prism"] app-album .info { font-weight: 650; letter-spa
 
 
 /* app-albums */
-html[data-gallery-design="prism"] app-albums .no-item-msg, html[data-gallery-design="prism"] app-albums .no-face-msg { height: auto; padding-block: 5rem; color: var(--bs-secondary-color); }
 html[data-gallery-design="prism"] app-albums .add-saved-search { border-radius: 1.25rem; background: var(--pg-soft); color: var(--pg-accent); border: 1px dashed var(--pg-accent); }
 
 
@@ -60,7 +59,6 @@ html[data-gallery-design="prism"] app-face .star.favourite,
 html[data-gallery-design="prism"] app-face .star.clickable:hover { color: var(--pg-accent); }
 
 /* app-faces */
-html[data-gallery-design="prism"] app-faces .no-item-msg, html[data-gallery-design="prism"] app-faces .no-face-msg { height: auto; padding-block: 5rem; color: var(--bs-secondary-color); }
 
 
 /* app-frame */

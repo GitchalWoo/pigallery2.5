@@ -18,7 +18,7 @@
     }
 
     @if ((nonFavourites | async).length === 0 && (favourites | async).length === 0) {
-      <app-empty-state icon="ionPeopleOutline">
+      <app-empty-state class="page-state" icon="ionPeopleOutline">
         <ng-container i18n>No faces to show.</ng-container>
         <span hint i18n>Tag faces in your photo manager, then index the photos again.</span>
       </app-empty-state>

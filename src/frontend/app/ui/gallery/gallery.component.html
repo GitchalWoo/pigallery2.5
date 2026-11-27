@@ -40,14 +40,14 @@
     <div body class="container-fluid app-gallery-body">
       <app-gallery-uploader [isUploadOver]="isUploadOver"></app-gallery-uploader>
       @if (ContentWrapper.error) {
-        <app-empty-state icon="ionWarningOutline">
+        <app-empty-state class="page-state" icon="ionWarningOutline">
           <span role="alert">{{ ContentWrapper.error }}</span>
           @if (contentLoader.canRetry) {
             <button action type="button" class="btn btn-primary" (click)="retry()" i18n>Retry</button>
           }
         </app-empty-state>
       } @else if (emptyState; as empty) {
-        <app-empty-state [icon]="empty.icon">
+        <app-empty-state class="page-state" [icon]="empty.icon">
           {{ empty.message }}
           @if (empty.hint) {
             <span hint>{{ empty.hint }}</span>

@@ -1,43 +1,28 @@
-app-album {
-  margin: 2px;
-  display: inline-block;
-}
-
-
 .container-fluid[body] {
-  line-height: 0;
   padding-inline: calc(var(--gallery-page-gutter) - 2px);
+  padding-bottom: 2rem;
 }
 
-.no-item-msg {
-  height: 100vh;
-  text-align: center;
+.album-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
 }
 
-.no-face-msg h2 {
-  color: #6c757d;
+app-album,
+.add-saved-search {
+  margin: 2px;
 }
 
 .add-saved-search {
-  vertical-align: baseline;
-  position: absolute;
-  margin: 2px;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: .5rem;
+  overflow-wrap: anywhere;
 }
 
-.add-saved-search .text {
-  position: relative;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%,-50%);
-  text-align: center;
+.add-saved-search ng-icon {
+  font-size: 3rem;
 }
-
-.add-saved-search .text ng-icon {
-  font-size: 120px;
-  display: inline-block;
-  width: 100%;
-}
-
-/* Match the breathing room on other collection pages. */
-.container-fluid[body] { padding-top: 0; padding-bottom: 2rem; }
-.add-saved-search { position: relative; vertical-align: top; }
