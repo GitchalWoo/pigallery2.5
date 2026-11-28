@@ -1,31 +1,24 @@
 <app-gallery-lightbox [grid]="lightboxGrid"></app-gallery-lightbox>
 <app-frame>
   <div body class="container-fluid app-gallery-body timeline-body" [class.timeline-has-rail]="hasSummary">
-    @if (store.newDataAvailable) {
-      <div class="alert alert-info d-flex align-items-center mt-2" role="status">
-        <span class="flex-grow-1" i18n>New photos are available.</span>
-        <button type="button" class="btn btn-sm btn-primary" (click)="backToNewest()" i18n>Back to newest</button>
-      </div>
-    }
-
     <app-gallery-grid [mediaGroups]="mediaGroups"
       [mediaIdFn]="mediaIdFn"
-      [extraQueryParams]="extraQueryParams"
+      [extraQueryParams]="photoQueryParams"
       [groupHeaderMethod]="headerMethod"
+      [placeholderAspect]="store.placeholderAspect"
+      [keepContentAnchor]="true"
       [showInlineBlog]="false"
       [showScrollLabel]="false"></app-gallery-grid>
 
-    <div #sentinel class="timeline-sentinel" aria-hidden="true"></div>
-
-    @if (store.loading) {
+    @if (ready && !store.days && !store.error) {
       <div class="d-flex justify-content-center my-4" role="status">
         <div class="spinner-border text-secondary" aria-hidden="true"></div>
-        <span class="visually-hidden" i18n>Loading more media…</span>
+        <span class="visually-hidden" i18n>Loading the timeline…</span>
       </div>
     }
 
     @if (store.error) {
-      <div class="alert alert-danger d-flex align-items-center my-3" role="alert">
+      <div class="alert alert-danger d-flex align-items-center my-3 timeline-error" role="alert">
         <span class="flex-grow-1">
           <ng-container i18n>Could not load the timeline.</ng-container>
           {{ store.error }}
@@ -34,7 +27,7 @@
       </div>
     }
 
-    @if (ready && !store.hasMore && store.items.length === 0 && !store.error) {
+    @if (ready && store.days?.length === 0 && !store.error) {
       <div class="no-item-msg text-center my-5">
         <h2 i18n>No media to show.</h2>
       </div>
@@ -43,7 +36,8 @@
     <app-timeline-scrubber
       [summary]="store.summary"
       [currentMonthKey]="currentMonthKey"
-      (jumpToMonth)="jumpToMonth($event)" />
+      (jumpToMonth)="jumpToMonth($event)"
+      (dragChange)="onScrubberDrag($event)" />
   </div>
 </app-frame>
 

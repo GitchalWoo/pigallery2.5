@@ -83,6 +83,11 @@ export class GridScroller {
     return this.scrollY() - this.grid.top() + this.offset();
   }
 
+  /** screenTop() while the page still holds a grid of this height (e.g. before the render of a new layout). */
+  screenTopIn(height: number): number {
+    return this.scrollY() - this.grid.top() + this.scrollWindow.offset(height);
+  }
+
   /** The page scrolled, or the grid moved in it: the window of a huge grid follows it, and the viewport is where the screen is. */
   update(): void {
     // the page did not scroll to its target yet: it is not a scroll to follow

@@ -3,10 +3,6 @@
   padding-inline: calc(var(--gallery-page-gutter) - 2px);
 }
 
-.timeline-sentinel {
-  height: 1px;
-}
-
 .timeline-has-rail {
   padding-right: calc(2.25rem + var(--gallery-page-gutter, 0px) - 2px);
 }
@@ -18,3 +14,10 @@
 }
 
 .timeline-body > .d-flex, .timeline-body > .alert { margin-inline: 2px; }
+
+/* a failed load of days far down the page: shown on the screen */
+.timeline-error {
+  position: sticky;
+  bottom: 1rem;
+  z-index: 2;
+}

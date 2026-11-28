@@ -19,7 +19,9 @@ export class TimelineScrubberComponent {
 
   readonly summary = input<TimelineSummaryDTO | null>(null);
   readonly currentMonthKey = input<string | null>(null);
+  // a picked month; also while dragging, as the thumb passes months
   readonly jumpToMonth = output<string>();
+  readonly dragChange = output<boolean>();
 
   readonly track = viewChild<ElementRef<HTMLElement>>('track');
 
@@ -30,6 +32,8 @@ export class TimelineScrubberComponent {
   readonly dragging = signal(false);
   readonly hoverFraction = signal<number | null>(null);
   private dragPointerId: number | null = null;
+  // the month the drag scrolled to last
+  private draggedKey: string | null = null;
 
   readonly activeFraction = computed((): number | null => {
     const hover = this.hoverFraction();
@@ -85,7 +89,9 @@ export class TimelineScrubberComponent {
     el?.setPointerCapture?.(event.pointerId);
     this.dragPointerId = event.pointerId;
     this.dragging.set(true);
-    this.hoverFraction.set(this.fractionFromEvent(event));
+    this.draggedKey = null;
+    this.dragChange.emit(true);
+    this.dragTo(this.fractionFromEvent(event));
   }
 
   onPointerMove(event: PointerEvent): void {
@@ -97,7 +103,7 @@ export class TimelineScrubberComponent {
         return;
       }
       event.preventDefault();
-      this.hoverFraction.set(this.fractionFromEvent(event));
+      this.dragTo(this.fractionFromEvent(event));
     } else if (event.pointerType === 'mouse') {
       this.hoverFraction.set(this.fractionFromEvent(event));
     }
@@ -117,9 +123,11 @@ export class TimelineScrubberComponent {
     } else {
       this.hoverFraction.set(fraction);
     }
-    if (bucket) {
+    if (bucket && bucket.key !== this.draggedKey) {
       this.jumpToMonth.emit(bucket.key);
     }
+    this.draggedKey = null;
+    this.dragChange.emit(false);
   }
 
   onPointerCancel(event: PointerEvent): void {
@@ -129,6 +137,8 @@ export class TimelineScrubberComponent {
     this.dragPointerId = null;
     this.dragging.set(false);
     this.hoverFraction.set(null);
+    this.draggedKey = null;
+    this.dragChange.emit(false);
   }
 
   onPointerLeave(event: PointerEvent): void {
@@ -164,6 +174,16 @@ export class TimelineScrubberComponent {
     }
     event.preventDefault();
     this.jumpToMonth.emit(buckets[nextIndex].key);
+  }
+
+  /** The page follows the thumb: it scrolls to each month the drag gets to. */
+  private dragTo(fraction: number): void {
+    this.hoverFraction.set(fraction);
+    const bucket = bucketAtFraction(this.model().buckets, fraction);
+    if (bucket && bucket.key !== this.draggedKey) {
+      this.draggedKey = bucket.key;
+      this.jumpToMonth.emit(bucket.key);
+    }
   }
 
   private fractionFromEvent(event: PointerEvent): number {

@@ -46,7 +46,7 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
   readonly gridMedia = input.required<GridMedia>();
   readonly shownBefore = input(false);
   readonly mediaIdFn = input<((media: MediaDTO) => string) | null>(null);
-  readonly extraQueryParams = input<Params>({});
+  readonly extraQueryParams = input<Params | ((media: MediaDTO) => Params)>({});
   fadeIn = false;
 
   @ViewChild('img', {static: false}) imageRef: ElementRef;
@@ -56,7 +56,8 @@ export class GalleryPhotoComponent implements IRenderable, OnInit, AfterViewInit
     const media = this.gridMedia().media;
     const link = this.queryService.getLightboxLink(media);
     const idFn = this.mediaIdFn();
-    const extra = this.extraQueryParams();
+    const extraParams = this.extraQueryParams();
+    const extra = typeof extraParams === 'function' ? extraParams(media) : extraParams;
     if (!idFn && Object.keys(extra).length === 0) {
       return link;
     }

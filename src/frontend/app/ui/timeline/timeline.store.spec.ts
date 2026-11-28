@@ -4,10 +4,11 @@ import {MediaDTO} from '../../../../common/entities/MediaDTO';
 import {TimelinePageDTO, TimelineSummaryDTO} from '../../../../common/entities/TimelineDTO';
 import {UserDTO, UserRoles} from '../../../../common/entities/UserDTO';
 import {
+  DAY_MS,
   formatTimelineMonth,
   getTimelineMonth,
+  getTimelineMediaId,
   getTimelineMonthEnd,
-  groupTimelineByDay,
   parseTimelineMonth,
 } from './timeline-grouping';
 
@@ -41,9 +42,14 @@ function media(id: number, creationDate: number): MediaDTO {
   } as MediaDTO;
 }
 
+// a media of this day (hour: its time in the day)
+const at = (id: number, day: number, hour = 12): MediaDTO => media(id, day * DAY_MS + hour * 3600000);
+
 function page(items: MediaDTO[], next: TimelinePageDTO['next']): TimelinePageDTO {
   return {media: items, next};
 }
+
+const summaryOf = (days: [number, number][]): TimelineSummaryDTO => ({years: [], days});
 
 describe('TimelineStore', () => {
   let requests: { url: string; query: Record<string, number>; response: Deferred<TimelinePageDTO> }[];
@@ -51,6 +57,9 @@ describe('TimelineStore', () => {
   let user: BehaviorSubject<UserDTO>;
   let version: BehaviorSubject<string>;
   let store: TimelineStore;
+
+  const state = (): Record<number, string> =>
+    Object.fromEntries(store.days.map(d => [d.day, d.state + ':' + d.items.map(m => m.id).join(',')]));
 
   beforeEach(() => {
     requests = [];
@@ -72,177 +81,127 @@ describe('TimelineStore', () => {
     store = new TimelineStore(network as never, {version} as never, {user} as never);
   });
 
-  it('coalesces concurrent loads into one request', async () => {
-    const first = store.loadNextPage();
-    const second = store.loadNextPage();
-    expect(second).toBe(first);
-    expect(requests.length).toBe(1);
-    expect(requests[0].query).toEqual({limit: TimelineStore.PAGE_SIZE});
-
-    requests[0].response.resolve(page([media(2, 20), media(1, 10)], {from: 10, after: 1}));
+  const loadSummary = async (days: [number, number][]): Promise<void> => {
+    store.loadSummary();
+    summaryRequests[summaryRequests.length - 1].resolve(summaryOf(days));
     await flushMicrotasks();
-    expect(store.items.map(m => m.id)).toEqual([2, 1]);
-    expect(store.loading).toBe(false);
+  };
 
-    store.loadNextPage();
-    expect(requests[1].query).toEqual({limit: TimelineStore.PAGE_SIZE, from: 10, after: 1});
+  it('lays out the days of the summary and loads a gap from its top, page by page', async () => {
+    await loadSummary([[10, 1], [9, 2], [8, 3], [5, 2]]);
+    expect(state()).toEqual({10: 'empty:', 9: 'empty:', 8: 'empty:', 5: 'empty:'});
+
+    const first = store.ensureLoaded([8, 9]);
+    expect(store.ensureLoaded([5]), 'one page at a time').toBe(first);
+    expect(requests[0].query).toEqual({limit: TimelineStore.PAGE_SIZE, before: 10 * DAY_MS});
+    // a full page that ends in day 8
+    requests[0].response.resolve(page([at(92, 9, 20), at(91, 9), at(83, 8, 20)], {from: 1, after: 83}));
+    await flushMicrotasks();
+    expect(state()).toEqual({10: 'empty:', 9: 'complete:92,91', 8: 'partial:83', 5: 'empty:'});
+    expect(store.placeholderAspect).toBeCloseTo(4 / 3);
+
+    store.ensureLoaded([8]);
+    expect(requests[1].query, 'continues the partial day').toEqual({limit: TimelineStore.PAGE_SIZE, from: 1, after: 83});
+    requests[1].response.resolve(page([at(82, 8), at(81, 8, 1), at(51, 5)], null));
+    await flushMicrotasks();
+    expect(state()).toEqual({10: 'empty:', 9: 'complete:92,91', 8: 'complete:83,82,81', 5: 'complete:51'});
+    expect(store.days[3].count, 'the loaded number').toBe(1);
+
+    store.ensureLoaded([10, 9]);
+    expect(requests[2].query, 'stops above the loaded day below').toEqual({
+      limit: TimelineStore.PAGE_SIZE, before: 11 * DAY_MS, since: 10 * DAY_MS
+    });
+    requests[2].response.resolve(page([at(101, 10)], null));
+    await flushMicrotasks();
+    expect(state()[10]).toBe('complete:101');
+    expect(store.dayOfMedia(getTimelineMediaId(media(101, 0)))).toBe(10);
+
+    store.ensureLoaded([10, 9, 8, 5]);
+    expect(requests.length, 'all complete').toBe(3);
   });
 
-  it('dedupes by media id and still advances the cursor', async () => {
-    store.loadNextPage();
-    requests[0].response.resolve(page([media(2, 20), media(1, 10)], {from: 10, after: 1}));
+  it('gives the lightbox the run of loaded days around a day and loads at its ends', async () => {
+    await loadSummary([[10, 1], [9, 2], [8, 3], [5, 2]]);
+    store.ensureLoaded([9]);
+    requests[0].response.resolve(page([at(92, 9, 20), at(91, 9), at(83, 8)], {from: 1, after: 83}));
     await flushMicrotasks();
 
-    store.loadNextPage();
-    requests[1].response.resolve(page([media(1, 10)], {from: 5, after: 9}));
-    await flushMicrotasks();
-    expect(store.items.map(m => m.id)).toEqual([2, 1]);
+    const run = store.runAround(8)!;
+    expect(run.media.map(m => m.id)).toEqual([92, 91, 83]);
+    expect(run.hasBefore).toBe(true);
+    expect(run.hasAfter).toBe(true);
+    expect(store.runAround(10), 'nothing loaded').toBeNull();
 
-    store.loadNextPage();
-    expect(requests[2].query).toEqual({limit: TimelineStore.PAGE_SIZE, from: 5, after: 9});
-    requests[2].response.resolve(page([], null));
+    store.loadAfter(run);
+    expect(requests[1].query).toEqual({limit: TimelineStore.PAGE_SIZE, from: 1, after: 83});
+    requests[1].response.resolve(page([at(82, 8), at(81, 8, 1)], {from: 2, after: 81}));
     await flushMicrotasks();
-    expect(store.hasMore).toBe(false);
+
+    store.loadBefore(store.runAround(9)!);
+    expect(requests[2].query).toEqual({limit: TimelineStore.PAGE_SIZE, before: 11 * DAY_MS, since: 10 * DAY_MS});
   });
 
-  it('drops responses that arrive after cancel or reset', async () => {
-    store.loadNextPage();
-    store.cancel();
-    expect(store.loading).toBe(false);
-    requests[0].response.resolve(page([media(1, 10)], null));
+  it('puts media of a day the summary does not know (indexed since) into a day of its own', async () => {
+    await loadSummary([[10, 1], [8, 1]]);
+    store.ensureLoaded([10]);
+    requests[0].response.resolve(page([at(101, 10), at(91, 9), at(81, 8)], null));
     await flushMicrotasks();
-    expect(store.items).toEqual([]);
-    expect(store.hasMore).toBe(true);
-
-    store.loadNextPage();
-    store.reset();
-    requests[1].response.reject('boom');
-    await flushMicrotasks();
-    expect(store.error).toBeNull();
-
-    store.loadNextPage();
-    expect(requests.length).toBe(3);
+    expect(store.days.map(d => d.day)).toEqual([10, 9, 8]);
+    expect(state()).toEqual({10: 'complete:101', 9: 'complete:91', 8: 'complete:81'});
+    expect(store.dayOfMedia(getTimelineMediaId(media(81, 0)))).toBe(8);
   });
 
-  it('keeps errors until an explicit retry', async () => {
-    store.loadNextPage();
+  it('keeps an error until retry, and drops responses after a user change', async () => {
+    await loadSummary([[10, 1], [9, 1]]);
+    store.ensureLoaded([10]);
     requests[0].response.reject('Server down');
     await flushMicrotasks();
     expect(store.error).toBe('Server down');
-    expect(store.loading).toBe(false);
+    store.ensureLoaded([10]);
+    expect(requests.length).toBe(1);
 
-    store.loadNextPage();
-    expect(store.error).toBeNull();
+    store.retry();
+    store.ensureLoaded([10]);
     expect(requests.length).toBe(2);
-  });
-
-  it('clears state on logout and on projection change', async () => {
-    store.loadNextPage();
-    requests[0].response.resolve(page([media(1, 10)], {from: 10, after: 1}));
-    await flushMicrotasks();
-    store.scrollAnchor = {mediaId: '/dir/1.jpg', offset: 0};
-
     user.next({id: 1, name: 'u', role: UserRoles.User, projectionKey: 'other'} as UserDTO);
-    expect(store.items).toEqual([]);
-    expect(store.scrollAnchor).toBeNull();
-
-    store.loadNextPage();
-    requests[1].response.resolve(page([media(1, 10)], null));
+    requests[1].response.resolve(page([at(101, 10)], null));
     await flushMicrotasks();
-    user.next(null);
-    expect(store.items).toEqual([]);
-  });
-
-  it('flags new data on gallery version change but keeps the list', async () => {
-    store.loadNextPage();
-    requests[0].response.resolve(page([media(1, 10)], null));
-    await flushMicrotasks();
-
-    version.next('v2');
-    expect(store.newDataAvailable).toBe(true);
-    expect(store.items.length).toBe(1);
-  });
-
-  it('starts at an exclusive before boundary after reset', () => {
-    store.reset(12345);
-    store.loadNextPage();
-    expect(requests[0].query).toEqual({limit: TimelineStore.PAGE_SIZE, before: 12345});
-  });
-
-  it('loads the summary once and drops it on user change', async () => {
-    const summary = {years: [{year: 2015, months: [{month: 6, count: 3}]}]};
-    store.loadSummary();
-    store.loadSummary();
-    expect(summaryRequests.length).toBe(1);
-    summaryRequests[0].resolve(summary);
-    await flushMicrotasks();
-    expect(store.summary).toEqual(summary);
-
-    store.loadSummary();
-    expect(summaryRequests.length).toBe(1);
-
-    store.loadSummary();
-    user.next({id: 2, name: 'v', role: UserRoles.Guest} as UserDTO);
+    expect(store.days).toBeNull();
     expect(store.summary).toBeNull();
-    store.loadSummary();
-    expect(summaryRequests.length).toBe(2);
   });
 
-  it('refreshes a summary made stale by a version change, even after a month jump', async () => {
-    const oldSummary = {years: [{year: 2015, months: [{month: 6, count: 3}]}]};
-    const newSummary = {years: [{year: 2016, months: [{month: 1, count: 1}]}, ...oldSummary.years]};
-    store.loadSummary();
-    summaryRequests[0].resolve(oldSummary);
+  it('refreshes a summary made stale by a version change and keeps the unchanged complete days', async () => {
+    await loadSummary([[10, 1], [9, 2]]);
+    store.ensureLoaded([10]);
+    requests[0].response.resolve(page([at(101, 10), at(92, 9), at(91, 9, 1)], null));
     await flushMicrotasks();
-
-    version.next('v2');
-    store.reset(12345);
-    expect(store.summaryStale).toBe(true);
-    expect(store.summary).toEqual(oldSummary);
-
-    store.loadSummary();
-    expect(summaryRequests.length).toBe(2);
-    expect(store.summary).toEqual(oldSummary);
-    summaryRequests[1].resolve(newSummary);
-    await flushMicrotasks();
-    expect(store.summary).toEqual(newSummary);
-    expect(store.summaryStale).toBe(false);
-
-    store.loadSummary();
-    expect(summaryRequests.length).toBe(2);
-  });
-
-  it('keeps a failed summary refresh stale without retrying automatically', async () => {
-    const oldSummary = {years: [{year: 2015, months: [{month: 6, count: 3}]}]};
-    const newSummary = {years: [{year: 2016, months: [{month: 1, count: 1}]}]};
-    store.loadSummary();
-    summaryRequests[0].resolve(oldSummary);
-    await flushMicrotasks();
+    const ten = store.days[0];
 
     version.next('v2');
     expect(store.shouldRefreshSummary).toBe(true);
     store.loadSummary();
+    summaryRequests[1].resolve(summaryOf([[11, 4], [10, 1], [9, 3]]));
+    await flushMicrotasks();
+
+    expect(store.summaryStale).toBe(false);
+    expect(store.days[1], 'same count: kept').toBe(ten);
+    expect(state()).toEqual({11: 'empty:', 10: 'complete:101', 9: 'empty:'});
+    expect(store.dayOfMedia(getTimelineMediaId(media(92, 0)))).toBeNull();
+  });
+
+  it('keeps a failed summary refresh stale without retrying automatically', async () => {
+    await loadSummary([[10, 1]]);
+    version.next('v2');
+    store.loadSummary();
     summaryRequests[1].reject('down');
     await flushMicrotasks();
-    expect(store.summary).toEqual(oldSummary);
+    expect(store.days.length, 'keeps the days').toBe(1);
+    expect(store.error, 'the timeline is still shown').toBeNull();
     expect(store.summaryStale).toBe(true);
     expect(store.shouldRefreshSummary).toBe(false);
 
     store.loadSummary();
     expect(summaryRequests.length).toBe(3);
-    summaryRequests[2].resolve(newSummary);
-    await flushMicrotasks();
-    expect(store.summary).toEqual(newSummary);
-    expect(store.summaryStale).toBe(false);
-    expect(store.summaryFailed).toBe(false);
-  });
-
-  it('ignores a summary that arrives after the user changed', async () => {
-    store.loadSummary();
-    user.next({id: 2, name: 'v', role: UserRoles.Guest} as UserDTO);
-    summaryRequests[0].resolve({years: [{year: 2015, months: [{month: 6, count: 3}]}]});
-    await flushMicrotasks();
-    expect(store.summary).toBeNull();
   });
 });
 
@@ -268,26 +227,5 @@ describe('Timeline months', () => {
     item.metadata.creationDateOffset = '+01:00';
     expect(getTimelineMonth(item, true)).toEqual({year: 2017, month: 3});
     expect(getTimelineMonth(item, false)).toEqual({year: 2017, month: 2});
-  });
-});
-
-describe('groupTimelineByDay', () => {
-  const day = 86400000;
-
-  it('continues the same day across page boundaries as one group', () => {
-    const firstPage = [media(5, 3 * day + 100), media(4, 2 * day + 500)];
-    const secondPage = [media(3, 2 * day + 10), media(2, day + 1), media(1, -1)];
-    const name = (start: number): string => String(start / day);
-
-    const groups = groupTimelineByDay([...firstPage, ...secondPage], false, name);
-    expect(groups.map(g => g.name)).toEqual(['3', '2', '1', '-1']);
-    expect(groups[1].media.map(m => m.id)).toEqual([4, 3]);
-  });
-
-  it('groups by local day when offsets are respected', () => {
-    const item = media(1, day - 60 * 60000);
-    item.metadata.creationDateOffset = '+02:00';
-    expect(groupTimelineByDay([item], true, String)[0].name).toBe(String(day));
-    expect(groupTimelineByDay([item], false, String)[0].name).toBe('0');
   });
 });

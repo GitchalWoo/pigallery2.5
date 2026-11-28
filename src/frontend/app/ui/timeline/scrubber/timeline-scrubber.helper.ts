@@ -35,7 +35,7 @@ const MIN_DOT_GAP = 0.022;
  * Years get labeled ticks (with collision avoidance), and months in tall spans
  * get evenly spaced subtle dots.
  */
-export function buildScrubberModel(summary: TimelineSummaryDTO | null): ScrubberModel {
+export function buildScrubberModel(summary: Pick<TimelineSummaryDTO, 'years'> | null): ScrubberModel {
   if (!summary?.years?.length) {
     return {buckets: [], ticks: []};
   }

@@ -120,18 +120,35 @@ describe('Grid and lightbox navigation', () => {
     cy.location('search').should('contain', 'p=bunny.mp4');
   });
 
-  it('keeps the Timeline scrubber and date headers working across a month jump', () => {
+  it('lays out the whole Timeline: the scrubber scrolls to a month and back, photo links know their month', () => {
     cy.request('/pgapi/gallery/content/');
     cy.visit('/timeline');
     const scrubber = '.timeline-scrubber[role="slider"]';
+    // a date header of this year on the screen
+    const headerOnScreen = (year: RegExp) => cy.get('app-gallery-grid .group-header', {timeout: 15000}).should(headers => {
+      const onScreen = [...headers].filter(h => {
+        const r = h.getBoundingClientRect();
+        return r.bottom > 0 && r.top < Cypress.config('viewportHeight');
+      });
+      expect(onScreen.map(h => h.textContent.trim()).join(' | ')).to.match(year);
+    });
     cy.get(scrubber, {timeout: 15000}).should(track => {
       expect(Number(track.attr('aria-valuemax'))).to.be.greaterThan(0);
-    }).focus();
+    });
+    cy.get('app-gallery-grid-photo', {timeout: 15000}).should('exist');
+    headerOnScreen(/2026/);
+
+    cy.get(scrubber).focus();
     cy.press(Cypress.Keyboard.Keys.END);
-    cy.location('search').should('match', /[?&]at=\d{4}-\d{2}/);
-    cy.get('app-gallery-grid .group-header', {timeout: 15000}).should('exist');
-    cy.go('back');
-    cy.location('search').should('equal', '');
+    headerOnScreen(/2008/);
+    cy.get('app-gallery-grid-photo img', {timeout: 15000}).should('be.visible');
+    cy.location('search', 'a scroll, not a reload').should('equal', '');
+
+    cy.press(Cypress.Keyboard.Keys.HOME);
+    headerOnScreen(/2026/);
     cy.get(scrubber).should('have.attr', 'aria-valuenow', '0');
+
+    cy.get('app-gallery-grid-photo a').first().click();
+    cy.location('search').should('match', /[?&]at=2026-\d{2}/).and('match', /[?&]p=/);
   });
 });

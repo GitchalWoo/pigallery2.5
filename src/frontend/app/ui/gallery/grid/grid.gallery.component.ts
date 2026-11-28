@@ -1,5 +1,6 @@
 import {
   AfterViewInit,
+  ChangeDetectorRef,
   Component,
   ElementRef,
   Injector,
@@ -19,7 +20,7 @@ import {
 } from '@angular/core';
 import type {LightboxGrid, LightboxGridTile} from '../lightbox/lightbox.gallery.component';
 import {GridMedia} from './GridMedia';
-import {GridLayout, GridLayoutParams, GridSegment} from './GridLayout';
+import {GridLayout, GridLayoutParams, GridPlaceholder, GridSegment} from './GridLayout';
 import {GridScroller} from './GridScroller';
 import {GalleryGridScrollLabelComponent} from './scroll-label/scroll-label.grid.gallery.component';
 import {GalleryPhotoComponent} from './photo/photo.grid.gallery.component';
@@ -63,6 +64,7 @@ export class GalleryGridComponent
   implements OnChanges, AfterViewInit, OnDestroy, LightboxGrid {
   private overlayService = inject(OverlayService);
   private injector = inject(Injector);
+  private changeDetector = inject(ChangeDetectorRef);
   queryService = inject(QueryService);
   sortingService = inject(GallerySortingService);
   navigatorService = inject(GalleryNavigatorService);
@@ -79,7 +81,12 @@ export class GalleryGridComponent
   readonly showInlineBlog = input(true);
   readonly showScrollLabel = input(true);
   readonly mediaIdFn = input<((media: MediaDTO) => string) | null>(null);
-  readonly extraQueryParams = input<Params>({});
+  // added to the link of each photo; a function gives each its own (e.g. the month of a Timeline photo)
+  readonly extraQueryParams = input<Params | ((media: MediaDTO) => Params)>({});
+  // the width / height of the grey tiles of the groups that are not loaded yet (see MediaGroup.placeholderCount)
+  readonly placeholderAspect = input<number | null>(null);
+  // new content (e.g. a loaded group above the screen) keeps what is on the screen where it is, see keepContent()
+  readonly keepContentAnchor = input(false);
   private readonly groupingSignal = signal<GroupingMethod>(
     this.sortingService.grouping?.value ?? {method: GroupByTypes.NoGrouping, ascending: true}
   );
@@ -127,6 +134,7 @@ export class GalleryGridComponent
     return new GridLayout(groups, {
       ...this.gridParams(),
       blogDates: this.blogDates(),
+      placeholderAspect: this.placeholderAspect() ?? undefined,
       width: width - this.overlayService.getPhantomScrollbarWidth(),
       screenHeight: this.screenHeight(),
       headerHeight: GalleryGridComponent.headerHeight
@@ -137,11 +145,15 @@ export class GalleryGridComponent
   readonly scroller = new GridScroller({
     height: () => this.layout()?.totalHeight ?? 0,
     top: () => this.getGridTop(),
-    afterRender: callback => afterNextRender(() => {
-      if (!this.destroyed) {
-        callback();
-      }
-    }, {injector: this.injector})
+    afterRender: callback => {
+      afterNextRender(() => {
+        if (!this.destroyed) {
+          callback();
+        }
+      }, {injector: this.injector});
+      // a scroll to the same lines changes nothing that renders: the callback would wait for the next scroll and undo it
+      this.changeDetector.markForCheck();
+    }
   });
   // the lines on and near the screen, only these are rendered
   private readonly range = computed((): { first: number, last: number } => {
@@ -202,7 +214,9 @@ export class GalleryGridComponent
           header: s.header,
           blog: s.blog,
           blogOpen: (s.group.date && openBlogs.get(s.group.date.getTime())) ?? Config.Gallery.InlineBlogStartsOpen,
-          tiles: s.media.map(tile)
+          tiles: s.media.map(tile),
+          placeholder: s.placeholder,
+          skeletons: s.placeholder ? GalleryGridComponent.skeletons(s.placeholder.count) : []
         }))
       }));
     }
@@ -234,6 +248,9 @@ export class GalleryGridComponent
   private shownTilesPath: string | null = null;
   private dragRenderTimer: number | null = null;
   private readonly scrollOffset = (): number => this.scroller.offset();
+  // the layout the content anchor was last kept in, see keepContent()
+  private previousLayout: GridLayout | null = null;
+  private static readonly skeletonArrays: number[][] = [];
 
   constructor() {
     const groupingSub = this.sortingService.grouping?.subscribe(g => {
@@ -275,6 +292,11 @@ export class GalleryGridComponent
         this.shownTiles.clear();
       }
     });
+    // before the template renders the new layout: the lines of the kept place are rendered right away
+    effect(() => {
+      const layout = this.layout();
+      untracked(() => this.keepContent(layout));
+    });
     // the lines are as high as they are rendered: a header, an inline blog or a cut directory path can differ from the estimate
     afterRenderEffect({
       read: () => {
@@ -287,6 +309,11 @@ export class GalleryGridComponent
 
   private static tileKey(m: MediaDTO): string {
     return m.directory?.path + '/' + m.directory?.name + '/' + m.name;
+  }
+
+  // the @for of the grey tiles of a row: the same array for the same count
+  private static skeletons(count: number): number[] {
+    return GalleryGridComponent.skeletonArrays[count] ??= Array.from({length: count}, (_, i) => i);
   }
 
   // the content can change the scrollbar and so the width
@@ -391,6 +418,34 @@ export class GalleryGridComponent
   /** First media visible at or below the navbar, also when virtualized; null if empty. */
   firstVisibleMedia(): MediaDTO | null {
     return this.layout()?.firstMediaAt(this.scroller.screenTop() + PageHelper.NavbarBottom) ?? null;
+  }
+
+  /** The first group visible at or below the navbar, also when virtualized; null if empty. */
+  firstVisibleGroup(): MediaGroup | null {
+    return this.layout()?.groupAt(this.scroller.viewport().top + PageHelper.NavbarBottom) ?? null;
+  }
+
+  /**
+   * The groups on the screen and the given number of screens above and below it, in grid order.
+   * The screen is where the page goes, if it waits for a render to scroll there.
+   */
+  groupsNear(screensAbove: number, screensBelow: number): MediaGroup[] {
+    const layout = this.layout();
+    if (!layout) {
+      return [];
+    }
+    const {top, height} = this.scroller.viewport();
+    return layout.groupsBetween(top - height * screensAbove, top + height * (1 + screensBelow));
+  }
+
+  /** Scrolls the group with this key (see MediaGroup.key) to the top of the screen, below the navbar. */
+  scrollToGroup(key: string): void {
+    const navbarBottom = PageHelper.NavbarBottom;
+    this.scroller.scrollToAfterRender(() => {
+      const layout = this.layout();
+      const group = layout?.groupByKey(key);
+      return group ? layout.groupTop(group) - navbarBottom : null;
+    });
   }
 
   /**
@@ -577,6 +632,64 @@ export class GalleryGridComponent
   }
 
   /**
+   * New content with the same geometry (e.g. a loaded group of grey tiles above the screen, see keepContentAnchor):
+   * what is on the top of the screen stays there. The page scrolls after the render, but the lines of that place
+   * are rendered at once.
+   */
+  private keepContent(layout: GridLayout | null): void {
+    const previous = this.previousLayout;
+    this.previousLayout = layout;
+    if (!this.keepContentAnchor() || !previous || !layout || previous === layout || this.destroyed ||
+      !this.isAfterViewInit || !previous.sameGeometry(layout)) {
+      return;
+    }
+    // the page still shows the previous layout
+    const y = this.scroller.screenTopIn(previous.totalHeight);
+    const resolve = GalleryGridComponent.anchorAt(previous, y);
+    const target = resolve?.(layout) ?? null;
+    if (target === null || Math.abs(target - y) < 0.5) {
+      return;
+    }
+    this.scroller.scrollToAfterRender(() => this.layout() === layout ? resolve(layout) : null);
+  }
+
+  /**
+   * The place at y (in the grid) of the layout, as a function that finds it in another layout; null if nothing to keep.
+   * A line of media: the same media. A group of grey tiles: its nearer edge (it is loaded from its top);
+   * once it is gone, the top of the group after it.
+   */
+  static anchorAt(layout: GridLayout, y: number): ((other: GridLayout) => number | null) | null {
+    if (y <= 0 || layout.length === 0) {
+      return null;
+    }
+    const media = layout.firstMediaAt(y);
+    if (media) {
+      const offset = y - layout.top(layout.lineOf(media));
+      return other => {
+        const line = other.lineOf(media);
+        return line === -1 ? null : other.top(line) + offset;
+      };
+    }
+    const group = layout.groupAt(y);
+    if (group?.key === undefined) {
+      return null;
+    }
+    const top = layout.groupTop(group);
+    const bottom = layout.groupBottom(group);
+    const fromTop = y - top <= bottom - y;
+    const next = layout.groupAfter(group);
+    const nextOffset = next ? y - layout.groupTop(next) : 0;
+    return other => {
+      const same = other.groupByKey(group.key);
+      if (same) {
+        return fromTop ? other.groupTop(same) + (y - top) : other.groupBottom(same) - (bottom - y);
+      }
+      const after = next?.key !== undefined ? other.groupByKey(next.key) : null;
+      return after ? other.groupTop(after) + nextOffset : null;
+    };
+  }
+
+  /**
    * Relayouts the grid (e.g. a new width) so that the first photo on the screen stays on the top of the screen.
    */
   private keepFirstVisibleMedia(relayout: () => void): void {
@@ -665,6 +778,9 @@ interface RenderedTile {
 interface RenderedSegment extends Omit<GridSegment, 'media'> {
   blogOpen: boolean;
   tiles: RenderedTile[];
+  placeholder?: GridPlaceholder;
+  // the @for of the grey tiles
+  skeletons: number[];
 }
 
 interface RenderedLine {

@@ -170,4 +170,33 @@ describe('GridLayout', () => {
     expect(layout.length).toBe(0);
     expect(layout.totalHeight).toBe(0);
   });
+
+  it('should lay out the grey tiles of a group that is not loaded as high as its media of the same shape', () => {
+    const shaped = {...params, placeholderAspect: 1.5};
+    const loaded = new GridLayout([{name: 'a', key: 'a', media: photos(23)}], shaped);
+    const grey = new GridLayout([{name: 'a', key: 'a', media: [], placeholderCount: 23}], shaped);
+
+    expect(grey.length).toBe(loaded.length);
+    expect(grey.totalHeight).toBeCloseTo(loaded.totalHeight, 1);
+    expect(grey.lines.reduce((count, l) => count + l.segments[0].placeholder!.count, 0)).toBe(23);
+    expect(grey.lines[0].segments[0].header).toBe(true);
+    expect(grey.firstMediaAt(0), 'no media to anchor to').toBeNull();
+    expect(grey.groupAt(0)?.key).toBe('a');
+  });
+
+  it('should find a group by its key, where its lines are and the groups near a place', () => {
+    const a: MediaGroup = {name: 'a', key: 'a', media: photos(20, 'a')};
+    const b: MediaGroup = {name: 'b', key: 'b', media: [], placeholderCount: 3};
+    const c: MediaGroup = {name: 'c', key: 'c', media: photos(20, 'c')};
+    const layout = new GridLayout([a, b, c], params);
+
+    expect(layout.groupByKey('b')).toBe(b);
+    expect(layout.groupTop(a)).toBe(0);
+    expect(layout.groupBottom(a)).toBeCloseTo(layout.groupTop(b)!);
+    expect(layout.groupAfter(b)).toBe(c);
+    expect(layout.groupsBetween(layout.groupTop(b)!, layout.groupBottom(b)! + 1)).toEqual([b, c]);
+    expect(layout.lines.find(l => l.segments[0].group === b)!.segments[0].key, 'stable DOM keys').toBe('b-0');
+    expect(layout.sameGeometry(new GridLayout([c], {...params, placeholderAspect: 2}))).toBe(true);
+    expect(layout.sameGeometry(new GridLayout([c], {...params, width: 900}))).toBe(false);
+  });
 });
