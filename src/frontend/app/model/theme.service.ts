@@ -27,9 +27,11 @@ export class ThemeService {
           this.applyMode(darkMode);
         }
     );
+    this.syncThemeColorOnStylesheetLoad();
   }
 
   private modeListener?: (event: MediaQueryListEvent) => void;
+  private stylesheetSyncRegistered = false;
 
   listenToModePreference() {
     if (this.mode !== ThemeModes.auto) {
@@ -59,9 +61,28 @@ export class ThemeService {
         document.documentElement.removeAttribute('data-bs-theme');
       }
     }
+    this.syncThemeColor();
+  }
+
+  syncThemeColor() {
     const background = getComputedStyle(document.body).backgroundColor;
     if (background && background !== 'transparent' && background !== 'rgba(0, 0, 0, 0)') {
       document.querySelector('meta[name="theme-color"]')?.setAttribute('content', background);
+    }
+  }
+
+  private syncThemeColorOnStylesheetLoad() {
+    if (this.stylesheetSyncRegistered) {
+      return;
+    }
+    this.stylesheetSyncRegistered = true;
+    document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]').forEach((link) => {
+      if (!link.sheet) {
+        link.addEventListener('load', () => this.syncThemeColor(), {once: true});
+      }
+    });
+    if (document.readyState !== 'complete') {
+      window.addEventListener('load', () => this.syncThemeColor(), {once: true});
     }
   }
 
