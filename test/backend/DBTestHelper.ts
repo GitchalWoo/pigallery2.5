@@ -8,7 +8,7 @@ import {DirectoryBaseDTO, ParentDirectoryDTO, SubDirectoryDTO} from '../../src/c
 import {ObjectManagers} from '../../src/backend/model/ObjectManagers';
 import {DiskManager} from '../../src/backend/model/fileaccess/DiskManager';
 import {GalleryManager} from '../../src/backend/model/database/GalleryManager';
-import {Connection} from 'typeorm';
+import {DataSource} from 'typeorm';
 import {Utils} from '../../src/common/Utils';
 import {TestHelper} from '../TestHelper';
 import {VideoDTO} from '../../src/common/entities/VideoDTO';
@@ -27,11 +27,11 @@ const savedDescribe = describe;
 
 class GalleryManagerTest extends GalleryManager {
 
-  public async getDirIdAndTime(connection: Connection, directoryName: string, directoryParent: string) {
+  public async getDirIdAndTime(connection: DataSource, directoryName: string, directoryParent: string) {
     return super.getDirIdAndTime(connection, directoryName, directoryParent);
   }
 
-  public async getParentDirFromId(connection: Connection, session: SessionContext, dir: number): Promise<ParentDirectoryDTO> {
+  public async getParentDirFromId(connection: DataSource, session: SessionContext, dir: number): Promise<ParentDirectoryDTO> {
     return super.getParentDirFromId(connection, session, dir);
   }
 
@@ -285,7 +285,7 @@ export class DBTestHelper {
     await SQLConnection.close();
   }
 
-  private static async getMysqlSchemaFingerprint(conn: Connection): Promise<string> {
+  private static async getMysqlSchemaFingerprint(conn: DataSource): Promise<string> {
     const db = conn.options.database;
     const columns = await conn.query(
       'SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLLATION_NAME, EXTRA ' +
@@ -309,7 +309,7 @@ export class DBTestHelper {
     if (DBTestHelper.mysqlSchemaFingerprint === null) {
       return false;
     }
-    let conn: Connection;
+    let conn: DataSource;
     try {
       conn = await SQLConnection.getConnection();
       const versions = await conn.getRepository(VersionEntity).find();

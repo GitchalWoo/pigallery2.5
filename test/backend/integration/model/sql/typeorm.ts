@@ -20,7 +20,7 @@ import {VersionEntity} from '../../../../../src/backend/model/database/enitites/
 import {DatabaseType} from '../../../../../src/common/config/private/PrivateConfig';
 import {ProjectPath} from '../../../../../src/backend/ProjectPath';
 import {TestHelper} from '../../../../TestHelper';
-import {DataSource} from 'typeorm';
+import {Column, DataSource, Entity, PrimaryGeneratedColumn} from 'typeorm';
 import {DataStructureVersion} from '../../../../../src/common/DataStructureVersion';
 import {rejects} from 'assert';
 import {request} from 'chai-http';
@@ -341,6 +341,51 @@ describe('Typeorm integration', () => {
     expect(foundUsers.length).to.equal(1);
   });
 
+  it('addEntries should sync only extension tables without rebuilding existing core tables or legacy indexes', async () => {
+    @Entity('test_ext_entry')
+    class TestExtEntity {
+      @PrimaryGeneratedColumn()
+      id: number;
+
+      @Column()
+      label: string;
+    }
+
+    const conn = await SQLConnection.getConnection();
+    const user = await conn.getRepository(UserEntity).save({
+      name: 'ext user', password: PasswordHelper.cryptPassword('test'), role: UserRoles.User
+    });
+    await conn.getRepository(SharingEntity).save({
+      sharingKey: 'ext-share', creator: user, searchQuery: {value: '/', type: 100} as any,
+      expires: Date.now() + 100000, timeStamp: Date.now()
+    });
+    await conn.query('ALTER TABLE "user_entity" ADD COLUMN "legacyNote" TEXT');
+    await conn.query('UPDATE "user_entity" SET "legacyNote" = ?', ['keep-me']);
+    await conn.query('CREATE INDEX "IDX_legacy03_user" ON "user_entity" ("name")');
+
+    const originalEntries = SQLConnection.getEntries().slice();
+    try {
+      await SQLConnection.addEntries([TestExtEntity]);
+      // Calling a second time exercises the existing-table branch.
+      await SQLConnection.addEntries([TestExtEntity]);
+
+      const extConn = await SQLConnection.getConnection();
+      await extConn.getRepository(TestExtEntity).save({label: 'hello ext'});
+      const extRows = await extConn.getRepository(TestExtEntity).find();
+      expect(extRows.map(r => r.label)).to.deep.equal(['hello ext']);
+
+      const notes = await extConn.query('SELECT "legacyNote" AS note FROM "user_entity"');
+      expect(notes.map((r: {note: string}) => r.note)).to.deep.equal(['keep-me']);
+      const idx = await extConn.query("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'IDX_legacy03_user'");
+      expect(idx).to.have.length(1);
+      expect((await extConn.getRepository(SharingEntity).findBy({sharingKey: 'ext-share'})).length).to.equal(1);
+      expect(await extConn.query('PRAGMA integrity_check')).to.deep.equal([{integrity_check: 'ok'}]);
+    } finally {
+      await SQLConnection.close();
+      (SQLConnection as unknown as {entries: unknown[]}).entries = originalEntries;
+    }
+  });
+
   it('AUD8: should generate random admin bootstrap credentials when not in test mode', async () => {
     const originalEnv = process.env.NODE_ENV;
     const originalWarn = Config.Users.suppressDefUserWarn;
@@ -382,21 +427,30 @@ describe('Typeorm integration', () => {
 
   it('should open and close connection', async () => {
     const conn = await SQLConnection.getConnection();
-    expect(conn.isConnected).to.equal(true);
+    expect(conn.isInitialized).to.equal(true);
     await SQLConnection.close();
-    expect(conn.isConnected).to.equal(false);
+    expect(conn.isInitialized).to.equal(false);
   });
 
   it('should open and close connection twice', async () => {
     let conn = await SQLConnection.getConnection();
-    expect(conn.isConnected).to.equal(true);
+    expect(conn.isInitialized).to.equal(true);
     await SQLConnection.close();
-    expect(conn.isConnected).to.equal(false);
+    expect(conn.isInitialized).to.equal(false);
 
     conn = await SQLConnection.getConnection();
-    expect(conn.isConnected).to.equal(true);
+    expect(conn.isInitialized).to.equal(true);
     await SQLConnection.close();
-    expect(conn.isConnected).to.equal(false);
+    expect(conn.isInitialized).to.equal(false);
+  });
+
+  it('should try a connection twice, also while the app is connected', async () => {
+    const conn = await SQLConnection.getConnection();
+    expect(await SQLConnection.tryConnection(Config.Database)).to.equal(true);
+    expect(await SQLConnection.tryConnection(Config.Database)).to.equal(true);
+    // the tried connection is a separate one
+    expect(conn.isInitialized).to.equal(true);
+    expect((await conn.getRepository(VersionEntity).find()).length).to.equal(1);
   });
 
   it('should add a user', async () => {
@@ -479,12 +533,12 @@ describe('Typeorm integration', () => {
     photo.directory = dir2;
     await await conn.getRepository(PhotoEntity).save(photo);
     await SQLConnection.close();
-    expect(conn.isConnected).to.equal(false);
+    expect(conn.isInitialized).to.equal(false);
 
     conn = await SQLConnection.getConnection();
-    expect(conn.isConnected).to.equal(true);
+    expect(conn.isInitialized).to.equal(true);
     await SQLConnection.close();
-    expect(conn.isConnected).to.equal(false);
+    expect(conn.isInitialized).to.equal(false);
   });
 
 });
