@@ -1,6 +1,49 @@
 # Timeline implementation plan
 
-Status: Milestones 1–2 and proportional Timeline Scrubber + virtualized grid (`GridLayout`/`GridScroller`/`GridScrollWindow`/`LightboxGrid`) are implemented and verified (2026-11-21). See "Work split and status" for per-task progress.
+Status: Milestones 1–2 and proportional Timeline Scrubber + virtualized grid (`GridLayout`/`GridScroller`/`GridScrollWindow`/`LightboxGrid`) are implemented and verified (2026-11-21). The continuous timeline (task 16: the whole timeline laid out from per-day counts, scrolling both ways from anywhere) replaced month-jump paging on 2026-11-28; see "Continuous timeline". The sections below it describe the original v1 design; where they disagree, "Continuous timeline" is current. See "Work split and status" for per-task progress.
+
+## Continuous timeline (2026-11-28)
+
+The first version reset the list at a month jump (`before` = month end) and
+paged only downwards, so newer media above the jump target could not be
+scrolled to. Now the page holds the whole timeline from the start, like a
+photo app:
+
+- **API.** `GET /timeline/summary` also returns `days: [day, count][]`, newest
+  first (`day = floor(effectiveTime / 86400000)`, the grid's day groups).
+  `GET /timeline/media` takes an optional inclusive `since` (effective time,
+  combinable with `before` or a cursor); the scan stops 14 h below it, as it
+  starts 14 h above `before`.
+- **Store.** `TimelineStore.days` holds one entry per day of the summary:
+  `empty` (count only), `partial` (its newest media plus the cursor to
+  continue) or `complete`. `ensureLoaded(days)` loads one page from the top
+  incomplete day of those given, down to the next loaded day (`since`), so a
+  page fills a gap and never refetches. Media of a day the summary does not
+  know (indexed since) get a day of their own. A refreshed summary (new
+  gallery version, refreshed automatically) keeps the complete days whose
+  count did not change; the rest are loaded again when they get near the
+  screen. There is no "New photos" notice anymore.
+- **Grid.** A day that is not loaded is a group with its real date header and
+  `placeholderCount` grey tiles (`MediaGroup.placeholderCount`), laid out like
+  media of the average aspect ratio of the first loaded page, so the page
+  height is close to the final one. `MediaGroup.key` keeps lines (and their
+  DOM) stable across loads. With `keepContentAnchor`, new content keeps what is
+  on the top of the screen in place (`GalleryGridComponent.anchorAt()`): the
+  same media, or the nearer edge of a group of grey tiles (the group after it
+  once it is gone). The correction is applied before the template renders, so
+  the right lines are rendered at once.
+- **Loading.** The days within 1 screen above and 1.5 screens below the screen
+  are loaded once the scroll rests for 120 ms (at least every 400 ms while it
+  scrolls on), never while the scrubber is dragged.
+- **Scrubber.** Picking or dragging a month scrolls the page to its newest day;
+  dragging scrolls live. No reload and no history entry per jump.
+- **URL.** `?at=YYYY-MM` is a one-time deep link to a month (Back restores the
+  scroll position instead). Photo links carry the month of the photo
+  (`at` + `p`), so a reload loads that month and opens the photo.
+- **Lightbox.** It steps through the run of loaded days around the open photo;
+  `LightboxGrid.hasPrevious` / `loadPrevious()` load the day above the run, as
+  `loadMore()` loads the day below.
+- Loaded days stay in memory for the session (Techdebt T10).
 
 ## Goal
 
@@ -295,7 +338,7 @@ Status legend: `todo`, `in progress`, `review`, `done`.
 | 13 | Year/month rail, mobile picker, `?at=YYYY-MM` | 2 | Medium | Opus | done |
 | 14 | Proportional Timeline Scrubber (`<app-timeline-scrubber>`) + virtualized grid (`GridLayout`/`GridScroller`/`GridScrollWindow`) + `LightboxGrid` | 2–4 | Medium–high | Ported from `Gitchalwoo/timeline` + upstream `#1384`/`#1369`/`#1394`–`#1397` | done |
 | 15 | Dense justified layout, thumbnail-size control | 3 | UI design | Opus (iterating with maintainer) | deferred |
-| 16 | Upward paging after `?at=`, bounded page caches, deep-link anchors for unloaded pages | 4 | As measured | Opus | deferred |
+| 16 | Continuous timeline: per-day summary, `since` bound, grey-tile layout, scroll both ways, live scrubber, deep links by month (bounded caches: Techdebt T10) | 4 | High | Opus | done |
 
 Luna progress (2026-10-04): Tasks 1 and 3 are complete; task 2 is implemented
 and its paging tests are ready for Opus review. Tasks 4 and 5 are implemented,
