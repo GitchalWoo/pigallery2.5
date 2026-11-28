@@ -4,7 +4,7 @@ import {SQLConnection} from '../../../../../src/backend/model/database/SQLConnec
 import {GalleryManager} from '../../../../../src/backend/model/database/GalleryManager';
 import {DirectoryBaseDTO, DirectoryDTOUtils, ParentDirectoryDTO} from '../../../../../src/common/entities/DirectoryDTO';
 import {TestHelper} from '../../../../TestHelper';
-import {Connection, EntityTarget, ObjectLiteral} from 'typeorm';
+import {DataSource, EntityTarget, ObjectLiteral} from 'typeorm';
 import {Utils} from '../../../../../src/common/Utils';
 import {MediaDTO} from '../../../../../src/common/entities/MediaDTO';
 import {FileDTO} from '../../../../../src/common/entities/FileDTO';
@@ -37,11 +37,11 @@ const {expect} = chai;
 
 class GalleryManagerTest extends GalleryManager {
 
-  public async getDirIdAndTime(connection: Connection, directoryName: string, directoryParent: string) {
+  public async getDirIdAndTime(connection: DataSource, directoryName: string, directoryParent: string) {
     return super.getDirIdAndTime(connection, directoryName, directoryParent);
   }
 
-  public async getParentDirFromId(connection: Connection, session: SessionContext, dir: number): Promise<ParentDirectoryDTO> {
+  public async getParentDirFromId(connection: DataSource, session: SessionContext, dir: number): Promise<ParentDirectoryDTO> {
     return super.getParentDirFromId(connection, session, dir);
   }
 }
@@ -228,8 +228,8 @@ describe('IndexingManager', (sqlHelper: DBTestHelper) => {
         const db = await SQLConnection.getConnection();
         const media = db.getRepository(MediaEntity);
         const metadata = db.getRepository(FileEntity);
-        const indexedMedia = await media.find({select: ['id', 'name']});
-        const indexedMetadata = await metadata.find({select: ['id', 'name']});
+        const indexedMedia = await media.find({select: {id: true, name: true}});
+        const indexedMetadata = await metadata.find({select: {id: true, name: true}});
         expect([...indexedMedia, ...indexedMetadata].map(file => file.name)).to.deep.equal([name]);
 
         fs.renameSync(root, path.join(fixture, 'detached'));
@@ -241,8 +241,8 @@ describe('IndexingManager', (sqlHelper: DBTestHelper) => {
           failure = error;
         }
         expect(failure?.message).to.match(/Root directory is empty/);
-        expect(await media.find({select: ['id', 'name']})).to.deep.equal(indexedMedia);
-        expect(await metadata.find({select: ['id', 'name']})).to.deep.equal(indexedMetadata);
+        expect(await media.find({select: {id: true, name: true}})).to.deep.equal(indexedMedia);
+        expect(await metadata.find({select: {id: true, name: true}})).to.deep.equal(indexedMetadata);
       });
     }
   });

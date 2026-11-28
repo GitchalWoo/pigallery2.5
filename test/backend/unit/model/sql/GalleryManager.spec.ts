@@ -5,7 +5,7 @@ import {ProjectPath} from '../../../../../src/backend/ProjectPath';
 import {GalleryManager} from '../../../../../src/backend/model/database/GalleryManager';
 import {DirectoryBaseDTO, ParentDirectoryDTO} from '../../../../../src/common/entities/DirectoryDTO';
 import {TestHelper} from '../../../../TestHelper';
-import {Connection} from 'typeorm';
+import {DataSource} from 'typeorm';
 import {SessionUser, SessionContext} from '../../../../../src/backend/model/SessionContext';
 import {
   DirectorySearch,
@@ -41,11 +41,11 @@ describe = DBTestHelper.describe();
 
 class GalleryManagerTest extends GalleryManager {
 
-  public async getDirIdAndTime(connection: Connection, directoryName: string, directoryParent: string) {
+  public async getDirIdAndTime(connection: DataSource, directoryName: string, directoryParent: string) {
     return super.getDirIdAndTime(connection, directoryName, directoryParent);
   }
 
-  public async getParentDirFromId(connection: Connection, session: SessionContext, dir: number, withMetaFiles = true): Promise<ParentDirectoryDTO> {
+  public async getParentDirFromId(connection: DataSource, session: SessionContext, dir: number, withMetaFiles = true): Promise<ParentDirectoryDTO> {
     return super.getParentDirFromId(connection, session, dir, withMetaFiles);
   }
 }
@@ -54,7 +54,7 @@ describe('GalleryManager', (sqlHelper: DBTestHelper) => {
   describe = tmpDescribe;
 
   let galleryManager: GalleryManagerTest;
-  let connection: Connection;
+  let connection: DataSource;
 
   before(async () => {
     await sqlHelper.initDB();
@@ -537,7 +537,7 @@ describe('GalleryManager', (sqlHelper: DBTestHelper) => {
   });
 
   describe('Directory allow/block list', async () => {
-    let conn: Connection;
+    let conn: DataSource;
     let gm: GalleryManagerTest;
 
     const dq = (value: string, matchType = TextSearchQueryMatchTypes.exact_match, negate = false): DirectorySearch =>

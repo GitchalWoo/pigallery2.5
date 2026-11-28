@@ -22,7 +22,7 @@ describe('Entity column collation', () => {
     Config.Database.type = type;
     // Only builds the metadata, does not connect.
     const dataSource = new DataSource(type === DatabaseType.mysql
-      ? {type: 'mysql', connectorPackage: 'mysql2', database: 'collation_check', entities: SQLConnection.getEntries()}
+      ? {type: 'mysql', database: 'collation_check', entities: SQLConnection.getEntries()}
       : {type: 'better-sqlite3', database: ':memory:', entities: SQLConnection.getEntries()});
     await (dataSource as unknown as { buildMetadatas(): Promise<void> }).buildMetadatas();
     const media = dataSource.getMetadata(MediaEntity);

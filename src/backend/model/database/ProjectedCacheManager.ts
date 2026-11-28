@@ -1,4 +1,4 @@
-import {Brackets, Connection} from 'typeorm';
+import {Brackets, DataSource} from 'typeorm';
 import {SQLConnection} from './SQLConnection';
 import {ProjectedDirectoryCacheEntity} from './enitites/ProjectedDirectoryCacheEntity';
 import {ProjectedAlbumCacheEntity} from './enitites/album/ProjectedAlbumCacheEntity';
@@ -118,7 +118,7 @@ export class ProjectedCacheManager implements IObjectManager {
 
 
   @ExtensionDecorator(e => e.gallery.ProjectedCacheManager.getCacheForDirectory)
-  public async getCacheForDirectory(connection: Connection, session: SessionContext, dir: {
+  public async getCacheForDirectory(connection: DataSource, session: SessionContext, dir: {
     id: number,
     name: string,
     path: string
@@ -205,7 +205,7 @@ export class ProjectedCacheManager implements IObjectManager {
     return row;
   }
 
-  public async setAndGetCacheForDirectory(connection: Connection, session: SessionContext, dir: {
+  public async setAndGetCacheForDirectory(connection: DataSource, session: SessionContext, dir: {
     id: number,
     name: string,
     path: string
@@ -223,7 +223,7 @@ export class ProjectedCacheManager implements IObjectManager {
     return ret;
   }
 
-  public async setAndGetCacheForAlbum(connection: Connection, session: SessionContext, album: {
+  public async setAndGetCacheForAlbum(connection: DataSource, session: SessionContext, album: {
     name: string,
     id: number,
     searchQuery: any

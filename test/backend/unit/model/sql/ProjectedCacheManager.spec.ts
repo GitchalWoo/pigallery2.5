@@ -1,6 +1,6 @@
 import {mock} from 'node:test';
 import {DBTestHelper} from '../../../DBTestHelper';
-import {Connection} from 'typeorm';
+import {DataSource} from 'typeorm';
 import {SQLConnection} from '../../../../../src/backend/model/database/SQLConnection';
 import {ProjectedCacheManager} from '../../../../../src/backend/model/database/ProjectedCacheManager';
 import {DirectoryEntity} from '../../../../../src/backend/model/database/enitites/DirectoryEntity';
@@ -38,7 +38,7 @@ const tmpDescribe = describe;
 describe = DBTestHelper.describe();
 describe('ProjectedCacheManager', (sqlHelper: DBTestHelper) => {
   describe = tmpDescribe;
-  let connection: Connection;
+  let connection: DataSource;
   let pcm: ProjectedCacheManager;
 
   const setup = async () => {

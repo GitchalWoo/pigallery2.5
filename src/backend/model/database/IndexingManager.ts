@@ -4,7 +4,7 @@ import {SQLConnection} from './SQLConnection';
 import {PhotoEntity, PhotoMetadataEntity} from './enitites/PhotoEntity';
 import {Utils} from '../../../common/Utils';
 import {PhotoMetadata,} from '../../../common/entities/PhotoDTO';
-import {Connection, ObjectLiteral, Repository} from 'typeorm';
+import {DataSource, ObjectLiteral, Repository} from 'typeorm';
 import {MediaEntity} from './enitites/MediaEntity';
 import {MediaDTO, MediaDTOUtils} from '../../../common/entities/MediaDTO';
 import {VideoEntity} from './enitites/VideoEntity';
@@ -229,7 +229,7 @@ export class IndexingManager {
   }
 
   protected async saveParentDir(
-    connection: Connection,
+    connection: DataSource,
     scannedDirectory: ParentDirectoryDTO
   ): Promise<number> {
     const directoryRepository = connection.getRepository(DirectoryEntity);
@@ -260,7 +260,7 @@ export class IndexingManager {
   }
 
   protected async saveChildDirs(
-    connection: Connection,
+    connection: DataSource,
     currentDirId: number,
     scannedDirectory: ParentDirectoryDTO
   ): Promise<void> {
@@ -319,7 +319,7 @@ export class IndexingManager {
   }
 
   protected async saveMetaFiles(
-    connection: Connection,
+    connection: DataSource,
     currentDirID: number,
     scannedDirectory: ParentDirectoryDTO
   ): Promise<void> {
@@ -374,7 +374,7 @@ export class IndexingManager {
   }
 
   protected async saveMedia(
-    connection: Connection,
+    connection: DataSource,
     parentDirId: number,
     media: MediaDTO[]
   ): Promise<void> {
@@ -476,7 +476,7 @@ export class IndexingManager {
   }
 
   protected async savePersonsToMedia(
-    connection: Connection,
+    connection: DataSource,
     parentDirId: number,
     scannedFaces: { name: string; mediaId: number }[]
   ): Promise<void> {

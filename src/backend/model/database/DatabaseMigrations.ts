@@ -1,4 +1,4 @@
-import {Connection} from 'typeorm';
+import {DataSource} from 'typeorm';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import {UserEntity} from './enitites/UserEntity';
@@ -11,7 +11,7 @@ const LOG_TAG = '[DatabaseMigrations]';
 
 /** Versioned schema upgrades and backups, run before application queries. */
 export class DatabaseMigrations {
-  public static async run(connection: Connection): Promise<void> {
+  public static async run(connection: DataSource): Promise<void> {
     let version = null;
     try {
       version = (await connection.getRepository(VersionEntity).find())[0];
@@ -59,7 +59,7 @@ export class DatabaseMigrations {
     }
   }
 
-  private static async backupSQLite(connection: Connection): Promise<void> {
+  private static async backupSQLite(connection: DataSource): Promise<void> {
     if (connection.options.type !== 'better-sqlite3' || connection.options.database === ':memory:') {
       return;
     }
@@ -79,7 +79,7 @@ export class DatabaseMigrations {
     }
   }
 
-  private static async migrateOIDCIdentity(connection: Connection, version: VersionEntity): Promise<void> {
+  private static async migrateOIDCIdentity(connection: DataSource, version: VersionEntity): Promise<void> {
     const runner = connection.createQueryRunner();
     const sqlite = connection.options.type === 'better-sqlite3';
     try {
@@ -120,7 +120,7 @@ export class DatabaseMigrations {
    * searchQuery of the sharings becomes nullable (a sharing can be a directory sharing only):
    * SQLite can't change a column, the sharing table is rebuilt with its rows.
    */
-  private static async migrateDirectoryAccess(connection: Connection, version: VersionEntity): Promise<void> {
+  private static async migrateDirectoryAccess(connection: DataSource, version: VersionEntity): Promise<void> {
     const runner = connection.createQueryRunner();
     const sqlite = connection.options.type === 'better-sqlite3';
     const escape = (name: string) => connection.driver.escape(name);
@@ -186,7 +186,7 @@ export class DatabaseMigrations {
     }
   }
 
-  private static async migrateSharingDownloads(connection: Connection, version: VersionEntity): Promise<void> {
+  private static async migrateSharingDownloads(connection: DataSource, version: VersionEntity): Promise<void> {
     const runner = connection.createQueryRunner();
     const escape = (name: string) => connection.driver.escape(name);
     try {

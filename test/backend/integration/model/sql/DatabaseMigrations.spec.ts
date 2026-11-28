@@ -105,7 +105,7 @@ describe('DatabaseMigrations 44 -> 45', (sqlHelper: DBTestHelper) => {
 
     const migrated = await reopen();
     expect((await migrated.getRepository(VersionEntity).find())[0].version).to.equal(46);
-    const rows = await migrated.getRepository(SharingEntity).find({relations: ['creator'], order: {id: 'ASC'}});
+    const rows = await migrated.getRepository(SharingEntity).find({relations: {creator: true}, order: {id: 'ASC'}});
     expect(rows.map(s => [s.id, s.sharingKey, s.password, s.expires, s.timeStamp, s.creator.id, s.preventDownload]))
       .to.deep.equal(sharings.map(s => [s.id, s.sharingKey, s.password, s.expires, s.timeStamp, user.id, false]));
   });
@@ -126,7 +126,7 @@ describe('DatabaseMigrations 44 -> 45', (sqlHelper: DBTestHelper) => {
     expect(migratedUser.allowDirectoryList).to.equal(null);
     expect(migratedUser.blockDirectoryList).to.equal(null);
 
-    const migratedSharings = await migrated.getRepository(SharingEntity).find({relations: ['creator'], order: {id: 'ASC'}});
+    const migratedSharings = await migrated.getRepository(SharingEntity).find({relations: {creator: true}, order: {id: 'ASC'}});
     expect(migratedSharings.map(s => [s.id, s.sharingKey, s.password, s.expires, s.timeStamp, s.creator.id]))
       .to.deep.equal(sharings.map(s => [s.id, s.sharingKey, s.password, s.expires, s.timeStamp, user.id]));
     for (const s of migratedSharings) {
