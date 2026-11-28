@@ -120,6 +120,22 @@ describe('TimelineManager', (sqlHelper: DBTestHelper) => {
     expect(new Set(items.map(item => item.id)).size).to.equal(items.length);
   });
 
+  it('bounds a page by before and an inclusive since, like one day of the summary', async () => {
+    const day = Math.floor((Date.UTC(2015, 5, 1, 12) + 2 * 3600000) / 86400000);
+    const since = day * 86400000;
+    const page = await manager.getMediaPage(DBTestHelper.defaultSession, {
+      limit: 10,
+      before: since + 86400000,
+      since,
+    });
+    expect(page.media.map(item => item.name).sort()).to.deep.equal(['first.jpg', 'tied.jpg']);
+    expect(page.next).to.equal(null);
+
+    const first = await manager.getMediaPage(DBTestHelper.defaultSession, {limit: 1, before: since + 86400000, since});
+    const rest = await manager.getMediaPage(DBTestHelper.defaultSession, {limit: 10, cursor: first.next!, since});
+    expect([...first.media, ...rest.media].map(item => item.id)).to.deep.equal(page.media.map(item => item.id));
+  });
+
   it('applies media-level projection to pages and summary counts', async () => {
     const connection = await SQLConnection.getConnection();
     const allowed = await connection.getRepository(MediaEntity).findOneByOrFail({
@@ -149,7 +165,10 @@ describe('TimelineManager', (sqlHelper: DBTestHelper) => {
     const page = await manager.getMediaPage(session, {limit: 10});
     const summary = await manager.getSummary(session);
     expect(page.media.map(item => item.name)).to.deep.equal(['other.jpg']);
-    expect(summary).to.deep.equal({years: [{year: 2016, months: [{month: 1, count: 1}]}]});
+    expect(summary).to.deep.equal({
+      years: [{year: 2016, months: [{month: 1, count: 1}]}],
+      days: [[Date.UTC(2016, 0, 1) / 86400000, 1]],
+    });
   });
 
   it('attaches a permitted companion video and hides it from the listing', async () => {
@@ -255,13 +274,21 @@ describe('TimelineManager', (sqlHelper: DBTestHelper) => {
         cursor = page.next;
       }
       const expected: Record<string, number> = {};
+      const expectedDays = new Map<number, number>();
       for (const item of items) {
-        const date = new Date(getTimelineEffectiveTime(item, ignoreTimestampOffset));
+        const time = getTimelineEffectiveTime(item, ignoreTimestampOffset);
+        const date = new Date(time);
         const key = `${date.getUTCFullYear()}-${date.getUTCMonth() + 1}`;
         expected[key] = (expected[key] || 0) + 1;
+        const day = Math.floor(time / 86400000);
+        expectedDays.set(day, (expectedDays.get(day) || 0) + 1);
       }
+      const summary = await manager.getSummary(DBTestHelper.defaultSession);
+      expect(summary.days, 'days, newest first').to.deep.equal(
+        [...expectedDays.entries()].sort(([left], [right]) => right - left)
+      );
       const actual: Record<string, number> = {};
-      for (const year of (await manager.getSummary(DBTestHelper.defaultSession)).years) {
+      for (const year of summary.years) {
         for (const month of year.months) {
           actual[`${year.year}-${month.month}`] = month.count;
         }
@@ -332,7 +359,7 @@ describe('TimelineManager', (sqlHelper: DBTestHelper) => {
     (job as any).progress = new JobProgress(job.Name, job.Name, '[test]');
     await (job as any).step();
 
-    expect(await manager.getSummary(DBTestHelper.defaultSession)).to.deep.equal({years: []});
+    expect(await manager.getSummary(DBTestHelper.defaultSession)).to.deep.equal({years: [], days: []});
     expect((await manager.getMediaPage(DBTestHelper.defaultSession, {limit: 10})).media).to.be.empty;
     expect(await ObjectManagers.getInstance().VersionManager.getDataVersion()).to.not.equal(versionBefore);
   });

@@ -59,6 +59,8 @@ describe('TimelineMWs', () => {
       {before: '100', from: '90', after: '1'},
       {before: '9007199254740992'},
       {from: '8640000000000001', after: '1'},
+      {since: 'yesterday'},
+      {since: '8640000000000001'},
     ];
     for (const query of invalidQueries) {
       let status = 200;
