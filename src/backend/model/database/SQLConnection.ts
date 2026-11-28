@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import {DataSource, DataSourceOptions, LoggerOptions,} from 'typeorm';
+import {DataSource, DataSourceOptions, LoggerOptions, Table,} from 'typeorm';
 import {UserEntity} from './enitites/UserEntity';
 import {UserRoles} from '../../../common/entities/UserDTO';
 import {PhotoEntity} from './enitites/PhotoEntity';
@@ -77,7 +77,28 @@ export class SQLConnection {
     }
     await this.close();
     this.entries = Utils.getUnique(this.entries.concat(tables));
-    await (await this.getConnection()).synchronize();
+    const conn = await this.getConnection();
+    // Synchronize only the passed extension tables so pre-existing core tables
+    // and TypeORM 0.3 index/FK names are never dropped or rebuilt.
+    const queryRunner = conn.createQueryRunner();
+    try {
+      for (const table of tables) {
+        const metadata = conn.getMetadata(table);
+        const desired = Table.create(metadata, conn.driver);
+        const existing = await queryRunner.getTable(metadata.tableName);
+        if (!existing) {
+          await queryRunner.createTable(desired, true, true, true);
+        } else {
+          for (const col of desired.columns) {
+            if (!existing.findColumnByName(col.name)) {
+              await queryRunner.addColumn(existing, col);
+            }
+          }
+        }
+      }
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   public static async getConnection(): Promise<DataSource> {
