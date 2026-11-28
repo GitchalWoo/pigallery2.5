@@ -412,6 +412,10 @@ export interface MediaGroup {
   directoryPath?: string; // the directory of the media, when grouped by directory
   startsNewLine?: boolean; // the grid does not put it on the line of the previous group
   media: MediaDTO[];
+  // stays the same when the content changes (e.g. the day of a Timeline group): the DOM of its lines is kept
+  key?: string;
+  // media that are not loaded yet (with no media): the grid shows this many grey tiles instead
+  placeholderCount?: number;
 }
 
 export interface GroupedDirectoryContent {

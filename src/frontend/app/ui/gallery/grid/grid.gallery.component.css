@@ -35,6 +35,27 @@ app-gallery-grid-photo {
     cursor: pointer;
 }
 
+/* a media that is not loaded yet */
+.grid-skeleton {
+    display: inline-block;
+    vertical-align: top;
+    border-radius: 2px;
+    background-color: var(--bs-secondary-bg);
+    animation: grid-skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes grid-skeleton-pulse {
+    50% {
+        opacity: 0.55;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .grid-skeleton {
+        animation: none;
+    }
+}
+
 /* like the blog: the directory path does not widen the group past its photos, it is cut instead */
 .directory-header {
     contain: inline-size;

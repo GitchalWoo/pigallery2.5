@@ -600,6 +600,32 @@ describe('GalleryLightboxComponent', () => {
       expect(photoParam()).toBe('photo4.jpg');
     });
 
+    it('loads media before the first one and steps back to it', async () => {
+      const newer = createMockPhoto('photo0.jpg', 9);
+      const hasPrevious = signal(true);
+      const pagedGrid: LightboxGrid = {
+        media: grid.media,
+        revealMedia: grid.revealMedia,
+        hasMore: signal(false),
+        hasPrevious,
+        loadState: signal('idle'),
+        loadPrevious: vi.fn(async () => {
+          grid.media.set([newer, ...photos]);
+          hasPrevious.set(false);
+        }),
+      };
+      fixture.componentRef.setInput('grid', pagedGrid);
+      await openPhoto('photo1.jpg');
+      expect(component.hasPrev(), 'the first loaded photo, more above it').toBe(true);
+
+      component.prevImage();
+      await settle();
+
+      expect(pagedGrid.loadPrevious).toHaveBeenCalledTimes(1);
+      expect(photoParam()).toBe('photo0.jpg');
+      expect(component.hasPrev()).toBe(false);
+    });
+
     it('does not navigate when the viewer closes while a page is loading', async () => {
       let resolvePage!: () => void;
       const hasMore = signal(true);

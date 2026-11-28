@@ -26,10 +26,12 @@ function fetcher(rows: MediaDTO[]) {
   return async (
     scanAfter: TimelineScanCursor | null,
     rawUpperBound: number | null,
-    limit: number
+    limit: number,
+    rawLowerBound: number | null = null
   ): Promise<MediaDTO[]> =>
     sorted
       .filter(row => rawUpperBound === null || row.metadata.creationDate <= rawUpperBound)
+      .filter(row => rawLowerBound === null || row.metadata.creationDate >= rawLowerBound)
       .filter(
         row =>
           scanAfter === null ||
@@ -121,6 +123,29 @@ describe('TimelinePaging', () => {
       cursorTime + 14 * 60 * 60 * 1000
     );
     expect(page.media.map(item => item.id)).to.deep.equal([1]);
+  });
+
+  it('stops at an inclusive since bound and scans 14 hours below it for offsets', async () => {
+    const hour = 60 * 60 * 1000;
+    const rows = [
+      media(1, 30 * hour, '+00:00'),
+      media(2, 20 * hour, '+00:00'),
+      // raw time below since, local time at since (a tie with 2, the higher id first): kept
+      media(3, 10 * hour, '+10:00'),
+      media(4, 19 * hour, '-01:00'),
+    ];
+    let observedLowerBound: number | null = null;
+    const page = await loadTimelinePage(
+      async (scanAfter, upperBound, limit, lowerBound) => {
+        observedLowerBound = lowerBound;
+        return fetcher(rows)(scanAfter, upperBound, limit, lowerBound);
+      },
+      {limit: 3, ignoreTimestampOffset: true, before: 25 * hour, since: 20 * hour}
+    );
+
+    expect(observedLowerBound).to.equal(6 * hour);
+    expect(page.media.map(item => item.id)).to.deep.equal([3, 2]);
+    expect(page.next).to.equal(null);
   });
 
   it('returns a null cursor when fewer than a page remain', async () => {

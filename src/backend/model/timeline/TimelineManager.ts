@@ -24,6 +24,7 @@ export interface TimelinePageOptions {
   limit: number;
   cursor?: TimelineCursor;
   before?: number;
+  since?: number;
   onRowsScanned?: (rows: number) => void;
 }
 
@@ -102,8 +103,8 @@ export class TimelineManager implements IObjectManager {
     options: TimelinePageOptions
   ): Promise<TimelinePage<MediaEntity>> {
     const page = await loadTimelinePage<MediaEntity>(
-      (scanAfter, rawUpperBound, limit) =>
-        this.fetchBatch(session, scanAfter, rawUpperBound, limit),
+      (scanAfter, rawUpperBound, limit, rawLowerBound) =>
+        this.fetchBatch(session, scanAfter, rawUpperBound, limit, rawLowerBound),
       {
         ...options,
         ignoreTimestampOffset: Config.Gallery.ignoreTimestampOffset,
@@ -126,7 +127,8 @@ export class TimelineManager implements IObjectManager {
     session: SessionContext,
     scanAfter: TimelineScanCursor | null,
     rawUpperBound: number | null,
-    limit: number
+    limit: number,
+    rawLowerBound: number | null = null
   ): Promise<MediaEntity[]> {
     const connection = await SQLConnection.getConnection();
     const repository = connection.getRepository(
@@ -138,7 +140,10 @@ export class TimelineManager implements IObjectManager {
       .select(['media', 'directory.id', 'directory.name', 'directory.path']);
 
     if (rawUpperBound !== null) {
-      query.where('media.metadata.creationDate <= :rawUpperBound', {rawUpperBound});
+      query.andWhere('media.metadata.creationDate <= :rawUpperBound', {rawUpperBound});
+    }
+    if (rawLowerBound !== null) {
+      query.andWhere('media.metadata.creationDate >= :rawLowerBound', {rawLowerBound});
     }
     if (scanAfter) {
       const cursorPredicate = new Brackets(qb =>
@@ -149,11 +154,7 @@ export class TimelineManager implements IObjectManager {
           {scanDate: scanAfter.creationDate, scanId: scanAfter.id}
         )
       );
-      if (rawUpperBound === null) {
-        query.where(cursorPredicate);
-      } else {
-        query.andWhere(cursorPredicate);
-      }
+      query.andWhere(cursorPredicate);
     }
     if (session.projectionQuery) {
       query.andWhere(session.projectionQuery);
@@ -206,7 +207,10 @@ export class TimelineManager implements IObjectManager {
           .sort(([left], [right]) => left - right)
           .map(([month, count]) => ({month, count})),
       }));
-    return {years};
+    const days = [...dayCounts.entries()]
+      .filter(([, count]) => count > 0)
+      .sort(([left], [right]) => right - left);
+    return {years, days};
   }
 
   private getDayExpression(): string {

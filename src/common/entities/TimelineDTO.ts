@@ -17,4 +17,9 @@ export interface TimelineSummaryYearDTO {
 
 export interface TimelineSummaryDTO {
   years: TimelineSummaryYearDTO[];
+  /**
+   * [day, count] pairs, newest day first; day = floor(effective time / 1 day), as the grid groups.
+   * The client lays out the whole timeline from these before it loads the media.
+   */
+  days: [number, number][];
 }

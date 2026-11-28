@@ -15,6 +15,7 @@ later, **L** = cleanup.
 | # | Item | Where | Priority | Notes |
 |---|---|---|---|---|
 | F7 | Full zoneless change detection | `main.ts`, `angular.json` | L | Retaining `provideZoneChangeDetection()` and `zone.js` for runtime stability. PiGallery2 relies on plain RxJS subscriptions, media `onload` handlers, and router/window events without manual `markForCheck()`. Unit tests were modernized to native `async/await` in Vitest. Proposed idea: [Implement zoneless](ZONELESS_MIGRATION_PLAN.md), with component-level preparation, compatibility rules, and validation gates; implementation not started. |
+| T10 | Loaded Timeline days are never dropped | `TimelineStore` | L | The continuous timeline keeps every loaded day for the session (about 1 KB per media), so scrolling through a very large library grows memory. Drop the media of days far from the screen back to `empty` (they reload when they get near again) once a measured library needs it. |
 
 ## Security follow-ups
 

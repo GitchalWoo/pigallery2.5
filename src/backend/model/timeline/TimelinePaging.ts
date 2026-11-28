@@ -21,6 +21,8 @@ export interface TimelinePagingOptions {
   ignoreTimestampOffset: boolean;
   cursor?: TimelineCursor;
   before?: number;
+  // inclusive lower bound in effective time: the page ends there
+  since?: number;
   batchSize?: number;
   onRowsScanned?: (rows: number) => void;
 }
@@ -28,7 +30,8 @@ export interface TimelinePagingOptions {
 export type TimelineBatchFetcher<T extends MediaDTO> = (
   scanAfter: TimelineScanCursor | null,
   rawUpperBound: number | null,
-  limit: number
+  limit: number,
+  rawLowerBound: number | null
 ) => Promise<T[]>;
 
 const MAX_OFFSET_MS = 14 * 60 * 60 * 1000;
@@ -75,12 +78,13 @@ export async function loadTimelinePage<T extends MediaDTO>(
     : options.before === undefined
       ? null
       : options.before + offsetWindow;
+  const rawLowerBound = options.since === undefined ? null : options.since - offsetWindow;
   const kept: T[] = [];
   let scanAfter: TimelineScanCursor | null = null;
   let exhausted = false;
 
   while (!exhausted) {
-    const batch = await fetchBatch(scanAfter, rawUpperBound, batchSize);
+    const batch = await fetchBatch(scanAfter, rawUpperBound, batchSize, rawLowerBound);
     options.onRowsScanned?.(batch.length);
     if (batch.length === 0) {
       exhausted = true;
@@ -99,6 +103,9 @@ export async function loadTimelinePage<T extends MediaDTO>(
         options.ignoreTimestampOffset
       );
       if (options.before !== undefined && effectiveTime >= options.before) {
+        continue;
+      }
+      if (options.since !== undefined && effectiveTime < options.since) {
         continue;
       }
       kept.push(media);

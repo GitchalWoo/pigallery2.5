@@ -67,6 +67,12 @@ export interface LightboxGrid {
 
   /** Loads the next page of media. */
   loadMore?(): Promise<void>;
+
+  /** Whether media can be loaded before the start of media() (e.g. Timeline days above the loaded ones). */
+  readonly hasPrevious?: Signal<boolean>;
+
+  /** Loads media before the start of media(). */
+  loadPrevious?(): Promise<void>;
 }
 
 @Component({
@@ -135,7 +141,8 @@ export class GalleryLightboxComponent implements OnDestroy {
     const photoId = this.photoId();
     return photoId === null ? -1 : this.indexById().get(photoId) ?? -1;
   });
-  readonly hasPrev = computed((): boolean => this.activeIndex() > 0);
+  readonly hasPrevious = computed((): boolean => this.grid()?.hasPrevious?.() ?? false);
+  readonly hasPrev = computed((): boolean => this.activeIndex() > 0 || (this.activeIndex() === 0 && this.hasPrevious()));
   readonly hasMore = computed((): boolean => this.grid()?.hasMore?.() ?? false);
   readonly loadState = computed((): LightboxLoadState => this.grid()?.loadState?.() ?? 'idle');
   readonly nextMedia = computed((): MediaDTO | null => {
@@ -256,6 +263,10 @@ export class GalleryLightboxComponent implements OnDestroy {
 
   public prevImage(): void {
     if (!this.hasPrev()) {
+      return;
+    }
+    if (this.activeIndex() === 0) {
+      this.loadPreviousAndGoBack();
       return;
     }
     // going back pauses the slideshow; in the same navigation, so the URL keeps both changes
@@ -579,6 +590,43 @@ export class GalleryLightboxComponent implements OnDestroy {
           return;
         }
         if (this.hasMore() && this.loadState() !== 'error' && attempt < GalleryLightboxComponent.MAX_EMPTY_PAGES) {
+          return step(attempt + 1);
+        }
+      });
+    };
+    step(1).catch(console.error);
+  }
+
+  /** Like loadMoreAndAdvance(), backwards: loads media before the first one until there is one before the open one. */
+  private loadPreviousAndGoBack(): void {
+    const active = this.activePhoto();
+    const grid = this.grid();
+    if (!active || !grid?.loadPrevious) {
+      return;
+    }
+    const token = this.navigationId;
+    const fromId = this.getMediaId(active.media);
+    const isSameView = (): boolean =>
+      this.navigationId === token &&
+      this.grid() === grid &&
+      this.status() === LightboxStates.Open &&
+      !!this.activePhoto() &&
+      this.getMediaId(this.activePhoto()!.media) === fromId;
+
+    const step = (attempt: number): Promise<void> => {
+      if (!isSameView()) {
+        return Promise.resolve();
+      }
+      return grid.loadPrevious!().then((): Promise<void> | void => {
+        if (!isSameView()) {
+          return;
+        }
+        const index = this.indexById().get(fromId) ?? -1;
+        if (index > 0) {
+          this.navigateToMedia(this.media()![index - 1], {[QueryParams.gallery.lightbox.playback]: null});
+          return;
+        }
+        if (this.hasPrevious() && this.loadState() !== 'error' && attempt < GalleryLightboxComponent.MAX_EMPTY_PAGES) {
           return step(attempt + 1);
         }
       });

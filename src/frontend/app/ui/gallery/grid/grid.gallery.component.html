@@ -62,6 +62,15 @@
                   [style.height.px]="tile.gridMedia.renderHeight"
                   [style.margin.px]="IMAGE_MARGIN()" />
               }
+              @if (segment.placeholder; as placeholder) {
+                <!-- media that are not loaded yet -->
+                @for (i of segment.skeletons; track i) {
+                  <div class="grid-skeleton" aria-hidden="true"
+                    [style.width.px]="placeholder.width"
+                    [style.height.px]="placeholder.height"
+                    [style.margin.px]="IMAGE_MARGIN()"></div>
+                }
+              }
             </div>
           </div>
         }

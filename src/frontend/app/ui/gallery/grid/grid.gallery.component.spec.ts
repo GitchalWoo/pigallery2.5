@@ -625,4 +625,43 @@ describe('GalleryGridComponent', () => {
       expect(router.navigate).not.toHaveBeenCalled();
     });
   });
+
+  describe('anchorAt', () => {
+    const params = {width: 1000, screenHeight: 1000, targetColCount: 5, minRowCount: 2, maxRowCount: 5, imageMargin: 2, headerHeight: 50};
+    const photos = (count: number, prefix: string): PhotoDTO[] => Array.from({length: count}, (_, i) => ({
+      name: prefix + i + '.jpg',
+      directory: {name: 'd', path: 'p'},
+      metadata: {size: {width: 3000, height: 2000}}
+    } as PhotoDTO));
+    const day = {name: 'day', key: 'day', media: photos(30, 'd')};
+
+    it('keeps a media line where it is when a group above it gets loaded', () => {
+      const before = new GridLayout([{name: 'above', key: 'above', media: [], placeholderCount: 4}, day], params);
+      const after = new GridLayout([{name: 'above', key: 'above', media: photos(40, 'a')}, day], params);
+      const line = before.lineOf(day.media[12]);
+      const y = before.top(line) + 7;
+
+      const target = GalleryGridComponent.anchorAt(before, y)!(after);
+      expect(target).toBeCloseTo(after.top(after.lineOf(day.media[12])) + 7);
+      expect(target).toBeGreaterThan(y + 100);
+    });
+
+    it('keeps the nearer edge of a group of grey tiles, and the next group once it is gone', () => {
+      const tail: MediaGroup = {name: '', key: 'day:rest', media: [], placeholderCount: 60};
+      const head: MediaGroup = {name: 'day', key: 'day', media: photos(10, 'h')};
+      const next: MediaGroup = {name: 'next', key: 'next', media: photos(30, 'n')};
+      const before = new GridLayout([head, tail, next], params);
+      const nearTop = before.groupTop(tail)! + 10;
+      const nearBottom = before.groupBottom(tail)! - 10;
+      const loadedMore = new GridLayout([{...head, media: photos(30, 'h')}, {...tail, placeholderCount: 40}, next], params);
+      const complete = new GridLayout([{...head, media: photos(70, 'h')}, next], params);
+
+      const tailOf = (l: GridLayout): MediaGroup => l.groupByKey('day:rest')!;
+      expect(GalleryGridComponent.anchorAt(before, nearTop)!(loadedMore)).toBeCloseTo(loadedMore.groupTop(tailOf(loadedMore))! + 10);
+      expect(GalleryGridComponent.anchorAt(before, nearBottom)!(loadedMore)).toBeCloseTo(loadedMore.groupBottom(tailOf(loadedMore))! - 10);
+      expect(GalleryGridComponent.anchorAt(before, nearBottom)!(complete), 'the tail is gone: the next group stays')
+        .toBeCloseTo(complete.groupTop(complete.groupByKey('next')!)! - (before.groupTop(next)! - nearBottom));
+      expect(GalleryGridComponent.anchorAt(before, 0), 'the top of the page').toBeNull();
+    });
+  });
 });

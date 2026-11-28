@@ -40,6 +40,14 @@ function parsePageOptions(req: Request): TimelinePageOptions | null {
   }
 
   const options: TimelinePageOptions = {limit};
+  const sinceParam = req.query.since;
+  if (sinceParam !== undefined) {
+    const since = parseDate(sinceParam);
+    if (since === null) {
+      return null;
+    }
+    options.since = since;
+  }
   if (hasBefore) {
     const before = parseDate(beforeParam);
     if (before === null) {
