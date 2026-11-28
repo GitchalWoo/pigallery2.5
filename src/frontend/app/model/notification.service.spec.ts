@@ -61,6 +61,19 @@ describe('NotificationService', () => {
       expect.anything());
   });
 
+  it('keeps a notification without details in the scrollable toast body', async () => {
+    const getJson = vi.fn().mockResolvedValue([{type: NotificationType.info, message: 'Index ready'}]);
+    const user = new BehaviorSubject<UserDTO>(null);
+    const info = vi.fn();
+    const service = new NotificationService(
+      {info} as unknown as ToastrService,
+      {getJson} as unknown as NetworkService,
+      {user, isAuthenticated: () => user.value !== null} as unknown as AuthenticationService
+    );
+    await service.getServerNotifications();
+    expect(info).toHaveBeenCalledExactlyOnceWith('(1) Index ready', null, expect.anything());
+  });
+
   it('formats object details as indented JSON', () => {
     expect(NotificationService.formatDetails({code: 1})).toBe('{\n  "code": 1\n}');
   });

@@ -134,7 +134,7 @@ Build your own extensions. Mostly server-side changes are supported with minimal
 ## Detailed Feature List
 
 - **Supported Formats**:
-    - Images: `jpg, jpeg, jpe, webp, png, gif, svg, dng*, arw*, heic*, cr2*` (depends on the docker container's vips build)
+    - Images: `jpg, jpeg, jpe, webp, png, gif, svg, avif, tiff, dng*, arw*, heic*, cr2*, jxl*` (*: needs a decoder in the libvips of your install, see [Photo format requirements](#photo-format-requirements))
     - Videos: `mp4, ogg, ogv, webm`
 - **Rendering directories as is**:
     - Recursive subdirectories listing.
@@ -179,3 +179,20 @@ Build your own extensions. Mostly server-side changes are supported with minimal
 - **Job Scheduling**: Task management for indexing, transcoding, etc.
 - **Custom Configuration**: `.pg2conf` files for UI behavior modification.
 - **Dockerized**: Easy deployment.
+
+## Photo format requirements
+
+PiGallery2 reads, resizes and converts photos with [sharp](https://sharp.pixelplumbing.com/), which uses libvips.
+Whether a format works depends on the decoders that libvips was built with:
+
+| Format | Needs | Docker images (Debian and Alpine) |
+| --- | --- | --- |
+| `jpg`, `png`, `webp`, `gif`, `svg`, `avif`, `tiff` | built into libvips | included |
+| `heic` | libheif with an HEVC decoder (libde265) | included |
+| `dng`, `arw`, `cr2` (camera RAW) | the embedded JPEG preview, or LibRaw | included |
+| `jxl` (JPEG XL) | libjxl | included |
+
+- **Startup check:** at startup, PiGallery2 converts a small test file of each format. A format that fails is dropped from `Media.Photo.supportedFormats` for that run and is not indexed; the log says `❌ <format> image format tested failed, removing it from config.` Run with `--Server-Log-level=verbose` to see the result for every format.
+- **Installs without Docker:** the prebuilt libvips that `npm install` brings with sharp has no JPEG XL and no HEIC (HEVC) decoder, so these formats are dropped at startup. Use a system libvips built with libjxl and libheif and set `SHARP_FORCE_GLOBAL_LIBVIPS=1` (see the Dockerfiles and `docker/build-libvips.sh`).
+- **Viewing in the browser:** the grid and the lightbox show converted thumbnails and previews, so a format does not need browser support. The original file is loaded only when you zoom in (`Gallery.Lightbox.loadFullImageOnZoom`) or download it. Browsers that can't display the original (e.g. JPEG XL in Chrome or Firefox, HEIC outside Safari) keep showing the preview.
+- **Existing configs:** a `config.json` that already lists `Media.Photo.supportedFormats` keeps its list on upgrade. To index `.jxl` files there, add `"jxl"` to the list (or remove the setting to use the default), then rerun indexing.

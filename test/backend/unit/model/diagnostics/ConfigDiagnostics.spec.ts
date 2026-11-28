@@ -235,6 +235,20 @@ describe('ConfigDiagnostics', () => {
       expect(SupportedFormats.WithDots.Photos).to.not.include('.heic');
     });
 
+    it('keeps JPEG XL exactly when the installed libvips can decode it (real probe)', async function() {
+      this.timeout(60000);
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const sharp = require('sharp') as {format: Record<string, {input: {file: boolean}}>};
+      const canDecode = sharp.format['jxl']?.input?.file === true;
+      Config.Media.Photo.supportedFormats = ['jpg', 'jxl'];
+      SupportedFormats.init();
+
+      await ConfigDiagnostics.removeUnsupportedPhotoExtensions(Config.Media.Photo);
+
+      expect(Config.Media.Photo.supportedFormats).to.deep.equal(canDecode ? ['jpg', 'jxl'] : ['jpg']);
+      expect(SupportedFormats.Photos.includes('jxl')).to.equal(canDecode);
+    });
+
     it('does not list the transcoded video formats twice after a re-init', () => {
       SupportedFormats.init();
       SupportedFormats.init();

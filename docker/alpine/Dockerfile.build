@@ -19,6 +19,7 @@ RUN apk add --no-cache --update \
     imagemagick-dev \
     libheif-dev \
     libheif \
+    libjxl-dev \
     libpng \
     libjpeg-turbo \
     libde265 \
@@ -65,7 +66,7 @@ ENV NODE_ENV=production \
 EXPOSE 80
 ARG TARGETARCH
 RUN apk add --no-cache \
-    vips vips-cpp vips-heif vips-magick libraw ffmpeg \
+    vips vips-cpp vips-heif vips-magick libjxl libraw ffmpeg \
     && if [ "$TARGETARCH" = "amd64" ]; then \
         echo "Building for amd64, adding intel-media-driver" && \
         apk add --no-cache intel-media-driver; \
